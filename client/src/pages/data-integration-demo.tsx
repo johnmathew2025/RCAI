@@ -18,9 +18,9 @@ import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { 
-  Database, Plug, Sync, History, Settings, AlertTriangle, CheckCircle, Clock, 
+  Database, Plug, RotateCw, History, Settings, AlertTriangle, CheckCircle, Clock, 
   RefreshCw, Play, Pause, Download, Upload, Server, Activity, Link2, Zap,
-  BarChart3, FileText, Shield, Target, Cloud, HardDrive, Wifi
+  BarChart3, FileText, Shield, Target, Cloud, HardDrive, Wifi, Plus, X
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -461,7 +461,7 @@ export default function DataIntegrationDemo() {
                           {executeSyncMutation.isPending ? (
                             <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
                           ) : (
-                            <Sync className="h-3 w-3 mr-1" />
+                            <RotateCw className="h-3 w-3 mr-1" />
                           )}
                           Sync Now
                         </Button>
