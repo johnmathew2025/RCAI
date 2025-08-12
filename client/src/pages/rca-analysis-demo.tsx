@@ -23,6 +23,7 @@ import {
   BarChart3, Activity, Gauge, CheckSquare
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import { ADMIN_SECTIONS } from '@/config/adminNav';
 
 interface RCARequest {
   incidentId: string;
@@ -242,14 +243,14 @@ export default function RCAAnalysisDemo() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">AI-Powered RCA Analysis</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{ADMIN_SECTIONS.find(s => s.id === 'ai')?.label || 'AI-Powered RCA'}</h1>
           <p className="text-muted-foreground">
             Step 7: Comprehensive root cause analysis with AI insights and preventive recommendations
           </p>
         </div>
         <Badge variant="outline" className="text-purple-600">
           <Brain className="h-4 w-4 mr-2" />
-          AI-Powered RCA Engine
+          {ADMIN_SECTIONS.find(s => s.id === 'ai')?.label || 'AI-Powered RCA'} Engine
         </Badge>
       </div>
 
@@ -258,7 +259,7 @@ export default function RCAAnalysisDemo() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Target className="h-5 w-5 text-purple-500" />
-            <span>Step 7: AI-Powered RCA Analysis - Complete Investigation Suite</span>
+            <span>Step 7: {ADMIN_SECTIONS.find(s => s.id === 'ai')?.label || 'AI-Powered RCA'} - Complete Investigation Suite</span>
           </CardTitle>
           <CardDescription>
             Advanced analysis combining evidence analysis, AI insights, root cause hypotheses, 
@@ -484,7 +485,7 @@ export default function RCAAnalysisDemo() {
               ) : (
                 <>
                   <Brain className="h-4 w-4 mr-2" />
-                  Run AI-Powered RCA Analysis
+                  Run {ADMIN_SECTIONS.find(s => s.id === 'ai')?.label || 'AI-Powered RCA'} Analysis
                 </>
               )}
             </Button>
@@ -601,7 +602,7 @@ export default function RCAAnalysisDemo() {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Configure RCA parameters and click "Run AI-Powered RCA Analysis" to start</p>
+                <p>Configure RCA parameters and click "Run {ADMIN_SECTIONS.find(s => s.id === 'ai')?.label || 'AI-Powered RCA'} Analysis" to start</p>
               </div>
             )}
           </CardContent>

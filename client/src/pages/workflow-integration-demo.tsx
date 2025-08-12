@@ -23,6 +23,7 @@ import {
   GitBranch, Timer, BarChart3, Award, Zap, Shield, Lightbulb
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import { ADMIN_SECTIONS } from '@/config/adminNav';
 
 interface WorkflowRequest {
   workflowId: string;
@@ -362,7 +363,7 @@ export default function WorkflowIntegrationDemo() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Workflow Integration & Process Automation</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{ADMIN_SECTIONS.find(s => s.id === 'integrations')?.label || 'Workflow Integration'}</h1>
           <p className="text-muted-foreground">
             Step 8: Complete workflow management with automated process orchestration and progress tracking
           </p>
@@ -378,7 +379,7 @@ export default function WorkflowIntegrationDemo() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Target className="h-5 w-5 text-indigo-500" />
-            <span>Step 8: Workflow Integration - Complete Process Automation Suite</span>
+            <span>Step 8: {ADMIN_SECTIONS.find(s => s.id === 'integrations')?.label || 'Workflow Integration'} - Complete Process Automation Suite</span>
           </CardTitle>
           <CardDescription>
             Advanced workflow management integrating RCA analysis with automated process orchestration, 

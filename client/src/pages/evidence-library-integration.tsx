@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from '@/hooks/use-toast';
 import { Search, Filter, Plus, Edit, Trash2, RefreshCw, Database, FileText, AlertTriangle, CheckCircle, ArrowRight, Settings } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import { ADMIN_SECTIONS } from '@/config/adminNav';
 
 interface EquipmentGroup {
   id: number;
@@ -304,7 +305,7 @@ export default function EvidenceLibraryIntegration() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Evidence Library Integration</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{ADMIN_SECTIONS.find(s => s.id === 'evidence')?.label || 'Evidence Library'} Integration</h1>
           <p className="text-muted-foreground">
             Taxonomy-driven evidence collection with dynamic equipment classification
           </p>
@@ -327,7 +328,7 @@ export default function EvidenceLibraryIntegration() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <CheckCircle className="h-5 w-5 text-green-500" />
-            <span>Step 5: Evidence Library Integration - Universal Protocol Standard</span>
+            <span>Step 5: {ADMIN_SECTIONS.find(s => s.id === 'evidence')?.label || 'Evidence Library'} Integration - Universal Protocol Standard</span>
           </CardTitle>
           <CardDescription>
             Evidence collection dynamically configured based on equipment taxonomy. 

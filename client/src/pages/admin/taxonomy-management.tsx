@@ -117,7 +117,7 @@ export default function TaxonomyManagement() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Taxonomy Management</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{ADMIN_SECTIONS.find(s => s.id === 'taxonomy')?.label || 'Taxonomy Management'}</h1>
             <p className="text-muted-foreground">
               Manage equipment classification and risk ranking lookup tables
             </p>

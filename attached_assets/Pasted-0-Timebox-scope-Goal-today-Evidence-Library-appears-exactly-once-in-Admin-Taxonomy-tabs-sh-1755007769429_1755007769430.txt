@@ -1,0 +1,88 @@
+0) Timebox & scope
+•	Goal (today): Evidence Library appears exactly once in Admin; Taxonomy tabs show onlyGroups/Types/Subtypes/Risk; all nav draws from one config; zero hardcoded vocab anywhere.
+Centralize navigation (single source of truth)
+Create or update src/config/adminNav.ts (or your equivalent):
+export const ADMIN_SECTIONS = [
+  { id: 'dashboard',  label: 'Dashboard',            path: '/admin',              icon: 'Home'     },
+  { id: 'taxonomy',   label: 'Taxonomy Management',  path: '/admin/taxonomy',     icon: 'Database' },
+  { id: 'evidence',   label: 'Evidence Library',     path: '/admin/evidence',     icon: 'Library'  },
+  { id: 'analysis',   label: 'Analysis Engine',      path: '/admin/analysis',     icon: 'Activity' },
+  { id: 'ai',         label: 'AI-Powered RCA',       path: '/admin/ai',           icon: 'Brain'    },
+  { id: 'integrations',label:'Workflow Integration', path: '/admin/integrations', icon: 'Plug'     },
+] as const;
+
+export const TAXONOMY_TABS = [
+  { id: 'groups',   label: 'Equipment Groups',   path: '/admin/taxonomy/groups'   },
+  { id: 'types',    label: 'Equipment Types',    path: '/admin/taxonomy/types'    },
+  { id: 'subtypes', label: 'Equipment Subtypes', path: '/admin/taxonomy/subtypes' },
+  { id: 'risks',    label: 'Risk Rankings',      path: '/admin/taxonomy/risks'    },
+] as const;
+
+Refactor the top bar and any sidebars to only read from ADMIN_SECTIONS.
+Refactor the Taxonomy page to only read from TAXONOMY_TABS.
+ 
+2) Remove the duplicate entry
+•	Ensure the Taxonomy tabs do not include “Evidence Library.”
+•	Keep the canonical route /admin/evidence only.
+•	If a legacy route exists (e.g., /admin/taxonomy/evidence), redirect it to /admin/evidence.
+ 
+3) RBAC on routes & menus (server enforced)
+•	Show/hide menu items by permission (evidence.read, taxonomy.read, etc.).
+•	Block server routes if the user lacks permission (UI hiding is not enough).
+ 
+4) Anti-hardcoding enforcement (now, not later)
+•	Static scanner must fail CI if any component defines local admin nav arrays or embeds business vocab.
+•	Unit test must assert nav IDs are unique.
+Add test:
+// __tests__/adminNav.spec.ts
+import { ADMIN_SECTIONS, TAXONOMY_TABS } from '@/config/adminNav';
+function unique<T>(xs: T[]) { return xs.filter((x,i,a)=>a.indexOf(x)===i); }
+
+test('ADMIN_SECTIONS ids unique', () => {
+  const ids = ADMIN_SECTIONS.map(x => x.id);
+  expect(unique(ids)).toHaveLength(ids.length);
+});
+
+test('TAXONOMY_TABS ids unique', () => {
+  const ids = TAXONOMY_TABS.map(x => x.id);
+  expect(unique(ids)).toHaveLength(ids.length);
+});
+
+5) Proof commands (must paste outputs in the thread)
+Run these in project root and paste raw output:
+# Show any hardcoded "Evidence Library" outside config
+rg -n --hidden -S "Evidence Library" | rg -v "src/config/adminNav\.ts"
+
+# Show any stray nav arrays likely duplicating admin items
+rg -n --hidden -S "Taxonomy Management|Analysis Engine|AI-Powered RCA|Workflow Integration" src | rg -v "src/config/adminNav\.ts"
+
+# Show Taxonomy tab definitions (should be only 4, no "Evidence Library")
+rg -n --hidden -S "TAXONOMY_TABS" src
+
+# Show actual files that render the admin topbar/sidebar to confirm they import from config
+rg -n --hidden -S "ADMIN_SECTIONS" src
+
+# Run unit tests and scanner
+npm run test --silent
+node tools/scan-for-hardcoding.mjs
+
+Expected outcome:
+•	First two grep commands return no results except the config file.
+•	TAXONOMY_TABS exists in exactly one place, with 4 entries.
+•	Tests & scanner exit 0.
+ 
+6) Visual QA they must provide
+•	Screenshot of Admin top bar: one “Evidence Library.”
+•	Screenshot of Taxonomy page: tabs show exactly Groups / Types / Subtypes / Risk.
+•	Clicking “Evidence Library” lands at /admin/evidence.
+•	Visiting /admin/taxonomy/evidence (if it ever existed) redirects to /admin/evidence.
+ 
+7) Commit checklist (require these)
+•	src/config/adminNav.ts added/updated.
+•	Topbar/Sidebar components refactored to import ADMIN_SECTIONS.
+•	Taxonomy page refactored to import TAXONOMY_TABS.
+•	Removed any “Evidence Library” tab from taxonomy.
+•	Redirect added (if legacy route present).
+•	Tests: __tests__/adminNav.spec.ts.
+•	Static scanner updated to flag local nav arrays.
+•	CI workflow runs scanner + tests on PRs.

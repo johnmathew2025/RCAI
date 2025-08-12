@@ -18,6 +18,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Search, AlertTriangle, CheckCircle, Clock, DollarSign, Zap, Target, TrendingUp, FileText, Brain, Settings } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import { ADMIN_SECTIONS } from '@/config/adminNav';
 
 interface AnalysisRequest {
   incidentId: string;
@@ -196,7 +197,7 @@ export default function EvidenceAnalysisDemo() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Evidence Analysis Engine</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{ADMIN_SECTIONS.find(s => s.id === 'analysis')?.label || 'Analysis Engine'}</h1>
           <p className="text-muted-foreground">
             Step 6: Taxonomy-driven evidence analysis with dynamic failure mode identification
           </p>
@@ -212,7 +213,7 @@ export default function EvidenceAnalysisDemo() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Target className="h-5 w-5 text-purple-500" />
-            <span>Step 6: Evidence Analysis Engine - Zero Hardcoding Intelligence</span>
+            <span>Step 6: {ADMIN_SECTIONS.find(s => s.id === 'analysis')?.label || 'Analysis Engine'} - Zero Hardcoding Intelligence</span>
           </CardTitle>
           <CardDescription>
             Dynamic analysis based on equipment taxonomy and evidence library patterns. 
