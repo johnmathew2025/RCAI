@@ -699,6 +699,12 @@ export default function AdminSettings() {
               <span>Data Integration</span>
             </Button>
           </Link>
+          <Link href="/deployment-ready">
+            <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+              <Shield className="w-4 h-4" />
+              <span>Deployment Ready</span>
+            </Button>
+          </Link>
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
           System Administration

@@ -735,6 +735,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   console.log("[ROUTES] All data integration endpoints registered");
 
+  // Step 10: Final Deployment Optimization and System Integration endpoints
+  app.get("/api/deployment/status", async (req, res) => {
+    console.log("[ROUTES] Deployment status route accessed - Universal Protocol Standard compliant");
+    try {
+      // Import and initialize deployment optimizer
+      const { DeploymentOptimizer } = await import("./deployment-optimization");
+      const optimizer = new DeploymentOptimizer();
+
+      // Assess deployment readiness
+      const deploymentStatus = await optimizer.assessDeploymentReadiness();
+      
+      console.log(`[ROUTES] Deployment assessment completed - Readiness Score: ${deploymentStatus.readinessScore}%`);
+      console.log(`[ROUTES] Deployment Stage: ${deploymentStatus.deploymentStage}`);
+
+      res.json({
+        success: true,
+        deploymentStatus
+      });
+
+    } catch (error) {
+      console.error("[ROUTES] Deployment status assessment error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Deployment status assessment failed",
+        message: error instanceof Error ? error.message : "Unknown assessment error"
+      });
+    }
+  });
+
+  console.log("[ROUTES] All deployment optimization endpoints registered");
+
   // Skip complex routes for now and move to taxonomy endpoints
   console.log("[ROUTES] Moving directly to taxonomy API endpoints");
 

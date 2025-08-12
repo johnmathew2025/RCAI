@@ -34,6 +34,7 @@ import EvidenceAnalysisDemo from "@/pages/evidence-analysis-demo";
 import RCAAnalysisDemo from "@/pages/rca-analysis-demo";
 import WorkflowIntegrationDemo from "@/pages/workflow-integration-demo";
 import DataIntegrationDemo from "@/pages/data-integration-demo";
+import DeploymentReadyDashboard from "@/pages/deployment-ready-dashboard";
 
 
 function Router() {
@@ -58,6 +59,7 @@ function Router() {
       <Route path="/rca-analysis-demo" component={RCAAnalysisDemo} />
       <Route path="/workflow-integration-demo" component={WorkflowIntegrationDemo} />
       <Route path="/data-integration-demo" component={DataIntegrationDemo} />
+      <Route path="/deployment-ready" component={DeploymentReadyDashboard} />
       <Route path="/evidence-library-management" component={EvidenceLibrarySimple} />
       <Route path="/evidence-library" component={EvidenceLibrarySimple} />
       <Route path="/incident-reporting" component={IncidentReporting} />
