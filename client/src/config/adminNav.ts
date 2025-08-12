@@ -15,12 +15,12 @@ export const ADMIN_SECTIONS = [
   { id: 'integrations', label: 'Workflow Integration', path: '/admin/integrations', icon: 'Plug' },
 ] as const;
 
-// Tabs under Taxonomy ONLY - Evidence Library is NOT a taxonomy concern
+// Taxonomy sub-sections - dynamically configured
 export const TAXONOMY_TABS = [
-  { id: 'groups', label: 'Equipment Groups', path: '/admin/taxonomy/groups' },
-  { id: 'types', label: 'Equipment Types', path: '/admin/taxonomy/types' },
-  { id: 'subtypes', label: 'Equipment Subtypes', path: '/admin/taxonomy/subtypes' },
-  { id: 'risks', label: 'Risk Rankings', path: '/admin/taxonomy/risks' },
+  { id: 'groups', label: 'Equipment Groups', path: '/admin/taxonomy/groups', description: 'Manage equipment group classifications' },
+  { id: 'types', label: 'Equipment Types', path: '/admin/taxonomy/types', description: 'Manage equipment type definitions' },
+  { id: 'subtypes', label: 'Equipment Subtypes', path: '/admin/taxonomy/subtypes', description: 'Manage equipment subtype categories' },
+  { id: 'risks', label: 'Risk Rankings', path: '/admin/taxonomy/risks', description: 'Manage risk classification levels' },
 ] as const;
 
 // RBAC permissions mapping

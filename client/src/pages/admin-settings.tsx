@@ -15,7 +15,7 @@ import { Eye, EyeOff, TestTube, Save, Shield, AlertTriangle, Database, Plus, Edi
 import { Link } from "wouter";
 import type { AiSettings, InsertAiSettings, EquipmentGroup, RiskRanking } from "@shared/schema";
 import AIStatusIndicator from "@/components/ai-status-indicator";
-import { ADMIN_SECTIONS } from "@/config/adminNav";
+import { ADMIN_SECTIONS, TAXONOMY_TABS } from "@/config/adminNav";
 
 // STEP 4: Dynamic Provider Select Component - NO HARDCODING
 function DynamicProviderSelect({ value, onValueChange }: { value: string; onValueChange: (value: string) => void }) {
@@ -892,7 +892,7 @@ export default function AdminSettings() {
                 Equipment Groups Manager
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Manage equipment groups for the Evidence Library dropdown selection
+{TAXONOMY_TABS.find(tab => tab.id === 'groups')?.description || 'Manage equipment groups'}
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1054,7 +1054,7 @@ export default function AdminSettings() {
                 Risk Rankings Manager
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Manage risk ranking labels for the Evidence Library dropdown selection
+{TAXONOMY_TABS.find(tab => tab.id === 'risks')?.description || 'Manage risk rankings'}
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1216,7 +1216,7 @@ export default function AdminSettings() {
                 Equipment Types Manager
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Manage equipment types for the Evidence Library normalized database structure
+{TAXONOMY_TABS.find(tab => tab.id === 'types')?.description || 'Manage equipment types'}
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1362,7 +1362,7 @@ export default function AdminSettings() {
                 Equipment Subtypes Manager
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Manage equipment subtypes for the Evidence Library normalized database structure
+{TAXONOMY_TABS.find(tab => tab.id === 'subtypes')?.description || 'Manage equipment subtypes'}
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
