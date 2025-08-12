@@ -24,6 +24,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { asArray, assertArray } from "@/lib/array";
 
 // CRITICAL: COMPLETE MASTER SCHEMA - ALL 29 FIELDS REQUIRED (NO OMISSIONS ALLOWED)
 const evidenceFormSchema = z.object({
@@ -70,6 +71,10 @@ const evidenceFormSchema = z.object({
 
 type EvidenceFormData = z.infer<typeof evidenceFormSchema>;
 
+// Strict types for options to prevent .map() errors
+type Option = { id: string; name: string };
+type RiskOption = { id: string; label: string };
+
 interface EvidenceLibraryFormProps {
   isOpen: boolean;
   onClose: () => void;
@@ -81,15 +86,25 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Initialize state with arrays to prevent .map() errors
+  const [groupOptions, setGroupOptions] = useState<Option[]>([]);
+  const [typeOptions, setTypeOptions] = useState<Option[]>([]);
+  const [subtypeOptions, setSubtypeOptions] = useState<Option[]>([]);
+  const [riskOptions, setRiskOptions] = useState<RiskOption[]>([]);
+
   // Fetch equipment groups and types for dropdowns
-  const { data: equipmentGroups = [] } = useQuery({
+  const { data: equipmentGroupsRaw = [] } = useQuery({
     queryKey: ['/api/equipment-groups'],
     queryFn: async () => {
       const response = await fetch('/api/equipment-groups');
       if (!response.ok) return [];
-      return response.json();
+      const json = await response.json();
+      return json;
     },
   });
+
+  // Normalize all data to arrays using asArray helper
+  const equipmentGroups = asArray<Option>(equipmentGroupsRaw);
 
   const form = useForm<EvidenceFormData>({
     resolver: zodResolver(evidenceFormSchema),
@@ -134,39 +149,57 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
 
   // CRITICAL FIX: Equipment Types filtered by selected Equipment Group
   const selectedEquipmentGroupId = form.watch('equipmentGroupId');
-  const { data: equipmentTypes = [] } = useQuery({
+  const { data: equipmentTypesRaw = [] } = useQuery({
     queryKey: ['/api/equipment-types/by-group', selectedEquipmentGroupId],
     queryFn: async () => {
       if (!selectedEquipmentGroupId) return [];
       const response = await fetch(`/api/equipment-types/by-group/${selectedEquipmentGroupId}`);
       if (!response.ok) return [];
-      return response.json();
+      const json = await response.json();
+      return json;
     },
     enabled: !!selectedEquipmentGroupId,
   });
 
+  // Normalize equipment types to array
+  const equipmentTypes = asArray<Option>(equipmentTypesRaw);
+
   // CRITICAL FIX: Add Risk Rankings query to eliminate hardcoded values
-  const { data: riskRankings = [] } = useQuery({
+  const { data: riskRankingsRaw = [] } = useQuery({
     queryKey: ['/api/risk-rankings'],
     queryFn: async () => {
       const response = await fetch('/api/risk-rankings');
       if (!response.ok) return [];
-      return response.json();
+      const json = await response.json();
+      return json;
     },
   });
 
+  // Normalize risk rankings to array
+  const riskRankings = asArray<RiskOption>(riskRankingsRaw);
+
   // CRITICAL FIX: Equipment Subtypes filtered by selected Equipment Type
   const selectedEquipmentTypeId = form.watch('equipmentTypeId');
-  const { data: equipmentSubtypes = [] } = useQuery({
+  const { data: equipmentSubtypesRaw = [] } = useQuery({
     queryKey: ['/api/equipment-subtypes/by-type', selectedEquipmentTypeId],
     queryFn: async () => {
       if (!selectedEquipmentTypeId) return [];
       const response = await fetch(`/api/equipment-subtypes/by-type/${selectedEquipmentTypeId}`);
       if (!response.ok) return [];
-      return response.json();
+      const json = await response.json();
+      return json;
     },
     enabled: !!selectedEquipmentTypeId,
   });
+
+  // Normalize equipment subtypes to array
+  const equipmentSubtypes = asArray<Option>(equipmentSubtypesRaw);
+
+  // Runtime assertions for debugging array issues
+  assertArray('equipmentGroups', equipmentGroups);
+  assertArray('equipmentTypes', equipmentTypes);
+  assertArray('equipmentSubtypes', equipmentSubtypes);
+  assertArray('riskRankings', riskRankings);
 
   // Create/Update mutation
   const saveMutation = useMutation({
@@ -248,7 +281,7 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
                       <SelectValue placeholder="Select equipment group" />
                     </SelectTrigger>
                     <SelectContent>
-                      {equipmentGroups.map((group: any) => (
+                      {(equipmentGroups ?? []).map((group: Option) => (
                         <SelectItem key={group.id} value={group.id.toString()}>
                           {group.name}
                         </SelectItem>
@@ -274,7 +307,7 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
                       <SelectValue placeholder="Select equipment type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {equipmentTypes.map((type: any) => (
+                      {(equipmentTypes ?? []).map((type: Option) => (
                         <SelectItem key={type.id} value={type.id.toString()}>
                           {type.name}
                         </SelectItem>
@@ -300,7 +333,7 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
                       <SelectValue placeholder={selectedEquipmentTypeId ? "Select equipment subtype" : "Select equipment type first"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {equipmentSubtypes.map((subtype: any) => (
+                      {(equipmentSubtypes ?? []).map((subtype: Option) => (
                         <SelectItem key={subtype.id} value={subtype.id.toString()}>
                           {subtype.name}
                         </SelectItem>
@@ -382,7 +415,7 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
                     <SelectValue placeholder="Select risk ranking" />
                   </SelectTrigger>
                   <SelectContent>
-                    {riskRankings.map((ranking: any) => (
+                    {(riskRankings ?? []).map((ranking: RiskOption) => (
                       <SelectItem key={ranking.id} value={ranking.id.toString()}>
                         {ranking.label}
                       </SelectItem>

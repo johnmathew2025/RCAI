@@ -1,0 +1,90 @@
+“CRITICAL_ERROR: l.map is not a function” on Add Evidence
+Cause (most likely):
+At least one options prop (groups/types/subtypes/risks) is not an array (could be undefined, null, an object, or a string). The code calls .map unguarded.
+Do this:
+1.	Normalize all API responses to arrays (server)
+•	Endpoints must always return an array, even when empty: [] (never null, {}, or undefined).
+•	For taxonomy APIs:
+o	/api/taxonomy/groups → [{ id, name }, ...]
+o	/api/taxonomy/types?groupId=… → [{ id, name }, ...]
+o	/api/taxonomy/subtypes?typeId=… → [{ id, name }, ...]
+o	/api/taxonomy/risks → [{ id, label }, ...]
+2.	Guard and normalize on the client (Add Evidence dialog)
+Create a single helper and use it for every list before mapping:
+// src/lib/array.ts
+export function asArray<T = unknown>(x: unknown): T[] {
+  if (Array.isArray(x)) return x as T[];
+  if (x == null) return [];
+  // If API accidentally returns an object like {data: [...]}
+  // extract a single array field if present:
+  if (typeof x === 'object') {
+    const v = Object.values(x as Record<string, unknown>).find(Array.isArray);
+    if (Array.isArray(v)) return v as T[];
+  }
+  return [];
+}
+
+Use it in the modal:
+const groups    = asArray<{id:string; name:string}>(data.groups);
+const types     = asArray<{id:string; name:string}>(data.types);
+const subtypes  = asArray<{id:string; name:string}>(data.subtypes);
+const risks     = asArray<{id:string; label:string}>(data.risks);
+
+// when rendering:
+<Select>
+  {groups.map(g => (
+    <Option key={g.id} value={g.id}>{g.name}</Option>
+  ))}
+</Select>
+3.	Initialize state with arrays
+const [groupOptions,   setGroupOptions]   = useState<Array<{id:string;name:string}>>([]);
+const [typeOptions,    setTypeOptions]    = useState<Array<{id:string;name:string}>>([]);
+const [subtypeOptions, setSubtypeOptions] = useState<Array<{id:string;name:string}>>([]);
+const [riskOptions,    setRiskOptions]    = useState<Array<{id:string;label:string}>>([]);
+4.	Handle fetch shapes consistently
+If you use fetch/axios, don’t forget the .json()/.data layer:
+
+const res = await fetch('/api/taxonomy/groups');
+const json = await res.json();      // <— not res directly
+setGroupOptions(asArray(json));
+
+5.	Type the props
+Give the modal strict props so TS catches non-arrays at compile time:
+type Option = { id: string; name: string };
+type RiskOption = { id: string; label: string };
+
+type AddEvidenceProps = {
+  groups: Option[];
+  types: Option[];
+  subtypes: Option[];
+  risks: RiskOption[];
+};
+
+6.	Fail-safe rendering
+Even with guards, don’t render .map on possibly undefined:
+{(groupOptions ?? []).map(...)}
+
+7.	Add a quick runtime assertion (temporary)
+Log once if a non-array slips through:
+
+function assertArray(name: string, v: unknown) {
+  if (!Array.isArray(v)) console.error(`[AddEvidence] ${name} not array`, v);
+}
+assertArray('groups', groupOptions);
+assertArray('types', typeOptions);
+assertArray('subtypes', subtypeOptions);
+assertArray('risks', riskOptions);
+
+
+8.	Regression test
+Add a simple test to mount the Add Evidence modal with empty arrays and ensure it doesn’t crash:
+it('renders modal safely with empty option arrays', () => {
+  render(<AddEvidence groups={[]} types={[]} subtypes={[]} risks={[]} />);
+  expect(screen.getByText(/Add Evidence/i)).toBeInTheDocument();
+});
+
+Extra: likely culprits to check right now
+•	The Risk Rankings endpoint returning {data:[...]} but UI doing .map on the whole object.
+•	One of the taxonomy endpoints returning null when no filter is selected.
+•	Passing a string into options (e.g., '' from uncontrolled input) due to form state reuse.
+

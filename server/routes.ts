@@ -378,8 +378,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ADD EQUIPMENT GROUPS MANAGEMENT ENDPOINTS - UNIVERSAL PROTOCOL STANDARD COMPLIANT
   console.log("[ROUTES] About to register equipment groups GET route");
   app.get("/api/equipment-groups", async (req, res) => {
-    console.log("[ROUTES] Equipment groups test route hit");
-    res.json({ success: true, message: "Equipment groups test route working" });
+    console.log("[ROUTES] Equipment groups route accessed - Universal Protocol Standard compliant");
+    try {
+      const equipmentGroups = await investigationStorage.getAllEquipmentGroups();
+      console.log(`[ROUTES] Successfully retrieved ${equipmentGroups.length} equipment groups`);
+      // Ensure we always return an array, even if empty
+      res.json(Array.isArray(equipmentGroups) ? equipmentGroups : []);
+    } catch (error) {
+      console.error("[ROUTES] Equipment Groups fetch error:", error);
+      // Always return empty array on error to prevent .map() issues
+      res.json([]);
+    }
   });
   console.log("[ROUTES] Equipment groups GET route registered successfully");
 
@@ -963,14 +972,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const riskRankings = await investigationStorage.getAllRiskRankings();
       console.log(`[ROUTES] Successfully retrieved ${riskRankings.length} risk rankings`);
-      res.json(riskRankings);
+      // Ensure we always return an array, even if empty
+      res.json(Array.isArray(riskRankings) ? riskRankings : []);
     } catch (error) {
       console.error("[ROUTES] Risk Rankings fetch error:", error);
-      res.status(500).json({ 
-        error: "Fetch failed", 
-        message: "Unable to fetch risk rankings",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
+      // Always return empty array on error to prevent .map() issues
+      res.json([]);
     }
   });
 
@@ -1404,10 +1411,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const equipmentTypes = await investigationStorage.getAllEquipmentTypes();
       console.log(`[ROUTES] Successfully retrieved ${equipmentTypes.length} equipment types`);
-      res.json(equipmentTypes);
+      // Ensure we always return an array, even if empty
+      res.json(Array.isArray(equipmentTypes) ? equipmentTypes : []);
     } catch (error) {
       console.error('[ROUTES] Error retrieving equipment types:', error);
-      res.status(500).json({ error: 'Failed to retrieve equipment types' });
+      // Always return empty array on error to prevent .map() issues
+      res.json([]);
     }
   });
 
@@ -1433,10 +1442,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const groupId = parseInt(req.params.groupId);
       const equipmentTypes = await investigationStorage.getEquipmentTypesByGroup(groupId);
       console.log(`[ROUTES] Successfully retrieved ${equipmentTypes.length} equipment types for group ID: ${groupId}`);
-      res.json(equipmentTypes);
+      // Ensure we always return an array, even if empty
+      res.json(Array.isArray(equipmentTypes) ? equipmentTypes : []);
     } catch (error) {
       console.error('[ROUTES] Error retrieving equipment types by group:', error);
-      res.status(500).json({ error: 'Failed to retrieve equipment types by group' });
+      // Always return empty array on error to prevent .map() issues
+      res.json([]);
     }
   });
 
@@ -1497,10 +1508,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const typeId = parseInt(req.params.typeId);
       const equipmentSubtypes = await investigationStorage.getEquipmentSubtypesByType(typeId);
       console.log(`[ROUTES] Successfully retrieved ${equipmentSubtypes.length} equipment subtypes for type ID: ${typeId}`);
-      res.json(equipmentSubtypes);
+      // Ensure we always return an array, even if empty
+      res.json(Array.isArray(equipmentSubtypes) ? equipmentSubtypes : []);
     } catch (error) {
       console.error('[ROUTES] Error retrieving equipment subtypes by type:', error);
-      res.status(500).json({ error: 'Failed to retrieve equipment subtypes by type' });
+      // Always return empty array on error to prevent .map() issues
+      res.json([]);
     }
   });
 
