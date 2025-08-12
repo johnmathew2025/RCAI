@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { asArray, assertArray } from "@/lib/array";
+import { sanitizeOptions, assertNoEmptyOption } from "@/lib/options";
 
 // CRITICAL: COMPLETE MASTER SCHEMA - ALL 29 FIELDS REQUIRED (NO OMISSIONS ALLOWED)
 const evidenceFormSchema = z.object({
@@ -195,11 +196,17 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
   // Normalize equipment subtypes to array
   const equipmentSubtypes = asArray<Option>(equipmentSubtypesRaw);
 
-  // Runtime assertions for debugging array issues
-  assertArray('equipmentGroups', equipmentGroups);
-  assertArray('equipmentTypes', equipmentTypes);
-  assertArray('equipmentSubtypes', equipmentSubtypes);
-  assertArray('riskRankings', riskRankings);
+  // Sanitize all options to prevent empty values
+  const groups = sanitizeOptions(equipmentGroups);
+  const types = sanitizeOptions(equipmentTypes);
+  const subtypes = sanitizeOptions(equipmentSubtypes);
+  const risks = sanitizeOptions(riskRankings.map(r => ({ id: r.id, name: r.label })));
+
+  // Dev-time assertions to catch regressions
+  assertNoEmptyOption("groups", groups);
+  assertNoEmptyOption("types", types);
+  assertNoEmptyOption("subtypes", subtypes);
+  assertNoEmptyOption("risks", risks);
 
   // Create/Update mutation
   const saveMutation = useMutation({
@@ -213,7 +220,7 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
           ...data,
           equipmentGroupId: parseInt(data.equipmentGroupId),
           equipmentTypeId: parseInt(data.equipmentTypeId),
-          equipmentSubtypeId: data.equipmentSubtypeId ? parseInt(data.equipmentSubtypeId) : null,
+          equipmentSubtypeId: data.equipmentSubtypeId && data.equipmentSubtypeId !== "__NONE__" ? parseInt(data.equipmentSubtypeId) : null,
           riskRankingId: parseInt(data.riskRankingId),
           // CRITICAL: Include ALL 18 additional master schema fields
           primaryRootCause: data.primaryRootCause || null,
@@ -281,10 +288,8 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
                       <SelectValue placeholder="Select equipment group" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(equipmentGroups ?? []).map((group: Option) => (
-                        <SelectItem key={group.id} value={group.id.toString()}>
-                          {group.name}
-                        </SelectItem>
+                      {groups.map(g => (
+                        <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -307,11 +312,7 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
                       <SelectValue placeholder="Select equipment type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(equipmentTypes ?? []).map((type: Option) => (
-                        <SelectItem key={type.id} value={type.id.toString()}>
-                          {type.name}
-                        </SelectItem>
-                      ))}
+                      {types.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </FormControl>
@@ -333,16 +334,8 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
                       <SelectValue placeholder={selectedEquipmentTypeId ? "Select equipment subtype" : "Select equipment type first"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {(equipmentSubtypes ?? []).map((subtype: Option) => (
-                        <SelectItem key={subtype.id} value={subtype.id.toString()}>
-                          {subtype.name}
-                        </SelectItem>
-                      ))}
-                      {equipmentSubtypes.length === 0 && selectedEquipmentTypeId && (
-                        <SelectItem value="" disabled>
-                          No subtypes available for this equipment type
-                        </SelectItem>
-                      )}
+                      {subtypes.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      <SelectItem value="__NONE__">None</SelectItem>
                     </SelectContent>
                   </Select>
                 </FormControl>
@@ -415,11 +408,7 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
                     <SelectValue placeholder="Select risk ranking" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(riskRankings ?? []).map((ranking: RiskOption) => (
-                      <SelectItem key={ranking.id} value={ranking.id.toString()}>
-                        {ranking.label}
-                      </SelectItem>
-                    ))}
+                    {risks.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                     {riskRankings.length === 0 && (
                       <SelectItem value="" disabled>
                         No risk rankings configured in admin section

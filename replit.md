@@ -43,6 +43,17 @@ User Feedback: User frustrated with repetitive debugging - demands working solut
 - ✅ Created comprehensive test suite for array safety (client/src/test/array-safety.test.ts)
 - ✅ Fresh cache clear and rebuild completed for clean deployment
 
+**CRITICAL SELECTITEM EMPTY VALUE FIX COMPLETED (August 12, 2025):**
+- ✅ FIXED "A `<SelectItem />` must have a value prop that is not an empty string" error
+- ✅ Implemented sanitizeOptions() utility to filter out empty/null values from all Select options
+- ✅ Added assertNoEmptyOption() dev-time validation to catch regressions
+- ✅ Updated Add Evidence form to use sanitized options for all dropdowns
+- ✅ Added "__NONE__" sentinel value for optional Subtype field
+- ✅ Server mutation handles "__NONE__" → null translation correctly
+- ✅ Created comprehensive test suite for options safety (client/src/test/options-safety.test.ts)
+- ✅ Zero hardcoding policy maintained: all options loaded dynamically from API
+- ✅ Complete cache clear and rebuild process following mandatory development rule
+
 ## Complete Implementation Summary
 
 **Information Architecture & Navigation Structure Completed:**

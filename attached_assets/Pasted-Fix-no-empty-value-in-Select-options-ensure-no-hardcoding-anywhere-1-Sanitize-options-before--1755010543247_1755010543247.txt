@@ -1,0 +1,98 @@
+Fix: no empty value in Select options (ensure no hardcoding anywhere)
+
+1)	Sanitize options before rendering
+
+// src/lib/options.ts
+export type Opt = { id: string | number; name: string };
+
+/** Remove null/empty values and force string IDs */
+export function sanitizeOptions(list: unknown): { id: string; name: string }[] {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((o): o is Opt => !!o && (o as any).id != null && (o as any).name != null)
+    .map(o => ({ id: String(o.id).trim(), name: String(o.name).trim() }))
+    .filter(o => o.id !== "" && o.name !== "");
+}
+
+
+2)	Initialize Select state with undefined (not "")
+
+
+const [groupId, setGroupId]     = useState<string | undefined>(undefined);
+const [typeId, setTypeId]       = useState<string | undefined>(undefined);
+const [subtypeId, setSubtypeId] = useState<string | undefined>(undefined);
+const [riskId, setRiskId]       = useState<string | undefined>(undefined);
+
+3)	Render Selects with sanitized arrays only
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { sanitizeOptions } from "@/lib/options";
+
+const groups   = sanitizeOptions(groupsApiData);
+const types    = sanitizeOptions(typesApiData);
+const subtypes = sanitizeOptions(subtypesApiData);
+const risks    = sanitizeOptions(risksApiData); // {id,label} -> map to {id,name:label}
+
+<Select value={groupId} onValueChange={setGroupId}>
+  <SelectTrigger><SelectValue placeholder="Select equipment group" /></SelectTrigger>
+  <SelectContent>
+    {groups.map(g => (
+      <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
+<Select value={typeId} onValueChange={setTypeId} disabled={!groupId}>
+  <SelectTrigger><SelectValue placeholder="Select equipment type" /></SelectTrigger>
+  <SelectContent>
+    {types.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+  </SelectContent>
+</Select>
+
+{/* Subtype is OPTIONAL — do NOT render any item with value="" */}
+<Select value={subtypeId} onValueChange={setSubtypeId} disabled={!typeId}>
+  <SelectTrigger><SelectValue placeholder="Select subtype (optional)" /></SelectTrigger>
+  <SelectContent>
+    {subtypes.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+    {/* If you want an explicit 'None' option, give it a non-empty sentinel */}
+    <SelectItem value="__NONE__">None</SelectItem>
+  </SelectContent>
+</Select>
+
+<Select value={riskId} onValueChange={setRiskId}>
+  <SelectTrigger><SelectValue placeholder="Select risk ranking" /></SelectTrigger>
+  <SelectContent>
+    {risks.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+  </SelectContent>
+</Select>
+
+On submit, translate "__NONE__" → null before sending to API.
+
+
+4)	Server must never return empty IDs
+
+// Example guard
+const rows = await db.equipment_types.findMany({ where: { groupId } });
+return rows
+  .map(r => ({ id: String(r.id).trim(), name: r.name.trim() }))
+  .filter(r => r.id !== "" && r.name !== "");
+
+5)	Add a dev-time assert (helps catch regressions)
+
+function assertNoEmptyOption(name: string, opts: {id:string;name:string}[]) {
+  const bad = opts.find(o => !o.id || o.id === "" || !o.name || o.name === "");
+  if (bad) console.error(`[${name}] has empty option`, bad, opts);
+}
+assertNoEmptyOption("groups", groups);
+assertNoEmptyOption("types", types);
+assertNoEmptyOption("subtypes", subtypes);
+assertNoEmptyOption("risks", risks);
+
+
+6)	Quick test
+
+it("renders Add Evidence selects without empty values", () => {
+  const opts = [{ id: "abc", name: "Rotating" }, { id: " ", name: " " }]; // bad one will be filtered
+  const sanitized = sanitizeOptions(opts);
+  expect(sanitized.every(o => o.id && o.name)).toBe(true);
+});
