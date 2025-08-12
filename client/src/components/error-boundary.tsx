@@ -25,7 +25,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error('🚨 CRITICAL ERROR BOUNDARY TRIGGERED:', error);
+    console.error('🚨 ERROR MESSAGE:', error.message);
+    console.error('🚨 ERROR STACK:', error.stack);
+    console.error('🚨 COMPONENT STACK:', errorInfo.componentStack);
     
     // Log error details for developers
     this.setState({
@@ -33,8 +36,8 @@ export class ErrorBoundary extends Component<Props, State> {
       errorInfo,
     });
 
-    // You could also log this to an error reporting service
-    // logErrorToService(error, errorInfo);
+    // Send error to console for immediate debugging
+    alert(`CRITICAL ERROR: ${error.message}\n\nCheck console for full details.`);
   }
 
   private handleRetry = () => {

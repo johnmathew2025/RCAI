@@ -174,11 +174,11 @@ export default function DataIntegrationDemo() {
         headers: { 'Content-Type': 'application/json' }
       });
     },
-    onSuccess: (result) => {
-      if (result.success) {
+    onSuccess: (result: any) => {
+      if (result?.success) {
         toast({ 
           title: "Data Source Registered", 
-          description: result.message
+          description: result?.message || "Data source registered successfully"
         });
         refetchDataSources();
         // Reset form
@@ -195,7 +195,7 @@ export default function DataIntegrationDemo() {
       } else {
         toast({ 
           title: "Registration Failed", 
-          description: result.message || "Unknown error occurred",
+          description: result?.message || "Unknown error occurred",
           variant: "destructive" 
         });
       }
@@ -218,11 +218,11 @@ export default function DataIntegrationDemo() {
         headers: { 'Content-Type': 'application/json' }
       });
     },
-    onSuccess: (result) => {
-      if (result.success) {
+    onSuccess: (result: any) => {
+      if (result?.success) {
         toast({ 
           title: "Sync Completed", 
-          description: result.syncResult.summary
+          description: result?.syncResult?.summary || "Sync completed successfully"
         });
         refetchDataSources();
         // Refresh sync history if viewing
@@ -245,8 +245,8 @@ export default function DataIntegrationDemo() {
     try {
       const response = await fetch(`/api/data-sources/${sourceId}/history`);
       const result = await response.json();
-      if (result.success) {
-        setSyncHistory(result.syncHistory);
+      if (result?.success) {
+        setSyncHistory(result?.syncHistory || []);
       }
     } catch (error) {
       console.error('Failed to fetch sync history:', error);
@@ -667,7 +667,7 @@ export default function DataIntegrationDemo() {
                           value={field.sourceField}
                           onChange={(e) => updateSourceField(index, { sourceField: e.target.value })}
                           placeholder="source_field"
-                          size="sm"
+                          className="h-8"
                         />
                       </div>
                       <div className="space-y-1">
@@ -676,7 +676,7 @@ export default function DataIntegrationDemo() {
                           value={field.targetField}
                           onChange={(e) => updateSourceField(index, { targetField: e.target.value })}
                           placeholder="targetField"
-                          size="sm"
+                          className="h-8"
                         />
                       </div>
                       <div className="space-y-1">
@@ -703,7 +703,7 @@ export default function DataIntegrationDemo() {
                           value={field.defaultValue || ''}
                           onChange={(e) => updateSourceField(index, { defaultValue: e.target.value })}
                           placeholder="default"
-                          size="sm"
+                          className="h-8"
                         />
                       </div>
                       <div className="flex items-center space-x-2">

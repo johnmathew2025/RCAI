@@ -11,7 +11,7 @@ import NewInvestigation from "@/pages/new-investigation";
 import InvestigationType from "@/pages/investigation-type";
 import EvidenceCollectionOld from "@/pages/evidence-collection";
 import EvidenceLibraryAdmin from "@/pages/evidence-library-admin";
-// import EvidenceLibraryManagement from "@/pages/evidence-library-management"; // DISABLED DUE TO JSX ERRORS
+import EvidenceLibraryManagement from "@/pages/evidence-library-management";
 import EvidenceLibrarySimple from "@/pages/evidence-library-simple";
 import IncidentReporting from "@/pages/incident-reporting";
 import EquipmentSelection from "@/pages/equipment-selection";
@@ -51,7 +51,7 @@ function Router() {
       <Route path="/admin-settings" component={AdminSettings} />
       <Route path="/admin/evidence-library" component={EvidenceLibraryAdmin} />
       <Route path="/admin/evidence-management" component={EvidenceLibrarySimple} />
-      <Route path="/admin/evidence-library-management" component={EvidenceLibrarySimple} />
+      <Route path="/admin/evidence-library-management" component={EvidenceLibraryManagement} />
       <Route path="/admin/fault-reference-library" component={FaultReferenceLibrary} />
       <Route path="/admin/taxonomy" component={TaxonomyManagement} />
       <Route path="/evidence-library-integration" component={EvidenceLibraryIntegration} />
