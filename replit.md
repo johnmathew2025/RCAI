@@ -54,6 +54,17 @@ User Feedback: User frustrated with repetitive debugging - demands working solut
 - ✅ Zero hardcoding policy maintained: all options loaded dynamically from API
 - ✅ Complete cache clear and rebuild process following mandatory development rule
 
+**NAVIGATION RESTRUCTURE COMPLETED (August 12, 2025):**
+- ✅ MOVED Analysis Engine and AI-Powered RCA out of admin configuration into main user workflow
+- ✅ Created separate user workflow navigation (client/src/config/userNav.ts) for investigators/analysts
+- ✅ Updated admin navigation to contain only system configuration tools (4 modules total)
+- ✅ Implemented role-based access control with useUserRole hook
+- ✅ Created MainLayout component with role-based navigation switching
+- ✅ Added proper URL redirects from old admin paths to new workflow paths
+- ✅ Established clear separation: Admin = Configuration, User Workflow = Investigation Process
+- ✅ Role visibility: Investigators see RCA workflow, Admins see configuration tools
+- ✅ Zero hardcoding maintained in all navigation configurations
+
 ## Complete Implementation Summary
 
 **Information Architecture & Navigation Structure Completed:**

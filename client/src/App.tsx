@@ -49,12 +49,16 @@ function Router() {
       <Route path="/investigation/:id" component={AnalysisDetail} />
       <Route path="/admin" component={AdminSettings} />
       <Route path="/admin-settings" component={AdminSettings} />
-      {/* Canonical Admin Routes - Information Architecture Compliant */}
+      {/* Canonical Admin Routes - Configuration Tools Only */}
       <Route path="/admin/evidence" component={EvidenceLibraryManagement} />
-      <Route path="/admin/analysis" component={EvidenceAnalysisDemo} />
-      <Route path="/admin/ai" component={RCAAnalysisDemo} />
       <Route path="/admin/integrations" component={WorkflowIntegrationDemo} />
       <Route path="/admin/taxonomy" component={TaxonomyManagement} />
+      
+      {/* Main User Workflow Routes - For Investigators & Analysts */}
+      <Route path="/incident-reporting" component={IncidentReporting} />
+      <Route path="/analysis-engine" component={EvidenceAnalysisDemo} />
+      <Route path="/ai-powered-rca" component={RCAAnalysisDemo} />
+      <Route path="/analysis-history" component={DeploymentReadyDashboard} />
       
       {/* Legacy route redirects */}
       <Route path="/admin/evidence-library" component={EvidenceLibraryAdmin} />
@@ -69,8 +73,13 @@ function Router() {
       <Route path="/deployment-ready" component={DeploymentReadyDashboard} />
       <Route path="/evidence-library-management" component={EvidenceLibrarySimple} />
       <Route path="/evidence-library" component={EvidenceLibrarySimple} />
-      <Route path="/incident-reporting" component={IncidentReporting} />
       <Route path="/debug" component={DebugRoutes} />
+      
+      {/* Legacy redirects for moved workflow routes */}
+      <Route path="/admin/analysis-engine" component={() => { window.location.href = '/analysis-engine'; return null; }} />
+      <Route path="/admin/ai-powered-rca" component={() => { window.location.href = '/ai-powered-rca'; return null; }} />
+      <Route path="/admin/analysis" component={() => { window.location.href = '/analysis-engine'; return null; }} />
+      <Route path="/admin/ai" component={() => { window.location.href = '/ai-powered-rca'; return null; }} />
       <Route path="/equipment-selection" component={EquipmentSelection} />
       <Route path="/evidence-checklist" component={EvidenceChecklist} />
       <Route path="/evidence-collection" component={EvidenceCollection} />

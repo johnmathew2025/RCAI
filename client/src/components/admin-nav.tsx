@@ -1,64 +1,67 @@
 /**
- * Centralized Admin Navigation Component
- * Information Architecture Compliant - Single Source of Truth
+ * ADMIN NAVIGATION COMPONENT
+ * System configuration tools navigation for admin users only
  */
-import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
-import { ADMIN_SECTIONS } from "@/config/adminNav";
-import { Home, Database, Library, Activity, Brain, Plug, Settings } from "lucide-react";
+
+import { Link, useLocation } from 'wouter';
+import { Button } from '@/components/ui/button';
+import { 
+  Home, 
+  Database, 
+  Library, 
+  Plug 
+} from 'lucide-react';
+import { ADMIN_SECTIONS } from '@/config/adminNav';
 
 interface AdminNavProps {
-  currentSection?: string;
+  className?: string;
 }
 
-export function AdminTopNav({ currentSection }: AdminNavProps) {
-  return (
-    <div className="flex items-center space-x-4">
-      {ADMIN_SECTIONS.map((section) => {
-        const IconComponent = section.icon === 'Home' ? Home : 
-                           section.icon === 'Database' ? Database :
-                           section.icon === 'Library' ? Library :
-                           section.icon === 'Activity' ? Activity :
-                           section.icon === 'Brain' ? Brain :
-                           section.icon === 'Plug' ? Plug : Settings;
-        
-        const isActive = currentSection === section.id;
-        
-        return (
-          <Link key={section.id} href={section.path}>
-            <Button 
-              variant={isActive ? "default" : "ghost"} 
-              size="sm" 
-              className="flex items-center space-x-2"
-            >
-              <IconComponent className="w-4 h-4" />
-              <span>{section.label}</span>
-            </Button>
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
+const iconMap = {
+  Home,
+  Database,
+  Library,
+  Plug
+};
 
-export function AdminBreadcrumb({ currentSection, subSection }: { currentSection: string, subSection?: string }) {
-  const section = ADMIN_SECTIONS.find(s => s.id === currentSection);
+export default function AdminNav({ className = "" }: AdminNavProps) {
+  const [location] = useLocation();
   
+  const isActivePath = (path: string) => {
+    return location === path || location.startsWith(path + '/');
+  };
+
   return (
-    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-      <Link href="/admin" className="hover:text-foreground">Admin</Link>
-      <span>/</span>
-      {section && (
-        <>
-          <Link href={section.path} className="hover:text-foreground">{section.label}</Link>
-          {subSection && (
-            <>
-              <span>/</span>
-              <span className="text-foreground">{subSection}</span>
-            </>
-          )}
-        </>
-      )}
-    </div>
+    <nav className={`admin-config-nav ${className}`} data-testid="admin-config-nav">
+      <div className="space-y-1">
+        {ADMIN_SECTIONS.map((section) => {
+          const Icon = iconMap[section.icon as keyof typeof iconMap];
+          const isActive = isActivePath(section.path);
+          
+          return (
+            <div key={section.id} className="admin-section">
+              <Link href={section.path}>
+                <Button
+                  variant={isActive ? "default" : "ghost"}
+                  size="sm"
+                  className={`w-full justify-start gap-2 ${isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                  data-testid={`admin-nav-${section.id}`}
+                >
+                  {Icon && <Icon className="h-4 w-4" />}
+                  <span className="font-medium">{section.label}</span>
+                </Button>
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* Configuration indicator */}
+      <div className="mt-4 pt-3 border-t border-border">
+        <p className="text-xs text-muted-foreground px-2">
+          System Configuration Tools
+        </p>
+      </div>
+    </nav>
   );
 }
