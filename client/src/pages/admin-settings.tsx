@@ -685,27 +685,16 @@ export default function AdminSettings() {
 
       <Tabs defaultValue="ai-settings" className="space-y-6">
         <TabsList className="grid w-fit grid-cols-5">
+          {TAXONOMY_TABS.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id} className="flex items-center gap-2">
+              <Database className="w-4 h-4" />
+              {tab.label}
+            </TabsTrigger>
+          ))}
           <TabsTrigger value="ai-settings" className="flex items-center gap-2">
             <Shield className="w-4 h-4" />
             AI Settings
           </TabsTrigger>
-          <TabsTrigger value="equipment-groups" className="flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Equipment Groups
-          </TabsTrigger>
-          <TabsTrigger value="equipment-types" className="flex items-center gap-2">
-            <Database className="w-4 h-4" />
-            Equipment Types
-          </TabsTrigger>
-          <TabsTrigger value="equipment-subtypes" className="flex items-center gap-2">
-            <Database className="w-4 h-4" />
-            Equipment Subtypes
-          </TabsTrigger>
-          <TabsTrigger value="risk-rankings" className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4" />
-            Risk Rankings
-          </TabsTrigger>
-          {/* Evidence Library removed - now independent top-level module */}
         </TabsList>
 
         {/* AI Settings Tab */}
@@ -884,7 +873,7 @@ export default function AdminSettings() {
         </TabsContent>
 
         {/* Equipment Groups Tab */}
-        <TabsContent value="equipment-groups" className="space-y-6">
+        <TabsContent value="groups" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1046,7 +1035,7 @@ export default function AdminSettings() {
         </TabsContent>
 
         {/* Risk Rankings Tab */}
-        <TabsContent value="risk-rankings" className="space-y-6">
+        <TabsContent value="risks" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1208,7 +1197,7 @@ export default function AdminSettings() {
         </TabsContent>
 
         {/* Equipment Types Tab */}
-        <TabsContent value="equipment-types" className="space-y-6">
+        <TabsContent value="types" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1354,7 +1343,7 @@ export default function AdminSettings() {
         </TabsContent>
 
         {/* Equipment Subtypes Tab */}
-        <TabsContent value="equipment-subtypes" className="space-y-6">
+        <TabsContent value="subtypes" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
