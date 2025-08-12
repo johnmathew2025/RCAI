@@ -40,11 +40,11 @@ function DynamicProviderSelect({ value, onValueChange }: { value: string; onValu
         <SelectValue placeholder="Select AI provider" />
       </SelectTrigger>
       <SelectContent>
-        {aiModels?.models?.map((model: any) => (
+        {aiModels?.models ? aiModels.models.map((model: any) => (
           <SelectItem key={model.id} value={model.provider}>
             {model.displayName}
           </SelectItem>
-        ))}
+        )) : null}
       </SelectContent>
     </Select>
   );
@@ -626,7 +626,7 @@ export default function AdminSettings() {
 
     saveSettingsMutation.mutate({
       provider: formData.provider,
-      apiKey: formData.apiKey, // Backend expects raw apiKey and encrypts internally
+      encryptedApiKey: formData.apiKey, // Backend expects raw apiKey and encrypts internally
       model: formData.model,
       isActive: formData.isActive,
       createdBy: formData.createdBy
@@ -684,7 +684,7 @@ export default function AdminSettings() {
 
 
       <Tabs defaultValue="ai-settings" className="space-y-6">
-        <TabsList className="grid w-fit grid-cols-6">
+        <TabsList className="grid w-fit grid-cols-5">
           <TabsTrigger value="ai-settings" className="flex items-center gap-2">
             <Shield className="w-4 h-4" />
             AI Settings
@@ -705,10 +705,7 @@ export default function AdminSettings() {
             <AlertTriangle className="w-4 h-4" />
             Risk Rankings
           </TabsTrigger>
-          <TabsTrigger value="evidence-library" className="flex items-center gap-2">
-            <Database className="w-4 h-4" />
-            Evidence Library
-          </TabsTrigger>
+          {/* Evidence Library removed - now independent top-level module */}
         </TabsList>
 
         {/* AI Settings Tab */}
@@ -1504,33 +1501,7 @@ export default function AdminSettings() {
           </Card>
         </TabsContent>
 
-        {/* Evidence Library Tab */}
-        <TabsContent value="evidence-library" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Database className="w-5 h-5" />
-                <span>Evidence Library Management</span>
-              </CardTitle>
-              <CardDescription>
-                Manage evidence library records with normalized equipment hierarchy.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <Button asChild className="w-full">
-                  <Link href="/evidence-library-management">
-                    <Database className="w-4 h-4 mr-2" />
-                    Open Evidence Library Manager
-                  </Link>
-                </Button>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Access the full Evidence Library management interface with search, filter, edit, and import capabilities.
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* Evidence Library Tab removed - now independent top-level module */}
 
       </Tabs>
     </div>
