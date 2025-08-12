@@ -476,10 +476,7 @@ export default function EvidenceLibraryManagement() {
                       setIsDialogOpen(false);
                       setSelectedItem(null);
                     }}
-                    onCancel={() => {
-                      setIsDialogOpen(false);
-                      setSelectedItem(null);
-                    }}
+
                   />
                 </DialogContent>
               </Dialog>
@@ -628,10 +625,11 @@ export default function EvidenceLibraryManagement() {
                 overflowY: 'auto'
               }}
             >
-              <Table style={{ 
+              <div className="evidence-grid" style={{ 
                 minWidth: '15000px', 
                 width: '15000px', 
-                tableLayout: 'fixed'
+                display: 'grid',
+                gridTemplateColumns: 'repeat(43, 1fr)'
               }}>
                 {/* GRID HEADER ROW - ALL 43 COLUMNS GUARANTEED VISIBLE */}
                 <div className="evidence-grid-cell evidence-grid-header">
@@ -820,7 +818,6 @@ export default function EvidenceLibraryManagement() {
                   ))
                 )}
               </div>
-            </div>
             </div>
           </div>
         </CardContent>
