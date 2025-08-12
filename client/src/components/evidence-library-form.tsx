@@ -155,47 +155,6 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
     },
   });
 
-  const form = useForm<EvidenceFormData>({
-    resolver: zodResolver(evidenceFormSchema),
-    defaultValues: {
-      // Core Equipment Fields
-      equipmentGroupId: item?.equipmentGroupId?.toString() || "",
-      equipmentTypeId: item?.equipmentTypeId?.toString() || "",
-      equipmentSubtypeId: item?.equipmentSubtypeId?.toString() || "",
-      componentFailureMode: item?.componentFailureMode || "",
-      equipmentCode: item?.equipmentCode || "",
-      failureCode: item?.failureCode || "",
-      riskRankingId: item?.riskRankingId?.toString() || "",
-      
-      // Core Analysis Fields
-      requiredTrendDataEvidence: item?.requiredTrendDataEvidence || "",
-      aiOrInvestigatorQuestions: item?.aiOrInvestigatorQuestions || "",
-      attachmentsEvidenceRequired: item?.attachmentsEvidenceRequired || "",
-      rootCauseLogic: item?.rootCauseLogic || "",
-      
-      // COMPLETE MASTER SCHEMA FIELDS (ALL 18 ADDITIONAL FIELDS)
-      primaryRootCause: item?.primaryRootCause || "",
-      contributingFactor: item?.contributingFactor || "",
-      latentCause: item?.latentCause || "",
-      detectionGap: item?.detectionGap || "",
-      faultSignaturePattern: item?.faultSignaturePattern || "",
-      applicableToOtherEquipment: item?.applicableToOtherEquipment || "",
-      evidenceGapFlag: item?.evidenceGapFlag || "",
-      confidenceLevel: item?.confidenceLevel || "",
-      diagnosticValue: item?.diagnosticValue || "",
-      industryRelevance: item?.industryRelevance || "",
-      evidencePriority: item?.evidencePriority || "",
-      timeToCollect: item?.timeToCollect || "",
-      collectionCost: item?.collectionCost || "",
-      analysisComplexity: item?.analysisComplexity || "",
-      seasonalFactor: item?.seasonalFactor || "",
-      relatedFailureModes: item?.relatedFailureModes || "",
-      prerequisiteEvidence: item?.prerequisiteEvidence || "",
-      followupActions: item?.followupActions || "",
-      industryBenchmark: item?.industryBenchmark || "",
-    },
-  });
-
   // CRITICAL FIX: Equipment Subtypes filtered by selected Equipment Type
   const selectedEquipmentTypeId = form.watch('equipmentTypeId');
   const { data: equipmentSubtypes = [] } = useQuery({
@@ -828,7 +787,7 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
 
         {/* Form Actions */}
         <div className="flex justify-end space-x-4 pt-6">
-          <Button type="button" variant="outline" onClick={onCancel}>
+          <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting || saveMutation.isPending}>

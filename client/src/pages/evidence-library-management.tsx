@@ -489,12 +489,13 @@ export default function EvidenceLibraryManagement() {
                     </DialogTitle>
                   </DialogHeader>
                   <EvidenceLibraryForm
+                    isOpen={isDialogOpen}
+                    onClose={() => setIsDialogOpen(false)}
                     item={selectedItem}
                     onSuccess={() => {
                       setIsDialogOpen(false);
                       setSelectedItem(null);
                     }}
-
                   />
                 </DialogContent>
               </Dialog>
