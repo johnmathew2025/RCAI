@@ -1,0 +1,75 @@
+1) Information architecture (choose this structure)
+Top-level Admin modules (top bar):
+•	Dashboard
+•	Taxonomy Management
+•	Evidence Library
+•	Analysis Engine
+•	AI-Powered RCA
+•	Workflow Integration
+Inside each module:
+•	Taxonomy Management → tabs: Equipment Groups, Equipment Types, Equipment Subtypes, Risk Rankings
+(Nothing else — no Evidence Library here.)
+•	Evidence Library → table + import/export + CRUD
+•	Analysis Engine → model configs, rules, runs
+•	AI-Powered RCA → provider config, keys, test panel
+•	Workflow Integration → CMMS/ERP connectors, webhooks, API keys
+2) Centralize nav in one registry (no local arrays)
+Create one config and use it everywhere (top bar, sidebar, breadcrumbs).
+// src/config/adminNav.ts
+export const ADMIN_SECTIONS = [
+  { id: 'dashboard', label: 'Dashboard', path: '/admin', icon: 'Home' },
+  { id: 'taxonomy', label: 'Taxonomy Management', path: '/admin/taxonomy', icon: 'Database' },
+  { id: 'evidence', label: 'Evidence Library', path: '/admin/evidence', icon: 'Library' },
+  { id: 'analysis', label: 'Analysis Engine', path: '/admin/analysis', icon: 'Activity' },
+  { id: 'ai', label: 'AI-Powered RCA', path: '/admin/ai', icon: 'Brain' },
+  { id: 'integrations', label: 'Workflow Integration', path: '/admin/integrations', icon: 'Plug' },
+] as const;
+
+// Tabs under Taxonomy only
+export const TAXONOMY_TABS = [
+  { id: 'groups', label: 'Equipment Groups', path: '/admin/taxonomy/groups' },
+  { id: 'types', label: 'Equipment Types', path: '/admin/taxonomy/types' },
+  { id: 'subtypes', label: 'Equipment Subtypes', path: '/admin/taxonomy/subtypes' },
+  { id: 'risks', label: 'Risk Rankings', path: '/admin/taxonomy/risks' },
+] as const; 
+Rule: All nav UIs must import from this file; delete any duplicate/inline arrays.
+3) Routes and redirects (single canonical path per section)
+•	Canonical Evidence Library route: /admin/evidence
+•	If any legacy path exists (e.g., /admin/taxonomy/evidence), add a permanent redirect to /admin/evidence.
+4) RBAC and visibility
+•	Show items based on permissions:
+o	Taxonomy: taxonomy.read
+o	Evidence: evidence.read
+o	Analysis: analysis.read
+o	AI: ai.read
+o	Integrations: integrations.read
+•	Always enforce server-side; UI hiding is convenience only.
+5) Breadcrumb & tabs pattern
+•	Breadcrumb uses ADMIN_SECTIONS for the first crumb; modules add their own sub-crumbs.
+•	Only Taxonomy uses TAXONOMY_TABS. Evidence Library should not appear as a taxonomy tab.
+6) Anti-duplication guardrails
+•	Unit test to ensure nav IDs are unique:
+•	import { ADMIN_SECTIONS } from '@/config/adminNav';
+•	test('admin nav IDs unique', () => {
+•	  const ids = ADMIN_SECTIONS.map(x => x.id);
+•	  const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
+•	  expect(dupes).toHaveLength(0);
+•	}); 
+•	
+Static scan: fail CI if “Evidence Library” appears in more than one nav source or if any component defines a local nav array for admin.
+7) Cleanup task list for Replit
+1.	Create src/config/adminNav.ts with the two exports above.
+2.	Refactor TopBar and any admin sidebars to consume ADMIN_SECTIONS.
+3.	Refactor Taxonomy page to consume TAXONOMY_TABS only.
+4.	Remove any “Evidence Library” tab from Taxonomy.
+5.	Add redirect from /admin/taxonomy/evidence → /admin/evidence.
+6.	Wire RBAC checks to hide/show items and protect routes.
+7.	Add the unique-ID test and the static scan in CI.
+8.	Manually verify there’s exactly one Evidence Library entry in the top bar.
+8) Quick QA checklist
+•	Top bar shows the six modules once each.
+•	Taxonomy screen has only the four taxonomy tabs.
+•	Clicking Evidence Library always lands at /admin/evidence.
+•	Old URLs redirect cleanly.
+•	Viewer can’t mutate; Editor/Admin can.
+•	CI fails if someone re-adds a duplicate.

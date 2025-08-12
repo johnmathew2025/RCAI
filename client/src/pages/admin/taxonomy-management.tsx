@@ -17,8 +17,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, RefreshCw, Database, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, RefreshCw, Database, CheckCircle, AlertCircle, Home, ArrowLeft } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import { Link } from 'wouter';
+import { ADMIN_SECTIONS, TAXONOMY_TABS } from '@/config/adminNav';
 
 interface EquipmentGroup {
   id: number;
@@ -99,12 +101,27 @@ export default function TaxonomyManagement() {
 
   return (
     <div className="space-y-6 p-6">
+      {/* Navigation Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Taxonomy Management</h1>
-          <p className="text-muted-foreground">
-            Manage equipment classification and risk ranking lookup tables
-          </p>
+        <div className="flex items-center space-x-4">
+          <Link href="/">
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Home
+            </Button>
+          </Link>
+          <Link href="/admin">
+            <Button variant="outline" size="sm">
+              <Home className="h-4 w-4 mr-2" />
+              Admin Dashboard
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Taxonomy Management</h1>
+            <p className="text-muted-foreground">
+              Manage equipment classification and risk ranking lookup tables
+            </p>
+          </div>
         </div>
         <div className="flex items-center space-x-2">
           <Database className="h-5 w-5" />
@@ -130,18 +147,16 @@ export default function TaxonomyManagement() {
 
       <Tabs defaultValue="groups" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="groups" data-testid="tab-groups">
-            Equipment Groups ({groups?.length || 0})
-          </TabsTrigger>
-          <TabsTrigger value="types" data-testid="tab-types">
-            Equipment Types ({types?.length || 0})
-          </TabsTrigger>
-          <TabsTrigger value="subtypes" data-testid="tab-subtypes">
-            Equipment Subtypes ({subtypes?.length || 0})
-          </TabsTrigger>
-          <TabsTrigger value="risks" data-testid="tab-risks">
-            Risk Rankings ({risks?.length || 0})
-          </TabsTrigger>
+          {TAXONOMY_TABS.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id} data-testid={`tab-${tab.id}`}>
+              {tab.label} ({
+                tab.id === 'groups' ? groups?.length || 0 :
+                tab.id === 'types' ? types?.length || 0 :
+                tab.id === 'subtypes' ? subtypes?.length || 0 :
+                tab.id === 'risks' ? risks?.length || 0 : 0
+              })
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         {/* Equipment Groups Tab */}

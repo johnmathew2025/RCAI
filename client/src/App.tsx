@@ -49,12 +49,18 @@ function Router() {
       <Route path="/investigation/:id" component={AnalysisDetail} />
       <Route path="/admin" component={AdminSettings} />
       <Route path="/admin-settings" component={AdminSettings} />
+      {/* Canonical Admin Routes - Information Architecture Compliant */}
       <Route path="/admin/evidence" component={EvidenceLibraryManagement} />
+      <Route path="/admin/analysis" component={EvidenceAnalysisDemo} />
+      <Route path="/admin/ai" component={RCAAnalysisDemo} />
+      <Route path="/admin/integrations" component={WorkflowIntegrationDemo} />
+      <Route path="/admin/taxonomy" component={TaxonomyManagement} />
+      
+      {/* Legacy route redirects */}
       <Route path="/admin/evidence-library" component={EvidenceLibraryAdmin} />
       <Route path="/admin/evidence-management" component={EvidenceLibrarySimple} />
       <Route path="/admin/evidence-library-management" component={EvidenceLibraryManagement} />
       <Route path="/admin/fault-reference-library" component={FaultReferenceLibrary} />
-      <Route path="/admin/taxonomy" component={TaxonomyManagement} />
       {/* <Route path="/evidence-library-integration" component={EvidenceLibraryIntegration} /> */}
       <Route path="/evidence-analysis-demo" component={EvidenceAnalysisDemo} />
       <Route path="/rca-analysis-demo" component={RCAAnalysisDemo} />

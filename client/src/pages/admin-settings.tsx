@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Eye, EyeOff, TestTube, Save, Shield, AlertTriangle, Database, Plus, Edit3, Download, Upload, Home, ArrowLeft, FileUp, FileDown, FileText, TrendingUp, Brain, GitBranch, Library, Activity, Plug } from "lucide-react";
+import { Eye, EyeOff, TestTube, Save, Shield, AlertTriangle, Database, Plus, Edit3, Download, Upload, Home, ArrowLeft, FileUp, FileDown, FileText, TrendingUp, Brain, GitBranch, Library, Activity, Plug, Settings } from "lucide-react";
 import { Link } from "wouter";
 import type { AiSettings, InsertAiSettings, EquipmentGroup, RiskRanking } from "@shared/schema";
 import AIStatusIndicator from "@/components/ai-status-indicator";
@@ -649,7 +649,7 @@ export default function AdminSettings() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Navigation Header */}
+      {/* Top-level Admin Navigation - Based on Information Architecture */}
       <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
         <div className="flex items-center space-x-4">
           <Link href="/">
@@ -658,54 +658,23 @@ export default function AdminSettings() {
               <span>Back to Home</span>
             </Button>
           </Link>
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-              <Home className="w-4 h-4" />
-              <span>Dashboard</span>
-            </Button>
-          </Link>
-          <Link href="/admin/taxonomy">
-            <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-              <Database className="w-4 h-4" />
-              <span>Taxonomy Management</span>
-            </Button>
-          </Link>
-          <Link href="/admin/evidence">
-            <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-              <Library className="w-4 h-4" />
-              <span>Evidence Library</span>
-            </Button>
-          </Link>
-          <Link href="/evidence-analysis-demo">
-            <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-              <TrendingUp className="w-4 h-4" />
-              <span>Analysis Engine</span>
-            </Button>
-          </Link>
-          <Link href="/rca-analysis-demo">
-            <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-              <Brain className="w-4 h-4" />
-              <span>AI-Powered RCA</span>
-            </Button>
-          </Link>
-          <Link href="/workflow-integration-demo">
-            <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-              <GitBranch className="w-4 h-4" />
-              <span>Workflow Integration</span>
-            </Button>
-          </Link>
-          <Link href="/data-integration-demo">
-            <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-              <Database className="w-4 h-4" />
-              <span>Data Integration</span>
-            </Button>
-          </Link>
-          <Link href="/deployment-ready">
-            <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-              <Shield className="w-4 h-4" />
-              <span>Deployment Ready</span>
-            </Button>
-          </Link>
+          {ADMIN_SECTIONS.map((section) => {
+            const IconComponent = section.icon === 'Home' ? Home : 
+                               section.icon === 'Database' ? Database :
+                               section.icon === 'Library' ? Library :
+                               section.icon === 'Activity' ? Activity :
+                               section.icon === 'Brain' ? Brain :
+                               section.icon === 'Plug' ? Plug : Settings;
+            
+            return (
+              <Link key={section.id} href={section.path}>
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <IconComponent className="w-4 h-4" />
+                  <span>{section.label}</span>
+                </Button>
+              </Link>
+            );
+          })}
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
           System Administration
