@@ -11,10 +11,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Eye, EyeOff, TestTube, Save, Shield, AlertTriangle, Database, Plus, Edit3, Download, Upload, Home, ArrowLeft, FileUp, FileDown, FileText, TrendingUp, Brain, GitBranch } from "lucide-react";
+import { Eye, EyeOff, TestTube, Save, Shield, AlertTriangle, Database, Plus, Edit3, Download, Upload, Home, ArrowLeft, FileUp, FileDown, FileText, TrendingUp, Brain, GitBranch, Library, Activity, Plug } from "lucide-react";
 import { Link } from "wouter";
 import type { AiSettings, InsertAiSettings, EquipmentGroup, RiskRanking } from "@shared/schema";
 import AIStatusIndicator from "@/components/ai-status-indicator";
+import { ADMIN_SECTIONS } from "@/config/adminNav";
 
 // STEP 4: Dynamic Provider Select Component - NO HARDCODING
 function DynamicProviderSelect({ value, onValueChange }: { value: string; onValueChange: (value: string) => void }) {
@@ -669,9 +670,9 @@ export default function AdminSettings() {
               <span>Taxonomy Management</span>
             </Button>
           </Link>
-          <Link href="/evidence-library-integration">
+          <Link href="/admin/evidence">
             <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-              <FileText className="w-4 h-4" />
+              <Library className="w-4 h-4" />
               <span>Evidence Library</span>
             </Button>
           </Link>
