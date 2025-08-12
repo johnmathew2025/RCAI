@@ -29,7 +29,7 @@ import NotFound from "@/pages/not-found";
 import DebugRoutes from "@/pages/debug-routes";
 import FaultReferenceLibrary from "@/pages/admin/fault-reference-library";
 import TaxonomyManagement from "@/pages/admin/taxonomy-management";
-import EvidenceLibraryIntegration from "@/pages/evidence-library-integration";
+// import EvidenceLibraryIntegration from "@/pages/evidence-library-integration"; // Removed - causing errors
 import EvidenceAnalysisDemo from "@/pages/evidence-analysis-demo";
 import RCAAnalysisDemo from "@/pages/rca-analysis-demo";
 import WorkflowIntegrationDemo from "@/pages/workflow-integration-demo";
@@ -61,7 +61,7 @@ function Router() {
       <Route path="/admin/evidence-management" component={EvidenceLibrarySimple} />
       <Route path="/admin/evidence-library-management" component={EvidenceLibraryManagement} />
       <Route path="/admin/fault-reference-library" component={FaultReferenceLibrary} />
-      {/* <Route path="/evidence-library-integration" component={EvidenceLibraryIntegration} /> */}
+      {/* Route removed - was causing JSX errors */}
       <Route path="/evidence-analysis-demo" component={EvidenceAnalysisDemo} />
       <Route path="/rca-analysis-demo" component={RCAAnalysisDemo} />
       <Route path="/workflow-integration-demo" component={WorkflowIntegrationDemo} />

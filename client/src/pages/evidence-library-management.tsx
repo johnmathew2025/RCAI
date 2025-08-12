@@ -20,12 +20,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Upload, Download, Edit, Edit2, Trash2, AlertTriangle, CheckCircle, Home, ArrowLeft } from "lucide-react";
+import { Search, Plus, Upload, Download, Edit, Edit2, Trash2, AlertTriangle, CheckCircle, Home, ArrowLeft, Library } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import EvidenceLibraryForm from "@/components/evidence-library-form";
+import { AdminTopNav, AdminBreadcrumb } from "@/components/admin-nav";
 
 interface EvidenceLibrary {
   id: number;
@@ -389,8 +390,8 @@ export default function EvidenceLibraryManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Navigation Header */}
+      <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
         <div className="flex items-center space-x-4">
           <Link href="/">
             <Button variant="outline" size="sm">
@@ -398,12 +399,29 @@ export default function EvidenceLibraryManagement() {
               Back to Home
             </Button>
           </Link>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Evidence Library Management</h1>
-            <p className="text-muted-foreground">
-              Manage and configure evidence requirements for root cause analysis
-            </p>
-          </div>
+          <AdminTopNav currentSection="evidence" />
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Evidence Library Management
+        </div>
+      </div>
+
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <AdminBreadcrumb currentSection="evidence" />
+          <h1 className="text-3xl font-bold tracking-tight flex items-center">
+            <Library className="h-8 w-8 mr-3 text-primary" />
+            Evidence Library Management
+          </h1>
+          <p className="text-muted-foreground">
+            Manage and configure evidence requirements for root cause analysis
+          </p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Badge variant={evidenceItems?.length ? "default" : "outline"}>
+            {evidenceItems?.length || 0} Items
+          </Badge>
         </div>
       </div>
 
