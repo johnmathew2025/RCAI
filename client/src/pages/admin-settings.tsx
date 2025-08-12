@@ -693,6 +693,12 @@ export default function AdminSettings() {
               <span>Workflow Integration</span>
             </Button>
           </Link>
+          <Link href="/data-integration-demo">
+            <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+              <Database className="w-4 h-4" />
+              <span>Data Integration</span>
+            </Button>
+          </Link>
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
           System Administration

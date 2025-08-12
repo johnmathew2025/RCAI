@@ -586,6 +586,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   console.log("[ROUTES] All workflow integration endpoints registered");
 
+  // Step 9: Data Integration and External System Connectivity endpoints
+  app.post("/api/data-sources", async (req, res) => {
+    console.log("[ROUTES] Data source registration route accessed - Universal Protocol Standard compliant");
+    try {
+      const sourceConfig = req.body;
+      console.log("[ROUTES] Data source registration request received:", JSON.stringify(sourceConfig, null, 2));
+
+      // Import and initialize data integration pipeline
+      const { DataIntegrationPipeline } = await import("./data-integration-pipeline");
+      const pipeline = new DataIntegrationPipeline();
+
+      // Register the data source
+      await pipeline.registerDataSource(sourceConfig);
+      
+      console.log(`[ROUTES] Data source ${sourceConfig.sourceName} registered successfully`);
+
+      res.json({
+        success: true,
+        message: `Data source ${sourceConfig.sourceName} registered successfully`,
+        sourceId: sourceConfig.sourceId
+      });
+
+    } catch (error) {
+      console.error("[ROUTES] Data source registration error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Data source registration failed",
+        message: error instanceof Error ? error.message : "Unknown registration error"
+      });
+    }
+  });
+
+  app.get("/api/data-sources", async (req, res) => {
+    console.log("[ROUTES] Data sources list route accessed - Universal Protocol Standard compliant");
+    try {
+      // Import and initialize data integration pipeline
+      const { DataIntegrationPipeline } = await import("./data-integration-pipeline");
+      const pipeline = new DataIntegrationPipeline();
+
+      // Get all registered data sources
+      const dataSources = await pipeline.getDataSources();
+      
+      console.log(`[ROUTES] Retrieved ${dataSources.length} data sources`);
+
+      res.json({
+        success: true,
+        dataSources
+      });
+
+    } catch (error) {
+      console.error("[ROUTES] Data sources retrieval error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Data sources retrieval failed",
+        message: error instanceof Error ? error.message : "Unknown retrieval error"
+      });
+    }
+  });
+
+  app.post("/api/data-sources/:sourceId/sync", async (req, res) => {
+    console.log("[ROUTES] Data sync execution route accessed - Universal Protocol Standard compliant");
+    try {
+      const { sourceId } = req.params;
+      const syncOptions = req.body;
+      console.log(`[ROUTES] Executing sync for data source ${sourceId} with options:`, syncOptions);
+
+      // Import and initialize data integration pipeline
+      const { DataIntegrationPipeline } = await import("./data-integration-pipeline");
+      const pipeline = new DataIntegrationPipeline();
+
+      // Execute the sync
+      const syncResult = await pipeline.executeSync(sourceId, syncOptions);
+      
+      console.log(`[ROUTES] Sync completed for ${sourceId}: ${syncResult.recordsProcessed} records processed`);
+
+      res.json({
+        success: true,
+        syncResult
+      });
+
+    } catch (error) {
+      console.error("[ROUTES] Data sync execution error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Data sync execution failed",
+        message: error instanceof Error ? error.message : "Unknown sync error"
+      });
+    }
+  });
+
+  app.get("/api/data-sources/:sourceId/history", async (req, res) => {
+    console.log("[ROUTES] Sync history route accessed - Universal Protocol Standard compliant");
+    try {
+      const { sourceId } = req.params;
+      console.log(`[ROUTES] Retrieving sync history for data source ${sourceId}`);
+
+      // Import and initialize data integration pipeline
+      const { DataIntegrationPipeline } = await import("./data-integration-pipeline");
+      const pipeline = new DataIntegrationPipeline();
+
+      // Get sync history
+      const syncHistory = await pipeline.getSyncHistory(sourceId);
+      
+      console.log(`[ROUTES] Retrieved ${syncHistory.length} sync records for ${sourceId}`);
+
+      res.json({
+        success: true,
+        syncHistory
+      });
+
+    } catch (error) {
+      console.error("[ROUTES] Sync history retrieval error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Sync history retrieval failed",
+        message: error instanceof Error ? error.message : "Unknown history retrieval error"
+      });
+    }
+  });
+
+  app.get("/api/integrations", async (req, res) => {
+    console.log("[ROUTES] Available integrations route accessed - Universal Protocol Standard compliant");
+    try {
+      // Import and initialize data integration pipeline
+      const { DataIntegrationPipeline } = await import("./data-integration-pipeline");
+      const pipeline = new DataIntegrationPipeline();
+
+      // Get available integrations
+      const integrations = await pipeline.getAvailableIntegrations();
+      
+      console.log(`[ROUTES] Retrieved ${integrations.length} available integrations`);
+
+      res.json({
+        success: true,
+        integrations
+      });
+
+    } catch (error) {
+      console.error("[ROUTES] Available integrations retrieval error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Integrations retrieval failed",
+        message: error instanceof Error ? error.message : "Unknown integrations error"
+      });
+    }
+  });
+
+  console.log("[ROUTES] All data integration endpoints registered");
+
   // Skip complex routes for now and move to taxonomy endpoints
   console.log("[ROUTES] Moving directly to taxonomy API endpoints");
 
