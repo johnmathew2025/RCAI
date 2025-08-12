@@ -1,0 +1,87 @@
+
+FINAL ENFORCEMENT — UNIVERSAL RCA TIMELINE LOGIC (GENERATOR INCIDENT #68)
+=========================================================================
+
+
+CONTEXT:
+--------
+During testing of Generator Incident #68 (“generator fault – rotor cracked”), the system displayed timeline questions that were:
+
+❌ Not aligned with the incident description  
+❌ Generic to all generator or motor failures  
+❌ Loaded even when irrelevant (e.g., winding insulation failure)  
+❌ Based on static equipment templates rather than context
+
+This indicates continued presence of **hardcoded question logic** and absence of **contextual filtering**.
+
+WHAT IS WORKING WELL:
+----------------------
+✅ Core timeline anchors like:
+  - Time of first abnormality
+  - Alarm trigger
+  - Operator intervention
+  - Trip/failure timestamp
+  - Recovery timestamp
+
+These are UNIVERSAL and must be retained across all equipment types.
+
+WHAT IS FAILING:
+----------------
+⚠️ Equipment-specific timeline questions are being loaded:
+  - Without relevance to the failure mode
+  - Without keyword matching from incident description
+  - Without evidence correlation
+
+This creates noise, user confusion, and undermines intelligent RCA flow.
+
+MANDATORY LOGIC TO BE IMPLEMENTED:
+----------------------------------
+
+STEP 1: NLP Extraction
+----------------------
+- Parse title + incident description
+- Extract keywords like “cracked”, “smoke”, “rotor”, “overheat”
+
+STEP 2: Filter Failure Modes
+-----------------------------
+- Match keywords to failure modes using Evidence Library (e.g., Rotor Bar Crack)
+
+STEP 3: Load Timeline Questions Dynamically
+-------------------------------------------
+- From matched failure mode(s), load only relevant timeline prompts
+  - e.g., “When was rotor bar crack first detected?”
+  - e.g., “Was there a rise in rotor vibration or torque?”
+
+STEP 4: Suppress Irrelevant Prompts
+-----------------------------------
+- Do NOT ask about unrelated failure modes (e.g., winding insulation, bearing failure) unless:
+  - Keyword match exists, OR
+  - Related evidence has been provided
+
+STEP 5: Manual Add-on (Optional)
+--------------------------------
+- Allow users to manually add extra timeline prompts if needed
+
+ABSOLUTE RULES:
+---------------
+❌ DO NOT preload all timeline questions for a given equipment subtype  
+❌ DO NOT use static templates for “Motor”, “Pump”, “Generator”, etc.  
+❌ DO NOT hardcode logic that ties questions to equipment names or codes
+
+✅ DO use:
+  - Context from user description
+  - Evidence correlation (IR, vibration, alarms)
+  - NLP keyword mapping
+  - Universal handling of failure modes across all asset types
+
+FINAL NOTES:
+------------
+Failure to implement this logic will:
+- Continue to present irrelevant questions
+- Delay investigation accuracy
+- Waste user time
+- Undermine trust in the RCA engine’s intelligence
+
+This timeline logic must be corrected immediately.
+
+END OF TIMELINE ENFORCEMENT INSTRUCTION

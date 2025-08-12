@@ -1,0 +1,76 @@
+
+FINAL ENFORCEMENT — ROOT CAUSE FILTERING & FAILURE MODE SELECTION
+==================================================================
+
+
+CONTEXT — INCIDENT #70 FAILURE:
+-------------------------------
+Incident: “Pump seal failure – continuous dripping observed”
+
+System Output: Displayed irrelevant failure modes like:
+- Casing Crack
+- Impeller Damage
+- Shaft Misalignment
+
+This directly violates the instructions previously issued in:
+✓ RCA_Initial_Questionnaire_Correction.txt  
+✓ RCA_Timeline_Logic_Enforcement.txt  
+✓ RCA_Evidence_Validation_Enforcement.txt
+
+CRITICAL FLAWS OBSERVED:
+-------------------------
+❌ No dynamic filtering based on symptom keywords like “seal”, “drip”, “leak”
+❌ Static pump-related failure modes preloaded regardless of symptom
+❌ Missing contextual match to "Seal Face Wear" or "Seal Flush Failure"
+❌ Confidence boosting applied without valid or parsed evidence
+❌ User prompted for non-relevant checks (impeller, casing, etc.)
+
+KEY QUESTIONS TO BE ANSWERED BY DEVELOPMENT AGENT:
+---------------------------------------------------
+❓ Why is the dynamic root cause filtering logic not working consistently?
+❓ Is the AI/NLP layer actually being invoked on symptom description?
+❓ Why are irrelevant failure modes still visible despite enforcement files?
+❓ Are you still using fallback hardcoded templates per equipment type?
+❓ If logic is built, why is it not reliable in every incident? (Root cause: execution gap or architecture design flaw?)
+
+MANDATORY LOGIC ENFORCEMENT:
+-----------------------------
+STEP 1: NLP SYMPTOM EXTRACTION  
+- Extract terms from incident title + description: “seal”, “dripping”, “leak”, “continuous”
+
+STEP 2: FAILURE MODE FILTERING  
+- Match against Evidence Library failure modes using:
+  - Keywords
+  - Equipment Group+Type+Subtype if relevant (not mandatory)
+- Only present modes like:
+  - “Seal Face Wear”
+  - “Seal Flush Line Blocked”
+  - “Seal Cooling Water Loss”
+
+STEP 3: EVIDENCE PROMPTING
+- Only request evidence linked to filtered failure modes (e.g., IR scan, seal flush pressure trend)
+
+STEP 4: DYNAMIC RCA FLOW
+- User selections → Evidence validation → Confidence scoring → Recommendations
+
+ABSOLUTE RULES:
+---------------
+❌ DO NOT preload failure modes based on equipment type (“Pump”, “Motor”, etc.)
+❌ DO NOT hardcode any failure mode library tied to asset type
+❌ DO NOT generate confidence scores without validating uploaded evidence
+❌ DO NOT show generic questions for every investigation
+
+✅ DO implement universal logic:
+  - NLP-driven failure mode filtering
+  - Evidence-prompt logic built from library — not hardcoded
+  - Adaptive flow based on symptom + validated data
+
+FINAL WARNING:
+--------------
+Every time this logic is bypassed or fails, it damages system credibility and user trust.
+
+This failure in Incident #70 confirms incomplete or incorrectly applied logic.
+
+Fix this comprehensively. No hardcoding must be allowed under any circumstances.
+
+END OF ENFORCEMENT

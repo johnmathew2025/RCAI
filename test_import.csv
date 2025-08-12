@@ -1,0 +1,2 @@
+Equipment Group,Equipment Type,Component/Failure Mode,Equipment Code,Failure Code,Risk Ranking,Required Trend Data & Evidence,AI/Investigator Questions,Attachments & Evidence Required,Root Cause Logic
+Control Valves,Safety Valves,Valve Seat Leakage,VLV-001,F001,Critical,Pressure trends and seat inspection,Is valve properly seated? Check for debris or damage,Photos of valve internals and seat condition,Valve seat wear from high differential pressure

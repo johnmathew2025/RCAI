@@ -1,0 +1,105 @@
+──────────────────────────────────────────────────────────────
+UNIVERSAL RCA EVIDENCE HANDLING & AI INTERPRETATION WORKFLOW
+──────────────────────────────────────────────────────────────
+ABSOLUTE RULE: NO HARDCODING ALLOWED. ALL LOGIC IS UNIVERSAL.
+
+IMPORTANT: Do not modify Step 1 and Step 2.
+
+The current logic, UI, and backend handling for Step 1 (Incident Creation & Equipment Selection) and Step 2 (Initial AI Hypothesis Generation) are already fully functional and meet requirements.
+Absolutely no changes, refactoring, or reordering are to be made to Steps 1 and 2.
+All improvements and logic changes described below apply strictly from Step 3 onward.
+─────────────────────────────
+STEP 3: INITIAL EVIDENCE UPLOAD & BACKEND ANALYSIS
+─────────────────────────────
+- User uploads files (any supported type: CSV, TXT, XLSX, PDF, images, etc.) for each evidence checklist item.
+- System detects file type and automatically passes the file to the universal Python backend (pandas, numpy, scipy, signal-processing, OCR as needed).
+- Python backend performs for EVERY file:
+    • Auto-detects structure, columns, units (time, amplitude, frequency, temp, etc.) using flexible pattern recognition.
+    • Extracts all relevant statistical and signal features: trend, FFT, RMS, mean, std, peaks, outlier count, completeness, gaps.
+    • Checks for missing/poor-quality fields and scores diagnostic confidence.
+    • Produces a **structured summary JSON** for each file (features, findings, confidence, warnings, missing info).
+
+- If parsing fails or info is missing, system MUST generate a prompt to user (e.g., "RPM column not found, please upload correct file").
+- All summaries/results are temporarily stored for AI interpretation and human review.
+
+─────────────────────────────────────
+STEP 3B: AI INTERPRETATION OF PARSED DATA
+─────────────────────────────────────
+- The **structured summary for each file is passed to the integrated LLM AI (e.g., GPT, Gemini, or configured model)**.
+- AI LLM must:
+    • Interpret the parsed features (not raw data, but the JSON output from backend)
+    • Infer the most likely *meaning* of the evidence (e.g., “The detected high RMS and positive velocity trend suggest bearing wear”)
+    • List potential root causes/faults matched to the evidence (use library + model knowledge)
+    • Clearly state diagnostic confidence, limitations, and recommended further evidence if needed
+    • Output: Human-readable diagnostic summary for each file, ready for reviewer
+
+───────────────────────────────────────────────
+STEP 3C: MANDATORY HUMAN REVIEW PANEL (After Step 3)
+───────────────────────────────────────────────
+- System presents a consolidated review interface for ALL files from Step 3:
+    • For each file, shows:
+        – AI/Python parsed summary (features, completeness, missing fields)
+        – AI LLM interpretation (meaning, likely cause, recommended next steps)
+    • User (investigator) must:
+        – Confirm/accept AI’s interpretation (file is valid, meaning is correct)
+        – Edit/comment/clarify (correct the summary, add notes)
+        – Upload new/replacement files if prompted by feedback
+        – Request AI to re-analyze if new data or comments are added
+- **No RCA can proceed until all files are reviewed and acted upon**
+- Every action is logged for traceability
+
+────────────────────────────────
+STEP 4: ADDITIONAL EVIDENCE UPLOAD
+────────────────────────────────
+- User can upload further/refined evidence (e.g., after AI/human request for more info or missing fields).
+- EVERY new file is parsed by Python backend, then interpreted by LLM in the same way as Step 3.
+- All files (Step 3 + Step 4) are visible in review panel.
+
+───────────────────────────────────────────────
+STEP 4B: SECOND HUMAN REVIEW PANEL (After Step 4)
+───────────────────────────────────────────────
+- Human review panel repeats as in Step 3C, covering ALL current evidence (new and prior).
+- User must review, confirm, or update every file and its AI-generated meaning.
+- RCA is locked until every file is confirmed/acted on.
+
+─────────────────────────────
+STEP 5: AI-ASSISTED RCA DRAFT (ROOT CAUSE/RECOMMENDATION)
+─────────────────────────────
+- Only after ALL evidence is reviewed, system combines ALL confirmed AI LLM summaries as **input context** for final RCA LLM prompt.
+- RCA engine LLM must:
+    • Synthesize all interpreted evidence, human comments, and library knowledge
+    • Infer likely root causes and rank by confidence
+    • Clearly document “based on what evidence, this cause is likely”
+    • Recommend further actions/evidence if confidence is low, or proceed to recommendations if sufficient
+
+──────────────────────────────
+STEP 6: FINAL HUMAN CONFIRMATION/REPORTING
+──────────────────────────────
+- User reviews AI-generated RCA, root cause, and recommendations
+- Can confirm, edit, or request further review before finalizing
+- All final actions are logged
+
+──────────────────────────────
+EXAMPLE: HOW THIS SHOULD WORK
+──────────────────────────────
+1. User uploads "centrifugal_pump_vibration_waveform.txt"
+2. Python backend parses file:
+    { "Velocity_RMS": 7.2, "Trend": "increasing", "Dominant_Freq": "1xRPM", "Confidence": 92, ... }
+3. This summary is passed to LLM AI:
+    Prompt: "Given RMS velocity 7.2 mm/s (increasing), dominant at 1xRPM, confidence 92%: What is most likely root cause?"
+4. AI responds:
+    "This pattern is highly indicative of bearing degradation or unbalance. Recommend physical bearing inspection and oil/lube sample. No evidence of cavitation."
+5. User reviews, confirms/edits, or uploads better evidence.
+6. Only after all files are reviewed, system synthesizes for RCA report.
+
+───────────────────────────────────────────────────────
+KEY UNIVERSAL RULES (TO BE ENFORCED)
+───────────────────────────────────────────────────────
+- NO HARDCODING for equipment, evidence, parsing, or prompt logic.
+- All AI analysis and recommendations are based on schema, pattern-matching, and library, not static rules.
+- Python backend handles ALL raw file parsing; LLM only reasons on parsed summaries, not raw files.
+- Every step is schema-driven, logged, and extendable to future file/evidence types.
+
+────────────────────────────────────────────────────────────
+END OF INSTRUCTION
+────────────────────────────────────────────────────────────

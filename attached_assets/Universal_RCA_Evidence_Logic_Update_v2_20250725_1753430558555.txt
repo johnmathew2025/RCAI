@@ -1,0 +1,86 @@
+# 🔧 RCA AI Evidence Handling & Evaluation Enhancement Instructions
+# 📅 Updated: 2025-07-25 07:57:12
+# 🧠 Objective: Enhance AI analysis in Steps 3 & 4 to dynamically analyze evidence and respond intelligently — without hardcoding — while retaining all previously working logic.
+
+## ✅ General Rule
+Do **not** alter or interfere with any logic or workflow from Step 0 to Step 2, or post-Step 5 (these are currently functioning correctly).
+
+## 📍 START Enhancements From: Step 3 & Step 4
+
+---
+
+## 🔍 STEP 3: Generate Evidence Checklist
+- When generating the checklist, ensure the generated items are **saved** in the incident schema (`incident.evidenceChecklist`) in the database.
+- Each checklist item must include:
+  - `evidenceCategory`: e.g., Vibration, IR, Maintenance Record
+  - `required`: true/false
+  - `evidenceType`: "trend", "document", "image", etc.
+  - `expectedFileTypes`: ["csv", "txt", "xlsx", pdf etc.]
+
+---
+
+## 📦 STEP 4: Evidence Collection – AI Backend Evaluation
+
+### 1. Backend Evidence Parsing (No Hardcoding)
+- When a user uploads a file (via `/upload-evidence` endpoint), immediately invoke AI or parser logic based on file type:
+  - `.txt`: Read contents, check for vibration waveform structure, timestamped trend lines, log reports.
+  - `.csv`: Parse headers, detect parameters like RPM, temperature, current, 1X/2X/3X amplitude.
+  - `.xlsx`: Identify table ranges and structured log data.
+- AI should assess each uploaded file for:
+  - **Diagnostic Value** (Low/Medium/High)
+  - **Evidence Gap** (Flag if missing parameters)
+  - **Confidence Boost** (if quality is high)
+
+### 2. Prompting User if Evidence is Insufficient
+- If evidence lacks key parameters (e.g., no timestamp, axis label, units), AI must trigger a prompt:
+  - “This file lacks necessary trend context. Please confirm sample rate and axis definition.”
+  - Allow the user to respond: (a) Re-upload, or (b) Tick “Not available” box.
+  - If the user cannot provide the evidence, mark that item as "Unavailable" with reason = user-specified.
+
+### 3. Proceeding with Hypothesis if Evidence Missing
+- If some or all required evidence is missing or unprocessable:
+  - AI must continue the investigation based on hypotheses.
+  - Display disclaimer:  
+    > “Analysis has been conducted based on hypothesis due to insufficient evidence. Confidence reduced.”
+  - Label root causes and recommendations with reduced confidence (auto-adjusted).
+
+---
+
+## 🧠 Evidence Evaluation Logic (Independent of Library Match)
+- Do **not** depend solely on Evidence Library match.
+- Always evaluate the actual uploaded file dynamically and:
+  - Show results of that evaluation in the UI.
+  - Example output in Step 5:
+    - “Uploaded vibration waveform shows elevated 1X component.”
+    - “Temperature trend absent — inference made assuming normal operation.”
+
+---
+
+## 📁 Evidence Metadata Storage
+Store the following metadata for each evidence file:
+- `filename`
+- `categoryId`
+- `parsedResultSummary`: e.g., “Flatline data with timestamp gap”, “Normal 1X/2X ratio”
+- `diagnosticValue`: High / Medium / Low
+- `aiRemarks`: Optional, stored in evidence response section
+- `evidenceConfidenceImpact`: (numerical or descriptor)
+
+---
+
+## ⛔ No Hardcoding Permitted
+- Eliminate any hardcoded categoryId, incidentId, match logic, or fallback library-based decisions.
+- Logic must be **schema-driven**, flexible to future evidence types and formats.
+
+---
+
+## ✅ Confirmed Logic That Must Remain Unchanged
+- Stage transitions and UI layout for Steps 0–2 and 5–6.
+- Evidence Checklist UI layout and stage triggers.
+- Any working evidenceChecklist generation code (except persistence fix already applied).
+- Incident object schema design.
+
+---
+
+## 🔚 End of Instruction Block
+This version ensures AI dynamically interprets uploaded evidence, fills gaps with intelligent logic, and clearly informs the user. If evidence is inadequate, AI should proceed with hypothesis and visibly show its assumptions and confidence level drop.
+

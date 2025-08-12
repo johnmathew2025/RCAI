@@ -1,0 +1,60 @@
+#Strict Rule-NO HARD CODING UNDER ANY CIRCUMSTANCES
+
+# INCIDENT FORM: SEQUENCE OF EVENTS FIELD SPECIFICATION
+
+## 1. Sequence of Events (Narrative)
+Field Label: Sequence of Events
+Field Type: Multiline Text Box
+Required: No (optional, but recommended)
+Helper Text (User): 
+  "Enter the main steps as they happened, including approximate times if possible.
+   Example:
+   '08:05 – Alarm activated
+    08:10 – Operator responded to pump room
+    08:12 – Leak observed at pump discharge
+    08:14 – Pump stopped by operator'
+   You can include as much detail as available."
+
+Purpose: 
+  To capture a quick, chronological narrative of actions and observations related to the incident.
+
+---
+
+## 2. Sequence of Events (Attachment)
+Field Label: Attach Sequence of Events (optional)
+Field Type: File Upload (allow multiple attachments)
+Required: No (optional, but recommended if supporting files exist)
+Helper Text (User):
+  "Upload any files that detail the sequence of events.
+   Examples include:
+   - Operator logs or shift handover reports
+   - Control room/DCS/SCADA exports
+   - Annotated event timelines (Word, PDF, Excel, image)
+   - Photos, sketches, or scanned documents
+   Accepted file types: PDF, DOCX, XLSX, TXT, CSV, JPG, PNG, GIF."
+
+Purpose:
+  To provide supporting evidence (digital or scanned) of the incident timeline, enhancing traceability and auditability.
+
+---
+
+## System/Developer Notes:
+- Both fields are independent (users can use either or both).
+- Each entry (text or attachment) must be linked to the correct incident/case record.
+- Allow upload of multiple files for attachments.
+- Distinguish "sequence of events" attachments from general evidence uploads in the UI.
+- If possible, capture upload timestamp and user ID/metadata for each attachment.
+
+---
+
+## Sample UI/Instruction Block (For Display to User):
+
+"Sequence of Events
+--------------------
+Please provide a chronological summary of key actions and observations related to the incident, including times if available.
+
+[Multiline Text Box]
+
+You may also upload files (logs, exports, annotated timelines, photos, etc.) that help document the sequence of events.
+
+[Upload Button - Accepts: PDF, DOCX, XLSX, TXT, CSV, JPG, PNG, GIF]"

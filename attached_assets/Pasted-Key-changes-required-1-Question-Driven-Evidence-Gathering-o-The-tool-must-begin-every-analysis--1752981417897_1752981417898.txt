@@ -1,0 +1,108 @@
+Key changes required:
+1.	Question-Driven Evidence Gathering:
+o	The tool must begin every analysis by asking the user (or extracting from uploaded files) a comprehensive set of standardized questions about the asset, context, operating conditions, maintenance history, symptoms, and other critical evidence.
+o	Only once this information is collected and confirmed, should the AI begin its RCA logic and analysis.
+2.	Conditional & Dynamic Questioning:
+o	The initial questions should be broad and applicable to any asset.
+o	Based on the user's answers (e.g., asset type, symptom), the tool should dynamically ask more specific, relevant questions (see the standardized question set provided).
+3.	Structured Data Storage:
+o	All answers and evidence must be stored in a structured way (not just free text), so they can be used directly by the RCA engine for logic and future auditing.
+4.	AI Analysis After Evidence Collection:
+o	The AI should only attempt to analyze root cause after gathering all necessary context and evidence.
+o	If evidence is missing or ambiguous, it should prompt the user for clarification before proceeding.
+5.	Explainable, Traceable RCA Output:
+o	The final RCA output must include:
+	Asset and problem context
+	Stepwise logic and evidence for the root cause
+	Contributing factors
+	Confidence score and explanation
+	Actionable recommendations linked to findings
+6.	
+
+
+Phase 1 Asset Context
+1.	What is the equipment type?
+(e.g., valve, pump, motor, compressor, conveyor, fan, other)
+2.	What is the specific subtype or model?
+(e.g., ball valve, centrifugal pump, induction motor, belt conveyor)
+3.	What is the equipment's main function/service?
+(e.g., process water transfer, slurry control, air supply)
+4.	Where is the equipment located?
+(site, plant area, line number, asset ID)
+5.	What is the asset's age and operating history?
+(in service since, total run hours, duty cycle)
+ 
+Phase 2. Symptom Definition
+6.	What is the observed problem/symptom?
+(e.g., leak, noise, high vibration, low output, failure to start, trip, overheating, etc.)
+7.	Where is the symptom observed?
+(specific location: stem, seat, body, bearing, casing, wiring, etc.)
+8.	When was the problem first noticed?
+(date/time, during operation/startup/shutdown, after maintenance)
+9.	Is the problem constant, intermittent, or recurring?
+(frequency, pattern)
+10.	Any alarms or interlocks activated?
+(details, timestamps)
+ 
+Phase 3. Operating Conditions
+11.	What are the current and recent operating parameters?
+o	Flow (rate, unit)
+o	Pressure (upstream, downstream, unit)
+o	Temperature (inlet, outlet, bearing, ambient)
+o	Speed (rpm)
+o	Power consumption (kW/amps)
+o	Vibration (axial, vertical, horizontal, mm/s or g)
+o	Voltage/current (if electrical)
+o	Lubrication condition (oil/grease level, quality, changes)
+o	Environmental conditions (humidity, dust, corrosive, ambient temp)
+12.	Have any process or control conditions changed recently?
+(setpoints, product/media, pressure, load, environment)
+ 
+Phase 4. Maintenance and Event History
+13.	When was the last maintenance performed?
+(date, type: PM/CM/overhaul/inspection)
+14.	What parts/components were recently replaced or adjusted?
+15.	Was there any recent work, installation, or modifications?
+16.	Is there a history of similar problems/failures on this equipment or similar assets?
+(describe previous failures, corrective actions taken, were they effective?)
+17.	Have any process upsets or abnormal events occurred recently?
+(power loss, pressure surges, blocked filters, product changeover, etc.)
+ 
+Phase 5. Human/Operational Factors
+18.	Who was operating the equipment when the issue occurred?
+(shift, operator ID, was anyone new/in training?)
+19.	Were there any known operator errors, unusual actions, or deviations from SOP?
+ 
+Phase 6. Design, Installation & External Factors
+20.	Has the equipment been modified, upgraded, or relocated?
+(details and dates)
+21.	Is the equipment installed according to manufacturer and engineering specifications?
+22.	Any external factors that could have contributed?
+(weather, vibration from adjacent equipment, construction work, etc.)
+ 
+Phase 7. Evidence & Data Collection
+23.	Are there any inspection reports, photos, videos, or test results available?
+(upload or summarize)
+24.	Are there relevant trends or time series plots for critical parameters?
+(provide if available)
+25.	Anything else observed or suspected that might be relevant?
+(free text/comment box)
+ 
+Phase 8.Dynamic/Conditional Follow-Ups (AI-driven):
+•	If the equipment is a valve, ask:
+o	What type of actuator? (manual, electric, pneumatic, hydraulic)
+o	Where is the leak (seat, stem, body)?
+o	Was the valve cycled frequently before the failure?
+•	If the equipment is a pump, ask:
+o	What type of pump? (centrifugal, reciprocating, screw, diaphragm)
+o	Were there signs of cavitation, seal leakage, or abnormal noise?
+o	What was the suction and discharge condition?
+•	If electrical, ask:
+o	Was there an overcurrent/trip event?
+o	Any signs of insulation breakdown, hot spots, or arcing?
+ 
+Implementation Notes
+•	Phase 1: Always ask the general questions (1–25) above.
+•	Phase 2: Once asset type and symptom are confirmed, show only relevant follow-ups using conditional logic.
+•	Phase 3: Store all answers as structured data.
+•	Phase 4: After evidence gathering, pass all collected info to the RCA AI engine for structured analysis.

@@ -1,0 +1,153 @@
+
+FINAL UNIVERSAL RCA INSTRUCTION — AI-DRIVEN, NO HARDCODING (v1.0)
+
+=======================
+🔒 NO HARDCODING — EVER
+=======================
+Replit must NOT hardcode any:
+- Equipment group, type, or subtype
+- Failure modes or symptoms
+- Symptom-to-cause mappings
+- Scoring values
+
+All logic MUST be:
+✓ AI-driven (e.g., GPT)
+✓ Schema-based
+✓ Dynamic
+✓ Evidence-Library-verified
+
+=================================================================
+✅ STEP 1: INCIDENT INGESTION & NLP CONTEXT EXTRACTION
+=================================================================
+AI parses incident free-text + structured fields:
+- Incident Title / Description
+- Component involved
+- Frequency, Severity, First observed date
+- Operating conditions (pressure, temperature)
+- Symptom description
+- Maintenance history if available
+
+AI must:
+✓ Perform NLP tokenization
+✓ Generate enriched symptom list
+✓ Detect component context from unstructured text
+
+=================================================================
+✅ STEP 2: AI-DRIVEN HYPOTHESIS GENERATION (No Hardcoding)
+=================================================================
+AI should:
+✓ Generate 4–6 most likely causes using GPT
+✓ Use internal engineering knowledge (no preloaded templates)
+✓ Examples: "Seal Face Wear", "Flush Port Blockage", etc.
+
+DO NOT preload dictionary-based mappings.
+
+=================================================================
+✅ STEP 3: EVIDENCE LIBRARY CROSS-MATCH
+=================================================================
+For each hypothesis:
+✓ Match with fault signature patterns
+✓ Pull required:
+  - Trend evidence (e.g., Vibration, IR, DCS logs)
+  - Prompt questions
+  - Expected detection logic
+
+Confidence scores must be dynamically computed.
+
+=================================================================
+✅ STEP 4: HUMAN CONFIRMATION FLOW
+=================================================================
+Show investigator:
+- ✅ Agree
+- ❌ Disagree
+- ➕ Add More
+
+If investigator modifies the list, AI must:
+✓ Update hypotheses
+✓ Re-filter evidence
+✓ Re-calculate priority
+
+=================================================================
+✅ STEP 5: EVIDENCE COLLECTION INTERFACE
+=================================================================
+For each hypothesis:
+✓ Show required evidence
+✓ Ask clarifying prompts
+✓ Allow:
+  - File upload
+  - Mark "Not Available"
+  - Add custom notes
+
+Scoring must degrade gracefully if evidence is missing.
+
+=================================================================
+✅ STEP 6: AI CONFIDENCE ANALYSIS
+=================================================================
+✓ Analyze uploaded data
+✓ Compare with fault signature
+✓ Calculate dynamic confidence:
+
+>80% → Confirmed
+60–80% → Probable
+<60% → Inconclusive / More Data Needed
+
+=================================================================
+✅ STEP 7: RCA OUTPUT STRUCTURE
+=================================================================
+Output:
+- Primary Root Cause
+- Contributing Factor
+- Latent Cause
+- Detection Gaps
+- AI Confidence
+- Fault Signature Match
+- Recommendation
+- Suggested Actions
+- PSM Elements (Optional): PHA, MOC, SIS compliance
+
+=================================================================
+✅ STEP 8: OPTIONAL EVIDENCE LIBRARY UPDATE
+=================================================================
+If human confirms root cause or new insights are validated:
+✓ Ask Admin whether to update:
+  - Fault Signature Patterns
+  - Required Evidence
+  - Prompt Questions
+
+Always require admin approval before library update.
+
+=================================================================
+✅ BACKGROUND ENRICHMENT (Optional Data)
+=================================================================
+Use the following sources for AI context (but not hard filtering):
+
+| Category              | Data Source                  |
+|----------------------|------------------------------|
+| DCS/SCADA Data        | Historian, trends            |
+| Maintenance Records   | CMMS, SAP                    |
+| Human Logs            | Operator shift log           |
+| Environmental Factors | Weather, blackout, seismic   |
+| Safety Systems        | SIS logs, trip diagnostics   |
+| Regulatory            | MOC, PHA, permits            |
+
+=================================================================
+🚫 DO NOT DO THE FOLLOWING
+=================================================================
+🚫 IF equipmentType === "Pump"
+🚫 Use symptom-to-mode dictionary
+🚫 Hardcode failure mode list
+🚫 Generate only 1 top match
+🚫 Skip human review flow
+
+=================================================================
+✅ IMPLEMENTATION CHECKLIST
+=================================================================
+✓ No hardcoded keywords
+✓ Multiple dynamic hypotheses
+✓ Human review enabled
+✓ All confidence thresholds applied
+✓ AI inference confirmed via GPT
+✓ Audit logging enabled
+✓ Schema-driven & portable logic
+✓ Working for ANY INCIDENT, ANY EQUIPMENT
+

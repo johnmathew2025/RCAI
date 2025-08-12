@@ -1,0 +1,41 @@
+INSTRUCTION: EVIDENCE LIBRARY & ADMIN MAPPING PROTOCOL
+
+1. UI and database mapping issues must be resolved with zero hardcoding:
+   - The Equipment Type and Subtype fields must be dynamically mapped to their master tables in the admin section. 
+   - Dropdown options for all lookup fields (Equipment Group, Equipment Type, Subtype, Risk Ranking) must reflect exactly what exists in their master/lookup tables—no free cells, no hardcoded or default values, no unmapped fields.
+
+2. The **Evidence Library table** (both in UI and database) must:
+   - Contain ALL columns as per the master schema, with no fields missing.
+   - Show all fields in the add/edit modal, data table, and for CSV import/export (no columns hidden or omitted).
+   - Allow for permanent delete (no soft delete allowed for Evidence Library entries).
+
+3. **ID field:** 
+   - If there is an ID field (system-generated primary key, cuid or UUID), it must be displayed in the UI for admin/reference. If it does not exist, that is acceptable.
+
+4. **Failure Code column:** 
+   - The Failure Code column must be the unique ID for each record, as defined in the schema (String @unique). Please confirm that this is enforced.
+
+5. **NO HARDCODING:** 
+   - Every time this feature has been implemented or fixed in the past, it has become hardcoded again (example: “✓ Fixed critical hardcoding violations - replaced direct 'openai' imports with DynamicAIConfig”). This is unacceptable.
+   - All mappings, dropdowns, and logic must be fully dynamic and protocol-compliant.
+
+6. **Attachment evidence:** 
+   - The attached screenshots demonstrate that Equipment Type is not mapped, fields are missing, and the data table is not displaying all columns.
+   - Please refer to the attachments for exact issues.
+
+7. **Protocol compliance:** 
+   - Before making ANY further changes, you (Replit agent) must confirm in writing that you fully understand these requirements and the Universal Protocol Standard.
+   - You must not proceed until I explicitly confirm and approve your understanding and plan.
+   - After implementation, provide evidence of:
+     - Full protocol compliance (compliance check output)
+     - Screenshots showing all columns, correct mappings, and admin-linked dropdowns
+     - Proof of permanent delete, unique Failure Code, and (if present) visible ID field
+
+SUMMARY:
+- NO hardcoding.
+- All fields and dropdowns must be dynamic and mapped to their master tables in the admin config.
+- No soft delete in Evidence Library.
+- Failure Code = unique identifier, enforce schema.
+- You must wait for my approval before proceeding after you confirm understanding.
+
+Please reply with your confirmation and implementation plan before any further work.

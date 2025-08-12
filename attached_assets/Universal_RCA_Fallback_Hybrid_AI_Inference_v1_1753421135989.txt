@@ -1,0 +1,85 @@
+
+# Universal RCA AI Instruction – Fallback and Hybrid Inference Logic (v20250725_0522)
+
+## 🚫 ABSOLUTE MANDATE: NO HARD CODING
+Under no circumstance should the developer hardcode:
+- Equipment group/type/subtype-specific logic
+- Failure modes per equipment
+- Symptom keywords
+- Evidence prompts
+- Hypotheses or AI prompts
+
+All logic must be dynamically inferred based on:
+✓ Incident description
+✓ AI-backed NLP extraction
+✓ Schema-based Evidence Library queries
+✓ Modular RCA logic
+
+## ✅ START FROM: Step 3 and Step 4 (DO NOT CHANGE FUNCTIONAL SECTIONS THAT ARE WORKING)
+
+---
+
+## 🔁 Fallback RCA Logic: When Evidence Library Match Fails
+
+### ❌ Problem:
+When incident symptoms fail to match a known pattern in the Evidence Library, AI must not stop or skip logic.
+
+### ✅ Hybrid Intelligent RCA Flow (Updated Logic)
+
+1. **Incident Description Ingestion (Step 1)**:
+   - Use NLP to extract key symptoms, timing, component, and process context.
+   - Highlight vague terms (e.g., "failed suddenly") and auto-prompt for clarifications.
+
+2. **Check Against Evidence Library**:
+   - If a high-confidence match exists (>80%), use the matched faultSignature and prompts.
+   - If match is <80% OR evidence type not available → activate fallback.
+
+3. **Fallback AI Inference (GPT-Driven)**:
+   a. Generate top plausible potential failure hypotheses using AI.
+   b. For each:
+      - Ask relevant data/evidence questions (e.g., “IR Scan?”, “Temperature log?”).
+      - Provide user option: ✅ Available, ❌ Not Available, ➕ Upload.
+   c. If evidence not available:
+      - Flag confidence as LOW.
+      - Proceed using engineering inference and assumptions.
+
+4. **Evidence Checklist and File Analysis**:
+   - AI must analyze uploaded documents in the background.
+   - Extract trend signatures (e.g., "spike", "burn", "leak") using NLP and match to faultSignaturePattern.
+   - If irrelevant or junk files provided, system must downgrade confidence and alert the user.
+
+5. **Human Interaction (Step 4-5)**:
+   - Present inferred hypotheses with:
+     - Root cause or potentail root cause
+     - Confidence score
+     - Evidence coverage (✅/❌)
+   - Ask human to: ✅ Agree / ❌ Disagree / ➕ Add more
+   - If all hypotheses rejected, restart fallback with new keywords or notify human.
+
+6. **Report Generation (Step 6)**:
+   - Generate AI-driven draft even if evidence is incomplete, but highlight:
+     - What data was missing
+     - What assumptions were made
+     - Confidence level
+   - Allow investigator to finalize report, edit conclusions, and submit.
+
+7. **Evidence Library Update (Step 7)**:
+   - If new symptom/evidence/prompt combination is detected:
+     - System recommends adding to library.
+     - Admin must confirm for update (never auto-update).
+
+---
+
+## ⚠️ Additional Enhancements (Required):
+- ✅ Incident Timeline Fields: Must extract and store first observed date, process status, and operator comments.
+- ✅ Backend AI must analyze evidence proactively after upload.
+- ✅ AI should learn from history but never overwrite logic manually.
+- ✅ Prompting must adjust to missing inputs intelligently (e.g., suggest alternative evidence types).
+
+---
+
+## 🚨 Final Note:
+This architecture ensures true universality and intelligence.
+AI should never behave like a static rule engine.
+It must adapt, reason, and evolve — while maintaining structured auditability and schema compliance.
+

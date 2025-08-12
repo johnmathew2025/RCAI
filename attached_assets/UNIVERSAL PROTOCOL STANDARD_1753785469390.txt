@@ -1,0 +1,85 @@
+UNIVERSAL PROTOCOL STANDARD: ENFORCEMENT INSTRUCTIONS
+=====================================================
+
+OBJECTIVE:
+----------
+Enforce zero-tolerance compliance with Universal Protocol Standard for this workspace. No human or automated agent is permitted to commit, push, deploy, or run any code if protocol violations exist (e.g., hardcoded values, non-dynamic logic, or forbidden patterns). All compliance checks must block further progress until violations are resolved.
+
+MANDATORY ACTIONS:
+------------------
+
+1. **Automated Protocol Compliance Check**
+   - Ensure that the `protocol_check.sh` (or equivalent) script is maintained and up-to-date.
+   - The script must scan the entire codebase for all forbidden patterns, hardcoded values, and protocol violations as specified.
+
+2. **Git Hooks Enforcement**
+   - Attach the compliance script to pre-commit and pre-push Git hooks using `.husky` or native Git hooks.
+   - If any violation is detected, the commit or push MUST be blocked with an error message indicating the problem.
+   - Example pre-commit hook:
+     ```
+     #!/bin/bash
+     ./protocol_check.sh
+     if [ $? -ne 0 ]; then
+       echo "❌ Protocol violation detected. Commit blocked."
+       exit 1
+     fi
+     ```
+   - This ensures that NO code can be committed or pushed if violations exist.
+
+3. **CI/CD & Deployment Enforcement**
+   - Integrate the compliance script into any automated build, deploy, or CI/CD workflow (e.g., GitHub Actions, Replit build scripts).
+   - Block all deployments/builds with a non-zero exit code if protocol violations are found.
+   - Example:
+     ```
+     ./protocol_check.sh
+     if [ $? -ne 0 ]; then
+       echo "❌ Protocol violation detected. Build/deploy blocked."
+       exit 1
+     fi
+     ```
+
+4. **Runtime Self-Check (Optional but Recommended)**
+   - Configure the main application entry point (e.g., `server/index.ts`, `main.js`) to run the compliance script at startup.
+   - If a violation is detected, log the violation and shut down the application immediately to prevent running in a non-compliant state.
+   - Example (Node.js):
+     ```
+     const { execSync } = require('child_process');
+     try {
+       execSync('./protocol_check.sh', { stdio: 'inherit' });
+     } catch (e) {
+       console.error('❌ Protocol violation detected at runtime. Server exiting.');
+       process.exit(1);
+     }
+     ```
+
+5. **Escalation Policy**
+   - If any agent (human or automated) is unable to achieve full compliance, STOP all work and escalate immediately to a senior engineer or platform support for review and intervention.
+   - No “temporary” or “fallback” fixes are permitted—full compliance is required at all times.
+
+6. **Documentation and Reporting**
+   - Document every change made for compliance enforcement.
+   - Provide a log/report of all compliance checks and violations fixed for my review before finalizing any merge, deploy, or production release.
+
+7. **No Exceptions**
+   - There are NO exceptions to this policy. All agents must comply, regardless of role or urgency.
+
+AI & ADMIN ENFORCEMENT RULES
+----------------------------
+- All AI engine/model configuration (model name, provider, keys, endpoints) MUST be managed exclusively via the admin interface or secure dynamic config files.
+- NO hardcoded references to AI models, providers, endpoints, or prompt templates are allowed anywhere in the codebase.
+- AI symptom parsing, failure mode selection, and evidence logic must be 100% schema-driven and asset-agnostic.
+- All AI code and configuration MUST pass the same protocol_check.sh compliance as all other logic.
+- Any attempt to “hardcode” AI logic, model switching, or evidence matching will block the commit/push/run.
+- All admin settings must be fully auditable and logged.
+
+
+SUMMARY:
+--------
+- The workspace must never allow protocol violations (hardcoding, shortcuts, etc.) to be committed, pushed, deployed, or run.
+- Compliance is enforced by code, not by manual review alone.
+- All agents and automated tools must obey these rules, or escalate if unable to comply.
+
+IN CASE OF QUESTIONS OR AMBIGUITY:
+----------------------------------
+Pause all work and seek immediate clarification from me before proceeding.
+

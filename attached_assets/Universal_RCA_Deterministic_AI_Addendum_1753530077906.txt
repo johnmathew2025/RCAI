@@ -1,0 +1,94 @@
+UNIVERSAL RCA LOGIC FLOW – MANDATORY AI/LLM ROOT CAUSE INFERENCE
+===============================================================
+
+STRICT RULE: NO HARDCODING of equipment, filenames, column names, or evidence types.
+
+APPLICABILITY: These rules must be applied to ALL file uploads, ALL evidence types, ALL industries—universal and schema-driven.
+
+───────────────────────────────────────────────────────────────
+STAGE 3: INITIAL EVIDENCE UPLOAD
+───────────────────────────────────────────────────────────────
+
+1. User uploads evidence files (CSV, TXT, XLSX, PDF, JPG, etc.) as per the checklist.
+
+2. Every file, regardless of format or equipment:
+   a) Is parsed by the universal Python backend (pandas/NumPy/SciPy/PyMuPDF).
+   b) Backend performs pattern matching to:
+      - Auto-detect all columns/fields (time, amplitude, temp, freq, etc. – no assumptions)
+      - Extract features (trend, FFT, RMS, mean, outlier, completeness, missing fields)
+      - Output a structured summary, e.g.:
+        {
+          "filename": "uploaded_xxx.txt",
+          "columnsDetected": {...},
+          "featureSummary": {...},
+          "diagnosticValue": "Medium",
+          "confidence": 70,
+          "missingFields": []
+        }
+
+3. **MANDATORY**: After parsing, the backend MUST pass the structured summary for every file to the integrated AI/LLM (GPT, Gemini, Claude, etc.) for **diagnosis, evaluation, and recommendations**.
+
+4. LLM/AI must:
+   - Interpret the parsed summary, regardless of equipment or evidence type
+   - Identify likely fault(s) or state “No anomaly detected” if applicable
+   - Justify inference using parsed features (“RMS = 5.6 mm/s is abnormally high; peak at 1× RPM suggests imbalance”)
+   - Recommend next actions (“Check balance, inspect foundation, collect additional IR scan, etc.”)
+   - Report confidence in inference (0–100%)
+   - Explicitly call out missing or inadequate data and prompt the user for more if needed
+   - Output MUST be universal (works for ANY input) and cannot use static templates or rules for any equipment/file.
+
+Example AI prompt (automatically constructed by backend):
+    """
+    You are a reliability expert AI. Here is the parsed summary of a new evidence file:
+    Evidence: {"RMS": 4.2, "FFT": "Peak at 1.7x", "Trend": "increasing", "Data Completeness": 100%}
+    Equipment: [parsed equipment type or 'unknown']
+    Provide:
+    - Most probable root cause (if any)
+    - Confidence level (0–100%)
+    - Recommendations (plain English)
+    - Additional evidence needed if uncertainty is high
+    """
+
+───────────────────────────────────────────────────────────────
+STAGE 3B: HUMAN REVIEW PANEL
+───────────────────────────────────────────────────────────────
+
+- For every file, show:
+    - Parsed summary (from backend)
+    - LLM/AI diagnostic output (diagnosis, confidence, recommendation, data gaps)
+- User must Accept, Replace, or Request More Info for each item
+- Cannot proceed to Stage 4 unless all checklist items are reviewed
+
+───────────────────────────────────────────────────────────────
+STAGE 4: SECONDARY EVIDENCE UPLOAD
+───────────────────────────────────────────────────────────────
+
+- Repeat Stage 3 logic (backend parses, LLM interprets, no hardcoding)
+- All new files undergo the same process, regardless of file or equipment type
+
+───────────────────────────────────────────────────────────────
+STAGE 4B: HUMAN REVIEW PANEL (AGAIN)
+───────────────────────────────────────────────────────────────
+
+- Same as 3B: Show parsing summary, LLM diagnosis, user must review/accept
+
+───────────────────────────────────────────────────────────────
+STAGE 5–6: FINAL RCA OUTPUT (AI SYNTHESIS)
+───────────────────────────────────────────────────────────────
+
+- AI/LLM is provided all confirmed evidence, parsed summaries, and human feedback
+- Must infer:
+    - Primary Root Cause(s)
+    - Supporting Evidence (files & features)
+    - Confidence score
+    - Recommendations (detailed, actionable)
+    - All uncertainties/missing info must be called out explicitly
+    - User can accept/finalize, or return to Stage 4 for more evidence/clarification
+
+───────────────────────────────────────────────────────────────
+FINAL RULES:
+- Backend parsing & LLM interpretation are BOTH required for every evidence file
+- RCA cannot proceed without both
+- Absolutely NO hardcoding allowed—logic must generalize across all industrial assets, evidence, and file formats.
+
+END OF UNIVERSAL RCA LOGIC INSTRUCTION – 2025-07-26

@@ -1,0 +1,88 @@
+
+# 🚨 UNIVERSAL SECURITY INSTRUCTION - ZERO HARDCODING OF LLM API KEYS
+
+## ⚠️ THIS IS A NON-NEGOTIABLE PROTOCOL ENFORCEMENT DIRECTIVE ⚠️
+
+This applies to **ALL LLM PROVIDERS** including (but not limited to):
+- OpenAI (GPT-4, GPT-4o, GPT-3.5)
+- Google Gemini (Pro, Flash)
+- Anthropic Claude
+- Mistral, Cohere, and any others
+
+========================================================================================
+SECTION 1: ABSOLUTE BAN ON HARDCODED API KEYS
+========================================================================================
+
+❌ DO NOT under ANY circumstances ask the system owner or user to supply an LLM API key
+    in plaintext, chat, code comments, shell, or frontend form.
+
+❌ DO NOT hardcode any LLM API key in ANY source code file (.ts, .js, .py, .html, .env.example)
+
+✅ The ONLY permitted method for accessing any API key is via SECURE ENVIRONMENT VARIABLES.
+
+----------------------------------------------------------------------------------------
+EXAMPLE IMPLEMENTATION (LLM-AGNOSTIC):
+
+.env or Replit Secret Config (DO NOT hardcode in code):
+
+    OPENAI_API_KEY=sk-xxxxxxxxxxxx
+    GEMINI_API_KEY=xxxxx
+    CLAUDE_API_KEY=xxxxx
+
+Then in code (universal config style):
+
+----------------------------------------------------------------------------------------
+export const AIConfig = {
+  provider: process.env.LLM_PROVIDER || "openai", // "gemini", "claude", etc.
+  apiKey: {
+    openai: process.env.OPENAI_API_KEY || "",
+    gemini: process.env.GEMINI_API_KEY || "",
+    claude: process.env.CLAUDE_API_KEY || "",
+  },
+  generateTimestamp: () => new Date().toISOString(),
+  uuidProvider: () => crypto.randomUUID(),
+};
+----------------------------------------------------------------------------------------
+
+In LLM implementation logic:
+
+----------------------------------------------------------------------------------------
+const key = AIConfig.apiKey[AIConfig.provider];
+if (!key) throw new Error("Missing API key for selected LLM provider: " + AIConfig.provider);
+----------------------------------------------------------------------------------------
+
+========================================================================================
+SECTION 2: SECURITY & PROTOCOL COMPLIANCE CHECKLIST
+========================================================================================
+
+- ✅ DO NOT log the API key or reveal in frontend
+- ✅ DO NOT store API keys in database or file system
+- ✅ Use `process.env` exclusively for runtime secrets
+- ✅ Validate API key presence and provide clear error if missing
+- ✅ Never transmit API keys to frontend under any circumstances
+
+========================================================================================
+SECTION 3: ERROR HANDLING STANDARD
+========================================================================================
+
+If key is missing, respond with:
+    { "error": "LLM API key not configured. Please check your server environment." }
+
+Or show:
+    ⚠️ "LLM key for selected provider is missing. Configure in environment settings."
+
+========================================================================================
+SECTION 4: REASON FOR STRICT ENFORCEMENT
+========================================================================================
+
+- ✅ Prevents accidental exposure of sensitive API keys
+- ✅ Ensures compliance with enterprise-grade security standards
+- ✅ Supports pluggable LLM providers with dynamic config
+- ✅ Fully aligns with the Universal Protocol Standard (Clause 0, 2, and 7)
+
+========================================================================================
+THIS SECURITY DIRECTIVE APPLIES TO ALL AI/HUMAN CONTRIBUTORS
+NO EXCEPTIONS. NO HARDCODING. NO MANUAL KEY ENTRY VIA CHAT.
+========================================================================================
+
+For questions or clarification, contact the system owner (Probin).

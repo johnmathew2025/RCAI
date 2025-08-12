@@ -1,0 +1,108 @@
+
+───────────────────────────────────────────────────────────────
+UNIVERSAL RCA AI EVIDENCE ANALYSIS & PARSING LOGIC
+STRICT: NO HARDCODING — FULLY SCHEMA-DRIVEN (v2025-07-25)
+───────────────────────────────────────────────────────────────
+
+GENERAL PRINCIPLES
+──────────────────
+- NO HARDCODING: Never hardcode incident IDs, equipment IDs, evidence categories, types, or file patterns. All logic must use schema-driven (DB/config) mappings and be dynamic.
+- ALL FILES ARE PARSED: Every file (.csv, .txt, .xlsx, .xls, .pdf, .json, .png, .jpg, .docx) uploaded as evidence at Steps 4 or 5 must be parsed and analyzed in the backend using AI and/or parsing logic.
+- PROMPT USER IF INCOMPLETE: If a file is incomplete, cannot be parsed, or missing expected structure, AI must prompt user for clarification or “Mark as Not Available” with a reason.
+
+STEP 3 – EVIDENCE CHECKLIST GENERATION
+───────────────────────────────────────
+- Generate evidence checklist per schema (equipment group/type/subtype, evidence library, etc.).
+- Each checklist item:
+    - evidenceCategory (e.g., Vibration, IR, Temperature, Oil Sample)
+    - required (true/false)
+    - expectedFileTypes (e.g., [“csv”,“txt”,“xlsx”,“pdf”])
+    - aiPrompt (e.g., “Upload vibration trend or spectrum”)
+- NO hardcoded values, IDs, or file names.
+
+STEP 4 – EVIDENCE FILE HANDLING & AI ANALYSIS
+──────────────────────────────────────────────
+A. File Parsing (Universal Logic)
+    - For each uploaded file:
+        - IF csv/txt/xlsx: Auto-detect columns (time, freq, amp, rpm, temp, 1X, 2X, etc.)
+        - Parse entire file, not just by file name.
+        - If waveform/trend, perform FFT/trend/feature extraction.
+        - IF pdf/image: Use OCR, extract summary values if possible.
+B. AI Analysis for Each File
+    - Always produce for each evidence:
+        - diagnosticValue (Low/Medium/High)
+        - parsedResultSummary (e.g., “Dominant 1X at 12mm/s RMS, 1500rpm”)
+        - evidenceConfidenceImpact (e.g., 90% if strong, 30% if weak)
+        - aiRemarks (e.g., “No time column detected”)
+    - Save all metadata:
+        - filename
+        - evidenceType (trend/log/image/report)
+        - diagnosticValue
+        - parsedResultSummary
+        - aiRemarks
+        - evidenceConfidenceImpact
+        - status (Available/Unavailable)
+        - userProvidedReason (if marked Unavailable)
+C. Missing/Incomplete Data
+    - If file missing columns/units:
+        - AI prompts user: “Vibration file missing timestamp/units. Please clarify or re-upload.”
+        - User can re-upload or tick “Not Available” with reason.
+        - Mark evidence status as “Unavailable” if not supplied.
+
+STEP 4.5 – HYPOTHESIS-BASED FALLBACK
+─────────────────────────────────────
+- If evidence insufficient/weak:
+    - AI continues using hypothesis (“Analysis based on hypothesis due to insufficient evidence. Confidence reduced.”)
+    - Root cause/recommendations labeled as “Low Confidence (<50%)”
+    - NEVER leave output tabs blank.
+
+STEP 5 – OUTPUT UI LOGIC
+────────────────────────
+- Every RCA tab (Root Cause, Recommendations, Evidence Gaps) must show:
+    - AI summary (even if based on assumption)
+    - Examples:
+        - “Waveform analyzed: 1X peak, RMS=10mm/s, no severe transient.”
+        - “No IR scan; normal temperature assumed.”
+- Always display AI’s reasoning and confidence level.
+
+EVIDENCE LIBRARY REFERENCE ONLY
+───────────────────────────────
+- Use library patterns as *reference*, not fallback.
+- Even if no library match, always analyze the actual uploaded file and show result.
+
+CONFIGURATION
+─────────────
+- All thresholds, rules, pattern definitions must be **configurable** (DB or config), never hardcoded.
+- Do not write logic specific to any incident/equipment/thresholds.
+
+PRESERVE EXISTING FLOW
+──────────────────────
+- Steps 0–2 and 5–6 logic must remain unchanged (except to display above outputs).
+- Ensure all AI analysis, prompts, and summaries are visible in UI.
+
+LIBRARY ENRICHMENT (ADMIN ONLY)
+───────────────────────────────
+- If new evidence signature detected, recommend library update only with admin approval.
+
+IMPLEMENTATION REQUIREMENTS
+───────────────────────────
+- All logic must run in schema-driven backend functions (not incident-specific code).
+- No file, path, or field assumptions in code.
+- All UI output must be dynamic and reflect actual backend analysis for each evidence.
+
+EXAMPLE FLOW (WAVEFORM)
+───────────────────────
+- User uploads vibration waveform .txt in Step 4.
+    - AI parses columns, performs FFT/trend analysis.
+    - Shows “Waveform analyzed: 1X peak, 10mm/s, no impact event.”
+    - If missing: “Vibration file missing timebase. Please upload or mark as unavailable.”
+    - All metadata/results visible in UI.
+    - If insufficient, RCA continues with confidence <50% and this noted in all outputs.
+
+STRICT NO HARDCODING ENFORCEMENT
+────────────────────────────────
+- No logic, thresholds, or flows are allowed to be hardcoded for any incident, equipment, or pattern.
+
+───────────────────────────────────────────────────────────────
+END OF INSTRUCTION
+───────────────────────────────────────────────────────────────

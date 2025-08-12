@@ -1,0 +1,169 @@
+Critical Evidence (0/1)
+Required for accurate analysis
+
+Vibration Analysis Data
+Critical
+AI Generated
+Essential vibration measurements for mechanical failure analysis
+
+Examples:
+Overall vibration levels
+Frequency spectrum analysis
+Trending data from monitoring system
+Upload Evidence Files
+
+Drag files or click to browse
+PDF, Excel, CSV, Images, Text files
+Notes (optional)
+High Priority Evidence (0/10)
+Complete at least 80% for optimal analysis
+
+Bearing Failure
+High
+AI Generated
+Root: Damaged bearing. Contrib: Oil contamination, overload.
+
+Examples:
+Vibration
+Bearing Temp
+Oil Quality
+Upload Evidence Files
+
+Drag files or click to browse
+PDF, Excel, CSV, Images, Text files
+Notes (optional)
+
+Casing Crack
+High
+AI Generated
+Root: Crack found. Contrib: Overpressure, casting defect.
+
+Examples:
+Pressure
+Leak
+Inspection
+Upload Evidence Files
+
+Drag files or click to browse
+PDF, Excel, CSV, Images, Text files
+Notes (optional)
+
+Impeller Damage
+High
+AI Generated
+Root: Broken/eroded impeller. Contrib: Cavitation, solids.
+
+Examples:
+Flow Rate
+Pressure
+Inspection
+Upload Evidence Files
+
+Drag files or click to browse
+PDF, Excel, CSV, Images, Text files
+Notes (optional)
+
+Misalignment
+High
+AI Generated
+Root: Misalignment detected. Contrib: Foundation, installation.
+
+Examples:
+Vibration
+Coupling Inspection
+Vibration plot
+Upload Evidence Files
+
+Drag files or click to browse
+PDF, Excel, CSV, Images, Text files
+Notes (optional)
+
+Motor Overload
+High
+AI Generated
+Root: Overload. Contrib: Binding, process upset.
+
+Examples:
+Current
+Motor Temp
+Vibration
+Upload Evidence Files
+
+Drag files or click to browse
+PDF, Excel, CSV, Images, Text files
+Notes (optional)
+
+Seal Leak
+High
+AI Generated
+Root: Seal aged/damaged. Contrib: Lubrication, misalignment.
+
+Examples:
+Vibration
+Seal Pot Level
+Leak Temp
+Upload Evidence Files
+
+Drag files or click to browse
+PDF, Excel, CSV, Images, Text files
+Notes (optional)
+
+Shaft Breakage
+High
+AI Generated
+Root: Shaft fatigue. Contrib: Overload, cyclic stress, defects.
+
+Examples:
+Torque data
+Overload trend
+Metallurgy
+Upload Evidence Files
+
+Drag files or click to browse
+PDF, Excel, CSV, Images, Text files
+Notes (optional)
+
+Shaft Key Shear
+High
+AI Generated
+Root: Key shear. Contrib: Improper key fit, cyclic load.
+
+Examples:
+Torque spike
+Shaft coupling inspection
+Inspection photo
+Upload Evidence Files
+
+Drag files or click to browse
+PDF, Excel, CSV, Images, Text files
+Notes (optional)
+
+Shaft Misalignment
+High
+AI Generated
+Root: Misalignment. Contrib: Thermal growth, installation error.
+
+Examples:
+Vibration
+Laser Alignment Report
+Vibration spectrum
+Upload Evidence Files
+
+Drag files or click to browse
+PDF, Excel, CSV, Images, Text files
+Notes (optional)
+
+Shaft Not Available (Spare)
+High
+AI Generated
+Root: Spare not available. Contrib: Inventory gap, poor planning.
+
+Examples:
+Inventory logs
+Procurement data
+Procurement trail
+Upload Evidence Files
+
+Drag files or click to browse
+PDF, Excel, CSV, Images, Text files
+Notes (optional)

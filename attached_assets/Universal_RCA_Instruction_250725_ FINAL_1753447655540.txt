@@ -1,0 +1,128 @@
+UNIVERSAL RCA AI EVIDENCE ANALYSIS & PARSING INSTRUCTIONS  
+Version: 2025-07-25  
+RULE: NO HARDCODING OF LOGIC, FILE TYPES, OR EQUIPMENT. ALL LOGIC MUST BE UNIVERSAL & SCHEMA/DB DRIVEN.
+
+---------------------------------------------
+I. OVERALL PRINCIPLES
+---------------------------------------------
+- The entire AI evidence analysis system must be universal.
+- All evidence parsing, adequacy checks, and RCA logic must be controlled by generic, extensible schema (Evidence Library/DB), not by hardcoded rules for specific equipment or file types.
+- All accepted file types (CSV, TXT, XLSX, PDF, JPG/PNG, JSON) must be handled generically.
+- If evidence is provided in any supported format, system must attempt to analyze it using appropriate engine (Python for tabular, GPT for text/image/unstructured, etc).
+- If analysis is not possible or content is insufficient, system must generate a user prompt for exactly what is missing—no silent failures.
+- AI (GPT, Vision, or similar) must be invoked whenever required to:
+    • Summarize evidence
+    • Generate human-like feedback/prompts
+    • Synthesize RC explanations/recommendations
+
+---------------------------------------------
+II. STEPWISE LOGIC FOR UNIVERSAL RCA ANALYSIS
+---------------------------------------------
+
+1. STAGE 3/4: EVIDENCE INGESTION & PARSING
+---------------------------------------------
+a. As soon as a user uploads any evidence file (CSV, TXT, PDF, XLSX, JPG, PNG, JSON, etc):
+    - System reads file type and metadata
+    - For tabular/time-series: route to Python engine (pandas/Numpy/Scipy)
+    - For text/unstructured: send to AI/GPT for summary and content extraction
+    - For images/PDF: use OCR+Vision+GPT to extract/interpret contents
+
+b. Analysis Engine (Pseudocode Example for Tabular Evidence):
+    ```python
+    import pandas as pd
+    import numpy as np
+
+    def parse_vibration(file_content):
+        df = pd.read_csv(file_content)
+        result = {}
+        if 'Velocity' in df.columns:
+            velocity = df['Velocity']
+            result['mean'] = velocity.mean()
+            result['rms'] = np.sqrt((velocity**2).mean())
+            # Additional signal features...
+        # Detect missing required fields
+        required_cols = ['Time', 'Velocity', 'Acceleration']
+        missing = [col for col in required_cols if col not in df.columns]
+        return result, missing
+    ```
+    - For all other evidence, same principle: auto-detect columns/patterns, don’t hardcode.
+
+c. After parsing, AI/GPT must be called to:
+    - Generate a **plain-language summary** of what was found (e.g., “Vibration data detected with 1000 samples, mean RMS: 2.5 mm/s”)
+    - If data is missing, AI should generate a precise, actionable prompt:  
+      (“RPM column missing in vibration data. Please upload trend with RPM, or indicate not available.”)
+
+2. STAGE 4: EVIDENCE ADEQUACY SCORING & GAP FEEDBACK
+----------------------------------------------------
+a. System checks the adequacy of provided evidence against requirements for equipment/subtype/failure mode (from Evidence Library/Schema, **not** hardcoded):
+    - If all required evidence present, score as 100% adequacy
+    - If partial or missing, calculate % and **AI prompts user to upload/clarify**
+
+b. **AI/GPT summarizes:**
+    - What is present/missing, using user-friendly language
+    - Suggests best next action
+
+3. STAGE 5-6: AI ROOT CAUSE INFERENCE & RECOMMENDATIONS
+-------------------------------------------------------
+a. AI/GPT takes the evidence summary, parsed features, and adequacy scoring
+b. AI performs:
+    - **Root cause inference** (based on patterns, rules, schema)
+    - **Confidence scoring** (if data is weak, state as much)
+    - **Recommendation generation** (prioritized actions, flagged evidence gaps)
+    - **Human-like narrative explanations** (e.g., “Based on the uploaded vibration and thermal data, likely root cause is misalignment. Confidence is moderate due to missing process trends.”)
+
+c. If evidence is still lacking, **AI explicitly states this** in its output (e.g., “Unable to confirm root cause due to insufficient evidence. Please provide...”).
+
+4. STEP 7+: REPORT GENERATION (OPTIONAL)
+----------------------------------------
+a. AI/GPT can be used to auto-generate final summary reports, in plain language, using all results above.
+
+---------------------------------------------
+III. UNIVERSAL LOGIC - ZERO HARDCODING
+---------------------------------------------
+- All prompts, adequacy rules, column mapping, failure mode logic, etc., must be driven from **config/schema/Evidence Library**.
+- No specific mapping to “pump”, “motor”, “vibration”, or any other asset type is allowed.  
+  Instead, system must dynamically detect, parse, and prompt using rules from schema and AI pattern recognition.
+
+---------------------------------------------
+IV. UNIVERSAL EXAMPLES FOR ALL FILE TYPES
+---------------------------------------------
+- If user uploads process trend (CSV): system parses timestamp, pressure/temp columns, auto-maps, scores completeness, prompts for missing.
+- If user uploads PDF: OCR text, summarize, flag any mention of “bearing”, “overheat”, etc, using AI NLP.
+- If user uploads image: Vision+OCR for tag numbers, analog readings, panel displays.
+- If user uploads TXT/Word: Summarize, extract key events, flag missing info.
+
+---------------------------------------------
+V. ERROR HANDLING & PROMPTING
+---------------------------------------------
+- If at any stage, required evidence or features are missing, **AI must prompt user**, e.g.:
+    • “Cannot find temperature trend in provided files. Please upload temperature log or confirm not available.”
+    • “Uploaded vibration file contains only 1 channel. Multi-channel preferred for advanced diagnosis.”
+
+---------------------------------------------
+VI. INTERFACE EXAMPLES (PLAIN ENGLISH FEEDBACK)
+---------------------------------------------
+- After each upload, system should show:  
+    “Evidence file ‘centrifugal_pump_vibration_waveform.txt’ parsed. 1500 rows, 5 columns detected. RMS=3.2 mm/s. No RPM trend present. Please upload process RPM or comment if not available.”
+
+- If all requirements met:  
+    “All required evidence provided. Proceeding to root cause inference with 95% confidence.”
+
+---------------------------------------------
+VII. AI ENGINE INTEGRATION
+---------------------------------------------
+- All AI/GPT calls must be generic (text summarization, question generation, adequacy feedback, plain-language reporting).
+- For tabular, use Python/pandas/numpy/scipy for feature extraction. For text/images, GPT (Vision/NLP).
+- All outputs and prompts must be dynamically generated.
+
+---------------------------------------------
+VIII. TESTING & VALIDATION
+---------------------------------------------
+- Test system with multiple file types, equipment groups, column patterns, etc.  
+- Confirm that all analysis, prompting, and scoring work with zero hardcoded logic.
+- Review all user feedback: must always be actionable and evidence-driven.
+
+---------------------------------------------
+
+END OF UNIVERSAL RCA AI EVIDENCE INSTRUCTION (NO HARDCODING ALLOWED)
+

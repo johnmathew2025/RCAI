@@ -1,0 +1,77 @@
+
+📄 RCA Evidence Library Filtering Compliance Enforcement
+
+🛑 Root Cause of Current Failure:
+Despite claims of universal NLP filtering, failure modes like "Bearing Failure", "Impeller Damage", and "Casing Crack" are still shown by default for pumps — even when not contextually relevant. This clearly indicates:
+
+❌ Hardcoded or equipment-type-tied failure modes are still being preloaded from the Evidence Library.
+❌ Filtering is not based solely on symptoms extracted from the incident description.
+❌ Symptom-to-failure mode matching is NOT dynamically validated per incident.
+
+---
+
+✅ REQUIRED: UNIVERSAL, DYNAMIC RCA FILTERING LOGIC
+
+1. 🚫 ABSOLUTE RULE: NO HARDCODED FAILURE MODES
+   - Do not preload or default any failure modes based on Equipment Group, Type, or Subtype.
+   - The system must work for any industrial asset, even those not in the library yet.
+
+2. ✅ PRIMARY INDEX: INCIDENT SYMPTOMS (NOT EQUIPMENT TYPE)
+   - Use NLP to extract keywords from incident description and symptom fields.
+   - Search the Evidence Library for matching symptom patterns or triggers — not for equipment type.
+
+3. 🔍 FAILURE MODE DISPLAY RULES:
+   - Only display failure modes where:
+     a. Keyword match exists between incident and Evidence Library
+     b. Match is logged with traceable justification
+
+4. 📚 EVIDENCE LIBRARY QUERY EXAMPLE:
+   Instead of:
+     SELECT * FROM library WHERE EquipmentType = "Pump"
+
+   Use:
+     SELECT * FROM library WHERE Symptoms LIKE ANY(KEYWORDS_FROM_INCIDENT)
+
+5. 🧠 LOGGING REQUIREMENT (FOR QA AND AUDIT):
+   For every failure mode surfaced, log:
+   ```json
+   {
+     "IncidentID": "70",
+     "FailureMode": "Bearing Failure",
+     "MatchedKeyword": "vibration",
+     "MatchSource": "incident.description",
+     "LibraryRowID": 88
+   }
+   ```
+
+6. ⚙️ REJECTION OF NON-MATCHED FAILURE MODES:
+   If no match exists between incident keywords and Evidence Library symptom triggers:
+   → No failure modes should be surfaced at that stage.
+
+7. 📌 NO FALLBACK OR DEFAULT MODES:
+   - Do not load equipment-typical failures just because symptom parsing is weak.
+   - If NLP confidence is low, prompt user to improve symptom description instead.
+
+8. 🔁 DYNAMIC OPERATION ONLY:
+   - The entire flow must work for any equipment type, even hypothetical ones.
+   - Schema must support adding new types without code change.
+
+---
+
+🧪 Example of Incorrect Behavior (currently observed):
+Incident: Pump seal failure
+  ✅ Incident mentions: "seal", "leak", "dripping"
+  ❌ System shows: "Bearing Failure", "Casing Crack" (not mentioned, irrelevant)
+  🔍 Logs show evidence library pulled all pump-type rows by default
+
+✔️ Correct behavior:
+  - NLP extracts: "seal", "leak"
+  - Library filtered for those symptom triggers only
+  - Only “Seal Face Wear” and “Seal Flush Blocked” modes are shown
+
+---
+
+📣 FINAL WARNING: HARD CODING PROHIBITED UNDER ALL CIRCUMSTANCES
+→ Any use of static failure mode lists, default templates, or hardcoded EquipmentType logic is a violation of universal RCA principles.
+
+ALL FILTERING MUST BE DONE DYNAMICALLY, BASED ON INCIDENT CONTENT ONLY.

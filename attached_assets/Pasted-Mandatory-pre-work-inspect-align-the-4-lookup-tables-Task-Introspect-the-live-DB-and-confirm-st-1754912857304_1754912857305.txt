@@ -1,0 +1,149 @@
+Mandatory pre-work (inspect & align the 4 lookup tables)
+Task: Introspect the live DB and confirm structures for:
+equipment_groups
+equipment_types (must have FK → group)
+equipment_subtypes (must have FK → type)
+risk_rankings (labels/scale stored here; no enums in code)
+Deliver a short note with:
+table name, primary key column, display label column, parent FK columns
+sample rows (ids + names)
+any inconsistencies (e.g., duplicate names by case/space)
+Do not proceed until this is written down and approved.
+1) Evidence table (text-only)
+Prisma model (adapt column names to your conventions; all business fields are String, timestamps are fine):
+model EvidenceItem {
+  id                             String   @id @default(cuid())
+
+  // UNIQUE KEY (required)
+  equipmentCode                  String   @unique
+
+  // Foreign keys to lookup tables — store as TEXT ids (not ints/enums)
+  groupId                        String?  // FK -> equipment_groups.id (TEXT)
+  typeId                         String?  // FK -> equipment_types.id   (TEXT)
+  subtypeId                      String?  // FK -> equipment_subtypes.id (TEXT)
+  riskId                         String?  // FK -> risk_rankings.id (TEXT, optional)
+
+  // Denormalized display (text only; optional but handy for exports)
+  equipmentGroup                 String?
+  equipmentType                  String?
+  equipmentSubtype               String?
+
+  // Library content (text-only)
+  subtypeExample                 String?
+  componentFailureMode           String?
+  failureCode                    String?
+  riskRankingLabel               String? // keep label text, even if riskId present
+  requiredTrendData              String?
+  investigatorQuestions          String?
+  attachmentsRequired            String?
+  rootCauseLogic                 String?
+  primaryRootCause               String?
+  contributingFactor             String?
+  latentCause                    String?
+  detectionGap                   String?
+  confidenceLevel                String?
+  faultSignaturePattern          String?
+  applicableToOtherEquipment     String?
+  evidenceGapFlag                String?
+  eliminatedIfConfirmed          String?
+  whyItGetsEliminated            String?
+
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+}
+Rules
+Every field above is TEXT in Postgres (except timestamps).
+No numbers/booleans in schema. Store exactly what the CSV has.
+groupId/typeId/subtypeId/riskId are TEXT FKs that reference existing lookup tables’ primary keys.
+2) Validation & integrity (server)
+On create/update/import, if any of groupId/typeId/subtypeId/riskId is provided, validate existence against the 4 lookup tables.
+If invalid → 422 with clear message.
+If provided as names (e.g., “Electrical”) in CSV, you must resolve to IDs by querying the lookup tables’ label columns (case/trim-insensitive).
+Never create new groups/types/subtypes from the Evidence importer; admins create them in the dedicated managers.
+Hierarchy guard:
+typeId must belong to groupId.
+subtypeId must belong to typeId.
+If hierarchy breaks, reject update/import for that row.
+3) Dropdowns (lookup-table–backed only)
+APIs (read from the 4 lookup tables, not from EvidenceItem, and never from code constants):
+GET /api/taxonomy/groups?active=true
+→ { id, name }[] from equipment_groups
+GET /api/taxonomy/types?groupId=…&active=true
+→ { id, name }[] from equipment_types where group_id = …
+GET /api/taxonomy/subtypes?typeId=…&active=true
+→ { id, name }[] from equipment_subtypes where type_id = …
+GET /api/taxonomy/risks?active=true
+→ { id, label }[] from risk_rankings
+UI must:
+Load Groups on page load.
+When Group changes → fetch Types; when Type changes → fetch Subtypes.
+Risk dropdown pulls from risk_rankings.
+The UI may show an “All …” virtual option, but never store it.
+4) Evidence listing/search
+GET /api/evidence?q=&groupId=&typeId=&subtypeId=&riskId=&page=1&pageSize=50
+Filters by IDs (not names).
+q searches across these text columns (ILIKE):
+componentFailureMode, equipmentCode, failureCode, riskRankingLabel, rootCauseLogic
+Returns rows with both IDs and denormalized names for display.
+5) CRUD (admin/editor)
+POST /api/evidence — requires equipmentCode (unique). Validates FKs/hierarchy as above.
+PATCH /api/evidence/:equipmentCode — updates by unique key.
+DELETE /api/evidence/:equipmentCode — delete (or later switch to “deactivate” text flag).
+Every mutation must write an AuditLog record (action, targetId=equipmentCode, diff in metadata).
+6) Import / Export (CSV)
+Import
+Endpoint: POST /api/evidence/import (multipart)
+Expected headers (exact):
+Equipment Group,Equipment Type,Subtype / Example,Component / Failure Mode,Equipment Code,Failure Code,Risk Ranking,Required Trend Data / Evidence,AI or Investigator Questions,Attachments / Evidence Required,Root Cause Logic,Primary Root Cause,Contributing Factor,Latent Cause,Detection Gap,Confidence Level,Fault Signature Pattern,Applicable to Other Equipment,Evidence Gap Flag,Eliminated If These Failures Confirmed,Why It Gets Eliminated
+equipmentCode is mandatory; if absent → row skipped with error.
+Resolution to IDs:
+Resolve Equipment Group (text) → groupId from equipment_groups.
+Resolve Equipment Type (text) → typeId within the resolved Group.
+Resolve Subtype / Example (text) → subtypeId within the resolved Type.
+Resolve Risk Ranking (text) → riskId from risk_rankings if an exact label match exists; always keep the label text in riskRankingLabel regardless.
+If any resolution fails → do not create/modify that row; include a row-level error.
+Upsert by equipmentCode (update if exists, insert if new).
+Trim whitespace; do not coerce values (store as-is).
+Return { created, updated, skipped, errors[] } with line numbers and reasons.
+Export
+GET /api/evidence/export.csv
+Emits the same headers and values; names are denormalized from FKs for the three taxonomy columns and risk label.
+7) UI (Evidence Library)
+Filters: Group/Type/Subtype/Risk dropdowns (lookup-table backed).
+Search: text box (q).
+Table: show key columns; row-expand (or side panel) for long text fields.
+Forms: Use IDs for selects, but display labels from lookup APIs.
+Import/Export buttons; Import shows summary with created/updated/skipped/errors.
+8) No-hardcoding guardrails
+Static scanner blocks any array of strings that looks like business vocab (e.g., groups, types, subtypes, risks) in .ts/.tsx.
+Require // @allow-hardcoded: waiver (not allowed for vocab).
+Unit tests: dropdown components must call /api/taxonomy/*; fail otherwise.
+CI (GitHub Actions) runs: lint, tests, scanner; block PR on violations.
+Never use TypeScript enum for business vocab; IDs are plain strings from DB.
+9) Tests (must pass)
+Backend
+FK validation: rejects unknown groupId/typeId/subtypeId/riskId.
+Hierarchy checks: type belongs to group; subtype belongs to type.
+Importer: idempotent by equipmentCode; resolves names → IDs; row-level errors for unknown names.
+Distinct taxonomy endpoints: return active, deduped, sorted results from lookup tables.
+Frontend
+Cascading dropdowns fetch from APIs and clear child selections when parent changes.
+Import UX shows correct counts and detailed row errors.
+Permission gates: Viewer read-only; Editor/Admin can mutate.
+Anti-hardcoding
+Tests + scanner detect embedded vocab arrays.
+10) Acceptance checklist
+The 4 lookup tables are source of truth for dropdowns and validation.
+I can import your CSV; rows are created/updated by equipmentCode; unknown taxonomy names are reported, not auto-created.
+Filters work by IDs and names display correctly.
+Export reproduces exactly what’s stored (text-only), with names resolved from FKs.
+CI blocks any attempt to hardcode lists.
+11) Deliverables for Replit
+A short Lookup Tables Alignment Note (from step 0).
+Prisma models & migrations (only EvidenceItem may be added/changed; lookup tables remain as-is).
+/api/taxonomy/* endpoints wired to the 4 tables.
+Evidence CRUD, list/search, import/export endpoints.
+Evidence Library UI wired to taxonomy APIs.
+Audit logging on every mutation/import.
+Anti-hardcoding scanner + tests + CI.
+README with “how to import” and “no-hardcoding policy”.

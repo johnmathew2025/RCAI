@@ -1,0 +1,112 @@
+
+# 🔍 UNIVERSAL RCA LLM PROMPT ENHANCEMENT INSTRUCTION
+
+## CONTEXT
+The current `LLMEvidenceInterpreter.createDiagnosticPrompt` method correctly uses a deterministic structure and enforces JSON compliance.
+However, it fails to deliver high-quality analysis because the **input content to the LLM is too shallow** for complex or evidence-rich cases.
+
+This issue is NOT limited to vibration waveform data — it applies universally to all evidence types: vibration, temperature trends, IR scans, DCS logs, lubrication reports, and more.
+
+========================================================================================
+✅ OBJECTIVE
+Enable the LLM to:
+1. Analyse evidence features in depth
+2. Evaluate signal quality and diagnostic content
+3. Infer potential failure causes based on meaningful patterns
+4. Deliver recommendations supported by specific parsed data
+
+========================================================================================
+📦 ACTION ITEMS FOR BACKEND DEVELOPERS
+
+You MUST expand the Python parsing output (`parsedSummary.extractedFeatures`) to include structured fields per evidence type.
+
+Examples below are illustrative — the implementation MUST remain evidence-type agnostic and dynamically adapt to the evidenceConfig or file type.
+
+----------------------------------------------------------------------------------------
+🧱 COMMON FIELDS (ALL EVIDENCE TYPES)
+- fileType: "vibration", "temperature", "IR scan", "process trend", etc.
+- duration: (time range, if applicable)
+- samplingRate / resolution
+- keyIndicators: { field-specific insights, e.g., max/min/avg/trend direction }
+- diagnosticQuality: score or flags (e.g., "short duration", "low resolution")
+- anomalySummary: list of anomalies detected, if any
+
+----------------------------------------------------------------------------------------
+📊 EVIDENCE-SPECIFIC STRUCTURES
+
+VIBRATION / WAVEFORM:
+- rmsAmplitude
+- peakAmplitude
+- dominantFrequencies
+- harmonicContent
+- broadbandNoiseLevel
+- sensorInfo: axis, location, calibration
+
+TEMPERATURE TREND:
+- maxTemp
+- tempRiseRate
+- stabilityDuration
+- comparisonBaseline
+
+IR THERMAL IMAGING:
+- maxDeltaT
+- hotSpotsDetected
+- emissivitySettings
+- imageResolution
+
+DCS PROCESS LOG:
+- tagFluctuationSummary
+- rateOfChange
+- alarmTimestamps
+- controllerOutputShift
+
+ULTRASOUND / ACOUSTIC:
+- decibelLevel
+- frequencyBands
+- transientEvents
+
+MAINTENANCE REPORT:
+- textEntityExtraction (dates, parts, actions)
+- lookupKeywords (bearing, seal, alignment, etc.)
+
+----------------------------------------------------------------------------------------
+🧠 LLM PROMPT INJECTION
+
+Modify `createDiagnosticPrompt()` so it renders these enhanced extractedFeatures in a readable, structured way.
+
+The prompt to LLM should resemble:
+
+---
+File: vibration_waveform.txt
+Evidence Type: Vibration
+Duration: 6.6 seconds
+Sampling Rate: 10,000 Hz
+Extracted Features:
+- RMS Amplitude: 7.1 mm/s
+- Dominant Frequency: 30 Hz
+- Harmonics: None
+- Broadband Noise: Low
+- Signal Quality: High
+Adequacy Score: 94%
+Equipment Context: Rotating → Pump → Centrifugal Pump
+---
+
+Prompt must still follow JSON response rule. But the **evidence richness must increase** to enable LLM to reason like GPT-4 when given full context.
+
+========================================================================================
+⚠️ FINAL ENFORCEMENT
+
+- DO NOT hardcode evidence types or fault logic
+- DO NOT reduce all cases to "parsedSummary: string"
+- PROMPT MUST contain real signal metrics or extracted patterns — not vague summaries
+- System MUST scale across all evidence types
+
+This requirement is part of the Universal RCA Deterministic AI Addendum and must be implemented without exception.
+
+========================================================================================
+# UNIVERSALITY ENFORCEMENT
+This instruction must NOT be used to hardcode evidence types, field names, or equipment logic.
+Any developer or AI agent implementing this must:
+- Adapt the field mapping dynamically per evidenceConfig or file inspection
+- Explicitly document (in code comments) how the parsing scales to new evidence types, not just those listed in examples.
+Violation of this section is a PROTOCOL BREACH.

@@ -1,0 +1,134 @@
+
+===========================
+UNIVERSAL RCA SYSTEM LOGIC
+===========================
+
+This is the FINAL UNIVERSAL RCA INSTRUCTION DOCUMENT for Replit Agent.
+
+ABSOLUTE RULE:
+- ❌ NO HARDCODING of equipment group, type, subtype, failure modes, symptoms, keywords, or prompts under ANY circumstance.
+- ✅ ALL LOGIC MUST BE BUILT GENERICALLY using schema-driven configuration and AI/NLP-based reasoning.
+
+--------------------------------------
+SYSTEM FLOW — UNIVERSAL RCA BACKEND
+--------------------------------------
+
+STEP 1: INCIDENT INGESTION
+--------------------------
+- Extract symptoms, equipment identifiers, timeline markers, and keywords using universal NLP (no static keyword lists).
+- If input is vague (e.g., "equipment failed"), AI must:
+  • Prompt for clarifying detail: “Did the failure involve vibration, leak, noise, temperature, or stoppage?”
+  • Recommend evidence types based on asset subtype (e.g., for pump: seal report, vibration, IR).
+- Save user selections and input history.
+
+STEP 2: UNIVERSAL EQUIPMENT CONTEXT MAPPING
+-------------------------------------------
+- Use combination of Equipment Group + Type + Subtype to filter the Evidence Library schema.
+- No hardcoded paths — must dynamically reference schema entries for:
+  • Required trend data
+  • Fault signature patterns
+  • Recommended evidence
+  • Prompt templates
+
+STEP 3: AI-GENERATED FAILURE MODE HYPOTHESES
+--------------------------------------------
+- Based on the incident NLP + evidence library + AI backend:
+  • AI suggests most likely failure modes (e.g., for pump seal leak: Seal Face Wear, Flush Blockage).
+  • Human investigator can:
+    ✅ Accept
+    ❌ Reject
+    ➕ Add more
+- If human modifies, AI reevaluates implications and updates evidence requirements.
+- All hypotheses must have UUIDs, not static ID numbers.
+
+STEP 4: EVIDENCE PROMPTING LOGIC
+--------------------------------
+- Based on filtered failure modes, AI prompts only relevant evidence.
+- User may respond: "Available", "Not Available", "Will Upload", or "Unknown".
+- AI must NOT continue RCA if critical evidence is not confirmed.
+- AI logs evidence gaps and provides suggestions (e.g., “Vibration waveform is missing — upload if available”).
+
+STEP 5: DATA ANALYSIS & MATCHING
+--------------------------------
+- When data is uploaded:
+  • AI interprets attachments (IR scan, vibration, trend, etc.) using fault signature matching from Evidence Library.
+  • If match confidence > 85%, mark as High-Confidence Root Cause.
+  • If < 85%, fallback logic must activate (see Step 6).
+  • All analysis logged with source, timestamp, matching confidence, and AI reasoning.
+
+STEP 6: LOW-CONFIDENCE RCA FLOW
+-------------------------------
+- If:
+  • No clear match from evidence
+  • Or user skips critical data
+- AI must:
+  • Trigger fallback RCA engine
+  • Ask human investigator for hypotheses
+  • Provide example failure trees and assist with logic-building
+  • Allow user to escalate to SME or request further clarification
+
+STEP 7: RCA OUTPUT STRUCTURE
+----------------------------
+Each RCA output must include:
+
+- Primary Root Cause (AI-inferred + Human-confirmed)
+- Contributing Factors (from evidence or expert input)
+- Latent Conditions
+- Detection Gaps
+- Fault Signature Match (Yes/No, % Confidence)
+- Applicable to Other Equipment? (Yes/No)
+- Confidence Level: High / Medium / Low
+- Diagnostic Value Score: 1–5
+- Required Action Items
+- ⬛ NEW — PSM Integration Fields:
+  • PHA Reference
+  • SIS Compliance Check (IEC 61511)
+  • MOC References
+  • Safety Device Functional History
+
+STEP 8: ADMIN REVIEW & LIBRARY UPDATE
+-------------------------------------
+- If user provides new, valid evidence and AI detects new patterns:
+  • AI proposes library enhancement (new fault signature, new prompt style).
+  • Admin (not system) must approve entries: ✅ Accept / ❌ Reject / 🛠 Modify
+- No automatic update of Evidence Library — must be confirmed by authorized admin.
+
+STEP 9: HISTORICAL LEARNING
+---------------------------
+- System stores patterns from previous RCA for:
+  • Similar symptoms
+  • Equipment combinations
+  • Incident context
+- These patterns influence future AI inference for better alignment.
+
+---------------------------------------
+INSTRUCTION SUMMARY TO REPLIT TEAM
+---------------------------------------
+
+✅ NO HARDCODING: Never insert static lists for pumps, seals, motors, or symptoms. All logic must come from:
+  • Evidence_Library.csv
+  • NLP-parsed incident descriptions
+  • AI-backed suggestion generation
+
+✅ HUMAN CONTROL: RCA is AI-assisted, not AI-only. Investigator can:
+  • Accept/reject/modify AI outputs
+  • Add manual hypotheses
+  • Provide or deny evidence
+  • Stop or escalate the RCA
+
+✅ SMART INTEGRATION:
+  • Use incident + symptom + history + evidence + evidence gaps + PSM context
+  • All flows must degrade gracefully if data is missing
+
+--------------------------------------
+LOGIC CHECKLIST BEFORE DEPLOYMENT
+--------------------------------------
+- No equipment-specific branching in code
+- No hardcoded prompts
+- All prompts follow AI prompt templates from Evidence Library
+- Confidence-based fallback RCA working
+- Buttons work with hypothesis IDs
+- RCA output logs decision trees, sources, and actions
+- Admin approval layer for Evidence Library updates
+
+--------------------------------------

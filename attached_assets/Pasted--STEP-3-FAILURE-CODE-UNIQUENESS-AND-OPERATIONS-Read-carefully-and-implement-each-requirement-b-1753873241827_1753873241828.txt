@@ -1,0 +1,55 @@
+**STEP 3 — FAILURE CODE UNIQUENESS AND OPERATIONS**
+
+Read carefully and implement each requirement below. DO NOT PROCEED to Step 4 until each sub-point is completed, validated, and confirmed with evidence. No hardcoding under any circumstances.
+
+---
+
+**1. FAILURECODE AS UNIQUE IDENTIFIER**
+   - The `failureCode` field must be set as the unique identifier for all user-level operations in the Evidence Library.
+   - Enforce uniqueness in the database schema (`@unique` or equivalent constraint).
+   - Remove any UI/logic that allows duplicate `failureCode` entries.
+
+**2. USER OPERATIONS MUST USE FAILURECODE**
+   - All add, edit, delete, import, and export operations must identify records by `failureCode` — NOT by `id`.
+   - The `id` field must remain system-generated (primary key), used only for backend/admin reference, and must NOT be used in any user-facing operation, selection, or update.
+   - All UI elements, selection logic, and API routes for record operations must reference `failureCode`.
+
+**3. IMPORT & UPDATE LOGIC**
+   - During import, matching for update must be performed using `failureCode`. Do NOT use `id` to match or update records.
+   - If a record with the same `failureCode` exists, update it; if not, insert a new record.
+
+**4. DUPLICATE PROTECTION**
+   - The system must prevent entry of duplicate `failureCode` in both the UI and backend.
+   - Any attempt to add a record with an existing `failureCode` must return a clear, user-friendly error message.
+
+**5. UI & ERROR HANDLING**
+   - Any errors related to uniqueness or missing `failureCode` must be handled gracefully with clear messages in the UI.
+   - UI forms for add/edit must include `failureCode` as a required field.
+
+**6. TEST & VALIDATE**
+   - Provide evidence that:
+     - The database enforces `failureCode` uniqueness (show schema/migration).
+     - No duplicate `failureCode` can be added via the UI or API.
+     - All add, edit, delete, import, and export operations use `failureCode` only (not `id`).
+     - “id” is not visible or editable in any user-facing context.
+   - Demonstrate with screenshots or logs:
+     - Adding new record with unique `failureCode`
+     - Attempting to add duplicate (should fail)
+     - Editing and deleting by `failureCode`
+     - Import/export using `failureCode` as identifier
+
+**7. ZERO HARDCODING**
+   - All logic for identifying records must be dynamic and schema-driven.
+   - No hardcoded field names, keys, or lookup values.
+
+---
+
+**ACTION:**  
+Implement all of the above, then provide:
+- Confirmation of implementation
+- Evidence (screenshots/logs/schema)
+- Summary of changes
+
+Wait for user approval before proceeding to Step 4.
+
+NO HARDCODING ALLOWED UNDER ANY CIRCUMSTANCES.

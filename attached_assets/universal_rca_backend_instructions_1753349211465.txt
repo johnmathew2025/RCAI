@@ -1,0 +1,92 @@
+
+# ✅ Universal RCA Tool Backend Development Guidelines (No Hardcoding, Best Practices)
+
+## 1. 👷 Core Development Principles
+
+- ❌ DO NOT hardcode field names, table names, or equipment types/subtypes anywhere in logic.
+- ✅ Use dynamic schema-driven logic based on Prisma ORM metadata or centralized schema definitions.
+- ✅ Validate all DB changes through structured migration (NO manual ALTER TABLE unless logged and verified).
+- ✅ Normalize schema: avoid redundant fields in investigations/incidents that already exist in equipment or other tables.
+- ✅ Use Prisma relationships (`@relation`) to enforce data integrity between entities.
+
+---
+
+## 2. 🧱 Data Model Structure (Normalized Schema)
+
+- EquipmentGroup → EquipmentType → EquipmentSubtype → Equipment → Incident → Investigation → Evidence
+- Investigations MUST link to Incidents.
+- Incidents MUST link to Equipment.
+- Evidence MUST link to Investigation.
+
+All other logic should respect this chain.
+
+---
+
+## 3. 🧠 Universal RCA Investigation Logic
+
+### Evidence Prompting Logic
+
+- Based on `equipment_subtype`, dynamically fetch required evidence types from a central `EvidenceLibrary` table or file.
+- Prompt the user ONLY for missing evidence.
+- Do not reference evidence type like "IR image" or "vibration trend" directly in logic — pull dynamically.
+
+### RCA AI Logic
+
+- Use inference chaining based on subtype → failure modes → missing evidence → pattern match.
+- Root cause should be selected based on available evidence, subtype failure trends, and detection gaps.
+
+---
+
+## 4. 🚫 No Hardcoding Policy
+
+| Logic Area             | Must Not Do                            | Must Do Instead                             |
+|------------------------|----------------------------------------|---------------------------------------------|
+| Equipment Hierarchy    | Hardcode "motor", "pump" in code       | Use dropdowns populated from DB             |
+| Evidence Questions     | Hardcode prompt strings                | Use AI prompt logic based on subtype config |
+| Field Access           | Use obj["equipmentGroup"] in TS        | Use typed models and introspection          |
+| RCA Rules              | Embed rules inline in logic            | Use inference engine + failure library      |
+
+---
+
+## 5. ✅ DB & Prisma Best Practices
+
+- Use `npx prisma migrate dev --name <migration>` for schema changes.
+- After changes, always run `npx prisma db push && npx prisma generate`.
+- Use `@default`, `@unique`, and `@relation` for data integrity.
+- Add validation schemas using Zod for all frontend/backend API types.
+
+---
+
+## 6. 🛡️ Schema Introspection (Automation)
+
+- Add command to diff schema vs. DB in CI:
+```bash
+npx prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url $DATABASE_URL
+```
+- Automatically fail builds if schema is out of sync.
+
+---
+
+## 7. ✅ UI / Frontend Dynamic Behavior
+
+- Dropdowns for group/type/subtype should be filtered based on parent selection.
+- No free text for critical identifiers (like equipment subtype) — use controlled lists from DB.
+- RCA evidence prompts should dynamically reflect the expected evidence set based on selected subtype.
+
+---
+
+## 8. 📦 Optional Enhancements
+
+- Add Zod validator for all API DTOs.
+- Enable evidence checklist auto-generation from EvidenceLibrary.
+- RCA flow should degrade gracefully if evidence is insufficient — provide confidence score + gap prompts.
+
+---
+
+## 🧩 Summary: Must Follow
+
+- ✅ Dynamic, schema-driven logic
+- ✅ Relationship-based DB design
+- ✅ Fully normalized tables
+- ✅ No inline constants for types, groups, fields
+- ✅ AI & evidence logic fully generic, equipment-agnostic

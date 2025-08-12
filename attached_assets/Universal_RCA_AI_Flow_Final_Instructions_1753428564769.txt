@@ -1,0 +1,80 @@
+
+UNIVERSAL RCA AI FLOW FINAL INSTRUCTION (NO HARDCODING)
+
+✅ OBJECTIVE
+Ensure that RCA AI follows a structured, schema-driven logic across all steps, without hardcoding for specific incidents or equipment. AI must dynamically adapt using schema metadata, user input, and evidence library (if available), but not fail if the library match is weak or absent.
+
+---
+
+📌 STARTING POINT
+⏩ Agent must start refining logic **after Step 4 (Evidence Collection)**.
+🛠 Steps 1–4 are working and must remain untouched (UI + logic).
+🛑 No hardcoding or patching logic for specific incidents.
+
+---
+
+✅ ENHANCEMENT INSTRUCTIONS TO BE ADDED
+
+🔹 STEP 3–4 BACKEND AI ENHANCEMENT
+• AI must actively analyze uploaded files (pdf, csv, txt, etc.) and assess evidence adequacy in background (OCR and NLP).
+• If any required data (e.g., Vibration, IR, Temp trend) is missing, AI should:
+   - Prompt for specific missing evidence (e.g., “Please upload vibration spectrum or shutdown logs”).
+   - Allow user to flag “Evidence not available” and continue gracefully.
+• Matching with Evidence Library is optional. If library entries are missing, AI must fallback to symptom + hypothesis-based prompts, not fail.
+
+🔹 AI CONTINUITY LOGIC
+• If uploaded evidence is incomplete or unavailable, AI should:
+   - Mark confidence level LOW or MODERATE.
+   - Proceed using AI-generated hypotheses.
+   - Clearly annotate: “Due to missing evidence, hypothesis-based reasoning applied.”
+
+---
+
+🔹 RCA BACKEND ANALYSIS LOGIC
+AI must evaluate all of the following when forming hypotheses:
+1. Symptom description
+2. Equipment and component involved
+3. Frequency and severity
+4. Operating condition
+5. Contextual notes (e.g., maintenance activity)
+6. Uploaded evidence (if available)
+7. Evidence Library (if matched)
+8. Past similar cases (if available)
+9. Structured failure modes & rules
+
+---
+
+🔹 POST-EVIDENCE: RCA FINALIZATION FLOW
+• If ≥80% critical evidence is uploaded → proceed to high-confidence root cause generation.
+• If <80% or critical evidence unavailable → fallback to low-confidence hypothesis generation, with clear disclaimer.
+
+---
+
+🔹 FAILSAFE & ERROR CONTROL
+• Never allow AI to break if library is missing or not matched.
+• Evidence checklist and uploads must be saved to database (agent already fixed).
+• Avoid “null” states in RCA flow → replace with fallback reasoning and optional human input.
+
+---
+
+🔹 STEP 7 ADDITION – RCA REPORT OUTPUT MUST INCLUDE:
+• Root cause hypothesis
+• Evidence adequacy commentary
+• Fault signature pattern (if found)
+• Human interaction notes (Accept / Reject)
+• Safety/PSM context (PHA reference, SIS bypass, MOC link) if uploaded
+• Confidence level
+• Diagnostic value
+• Equipment learning (mark as reusable case)
+
+---
+
+🔹 OTHER MANDATES
+• ❌ NO HARDCODING of failure modes, categories, or text.
+• ✅ USE SCHEMA: Equipment type, subtype, symptoms, evidence → all via schema logic and dynamic filters.
+• ✅ MAINTAIN all current working UI states, component flow, and transitions. DO NOT REMOVE stages or restructure.
+
+---
+
+This version of the logic is fully compliant with schema-based RCA reasoning and fault tolerance under low-evidence scenarios. Agent should treat this as the FINAL instruction unless new requirements are added.
+

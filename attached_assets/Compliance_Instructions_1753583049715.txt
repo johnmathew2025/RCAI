@@ -1,0 +1,159 @@
+# Universal Protocol Compliance Enforcement Guide
+
+## 1. Protocol Doc-Comment Block Template
+
+Place this at the top of every protocol-handling file:
+
+'''
+UNIVERSAL PROTOCOL STANDARD COMPLIANCE
+This file has been reviewed for hardcoding and protocol violations.
+Last reviewed: \[YYYY-MM-DD] by \[Reviewer Name]
+All configs, thresholds, and logic are admin-driven or dynamic. No hardcoded values.
+Any exceptions are explicitly documented below.
+'''
+
+---
+
+## 2. Automated Compliance Script (Sample: Bash/grep, JS, and Python)
+
+### A. Bash/Grep Script (save as `protocol_check.sh`)
+
+```bash
+#!/bin/bash
+# Protocol Compliance Check Script
+
+VIOLATIONS=0
+
+echo "Checking for forbidden hardcoding patterns..."
+
+# List of forbidden patterns
+PATTERNS=(
+  "process.env[.(]OPENAI_API_KEY"
+  "API_KEY[ =:]"
+  "Date.now[()]"
+  "Math.random[()]"
+  "localhost"
+  "127.0.0.1"
+  "http[s]?://[^"]*"
+  "MAX_[A-Z_]+=([0-9]+)"
+  "MIN_[A-Z_]+=([0-9]+)"
+  "hardcoded"
+  "magic number"
+)
+
+for pattern in "${PATTERNS[@]}"; do
+  grep -Prn "$pattern" ./server ./client ./shared 2>/dev/null && VIOLATIONS=1
+done
+
+if [ "$VIOLATIONS" -eq 1 ]; then
+  echo "\n🚨 Protocol violation(s) found! Review and remove all hardcoding before merging."
+  exit 1
+else
+  echo "✅ Protocol compliance PASSED: No hardcoding detected."
+  exit 0
+fi
+```
+
+* **How to use:** Add this as a pre-commit/PR CI step. Update patterns as needed.
+
+---
+
+### B. Sample Node.js Script (`protocol_check.js`)
+
+```js
+const fs = require('fs');
+const glob = require('glob');
+const patterns = [
+  /process\.env[.(]OPENAI_API_KEY/,
+  /API_KEY[ =:]/,
+  /Date\.now[()]/,
+  /Math\.random[()]/,
+  /localhost/,
+  /127\.0\.0\.1/,
+  /http[s]?:\/\//,
+  /MAX_[A-Z_]+ ?= ?[0-9]+/,
+  /MIN_[A-Z_]+ ?= ?[0-9]+/,
+  /hardcoded/,
+  /magic number/
+];
+
+let violations = 0;
+glob.sync("{server,client,shared}/**/*.{js,ts,py}").forEach(file => {
+  const content = fs.readFileSync(file, 'utf8');
+  patterns.forEach(p => {
+    if (p.test(content)) {
+      console.log(`🚨 Protocol violation: ${p} in ${file}`);
+      violations = 1;
+    }
+  });
+});
+if (violations) {
+  process.exit(1);
+} else {
+  console.log('✅ Protocol compliance PASSED: No hardcoding detected.');
+}
+```
+
+* **How to use:** Run with `node protocol_check.js` before merge/deploy.
+
+---
+
+### C. Python Example (for Python codebases)
+
+```python
+import glob, re, sys
+patterns = [
+    r'process\.env[.(]OPENAI_API_KEY',
+    r'API_KEY[ =:]',
+    r'Date\.now[()]',
+    r'Math\.random[()]',
+    r'localhost',
+    r'127\.0\.0\.1',
+    r'http[s]?://',
+    r'MAX_[A-Z_]+=([0-9]+)',
+    r'MIN_[A-Z_]+=([0-9]+)',
+    r'hardcoded',
+    r'magic number',
+]
+violations = 0
+for file in glob.glob('server/**/*.py', recursive=True) + glob.glob('client/**/*.py', recursive=True):
+    with open(file, encoding='utf8') as f:
+        content = f.read()
+        for pattern in patterns:
+            if re.search(pattern, content):
+                print(f"🚨 Protocol violation: {pattern} in {file}")
+                violations = 1
+if violations:
+    sys.exit(1)
+else:
+    print('✅ Protocol compliance PASSED: No hardcoding detected.')
+```
+
+* **How to use:** Run before every merge/deploy.
+
+---
+
+## 3. Enforcement Policy (Add to README or CONTRIBUTING.md)
+
+* All PRs and merges must pass protocol compliance checks above.
+* No hardcoded values, keys, or magic numbers are allowed anywhere in the codebase.
+* Every protocol-handling file must begin with the compliance doc-comment.
+* All exceptions require explicit admin approval and must be documented.
+* Violations will block merge/release until resolved.
+
+---
+
+## 4. Protocol Doc-Comment Example
+
+'''
+UNIVERSAL PROTOCOL STANDARD COMPLIANCE
+Reviewed: 2025-07-27 by \[Your Name]
+
+* No hardcoded values
+* All config/admin-driven
+* Protocol check passed
+  '''
+
+---
+
+# END

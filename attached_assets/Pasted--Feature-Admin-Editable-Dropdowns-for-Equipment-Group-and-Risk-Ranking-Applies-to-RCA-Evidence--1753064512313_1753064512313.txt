@@ -1,0 +1,87 @@
+🎯 Feature: Admin-Editable Dropdowns for Equipment Group and Risk Ranking
+
+Applies to: RCA Evidence Library → Add/Edit Form
+Admin Control Location: Admin Settings → Equipment Group & Risk Ranking Manager
+
+📍 1. EVIDENCE FORM – FIELD STRUCTURE & VALIDATION
+
+Update the Evidence Add/Edit form with the following fields and logic:
+
+Field Name	Input Type	Admin Editable	Notes
+Equipment Group	Dropdown	✅ Yes	Populated from admin panel
+Equipment Type	Text Field	❌ No	Free-form input
+Subtype / Asset Tag	Text Field	❌ No	Optional
+Failure Mode	Text Field	❌ No	Free-form input
+Risk Ranking	Dropdown	✅ Yes	Populated from admin panel
+Required Trend Data	Text Area	❌ No	Free-form input
+Investigator Questions	Text Area	❌ No	Free-form input
+Attachments / Notes	Text Area	❌ No	Free-form input
+Root Cause Logic	Text Area	❌ No	Free-form input
+🔧 2. ADMIN PANEL — SECTION 1: EQUIPMENT GROUP MANAGER
+
+Location: Admin Settings → Equipment Groups
+Function	Description
+➕ Add	Add new Equipment Group (must be unique)
+✏️ Edit	Edit existing group (update in-place, reflect immediately in dropdown)
+🗑️ Delete	Delete group only if not in use. Otherwise, disable with warning.
+✅ Active Toggle (optional)	Hide inactive groups from the dropdown but retain in DB
+Table Schema:
+Field	Type	Notes
+id	UUID/int	Primary key
+name	String	Unique group name
+is_active	Boolean	If false, don't show in form
+created_at	Timestamp	
+updated_at	Timestamp	
+Sample Initial Values:
+Rotating
+Static
+Electrical
+Instrumentation
+Crane & Hoist
+Control Systems
+Utilities
+Telecom
+HVAC
+Civil / Structural
+Safety Systems
+🔧 3. ADMIN PANEL — SECTION 2: RISK RANKING MANAGER
+
+Location: Admin Settings → Risk Rankings
+Function	Description
+➕ Add	Add new Risk Ranking label (e.g., "Moderate", "Catastrophic")
+✏️ Edit	Update risk level names (will auto-update dropdowns in Evidence Library)
+🗑️ Delete	Block deletion if used in RCA entries; warn if in use
+✅ Active Toggle (optional)	Hide risk levels from dropdown without deleting
+Table Schema:
+Field	Type	Notes
+id	UUID/int	Primary key
+label	String	Risk label name (e.g., High)
+is_active	Boolean	Optional visibility toggle
+created_at	Timestamp	
+updated_at	Timestamp	
+Sample Initial Values:
+Low
+Medium
+High
+Critical
+⚠️ These can be changed later based on organisation’s matrix.
+🔁 4. DROPDOWN INTEGRATION LOGIC (LIVE SYNC)
+
+For Equipment Group and Risk Ranking fields in the Evidence Form:
+Dropdowns must dynamically pull values from their respective admin-managed tables (equipment_groups, risk_rankings)
+Display only is_active = true records
+Sort alphabetically
+Do not allow manual typing
+Make these fields mandatory in form validation
+✅ Any add/edit/delete/toggle changes in Admin Panel must reflect instantly and globally in the form without requiring app restart or refresh.
+✅ 5. Validation Rules
+
+Equipment Group and Risk Ranking must be selected from the dropdown (no blank/null values).
+Prevent duplication of group or risk ranking names (case-insensitive).
+Block deletion if group/ranking is used in existing records (or soft-delete with status).
+📌 Summary Overview
+
+Field	Input Type	Admin Editable	Validated	Notes
+Equipment Group	Dropdown	✅ Yes	✅ Yes	Managed in Admin Panel
+Risk Ranking	Dropdown	✅ Yes	✅ Yes	Managed in Admin Panel
+Other Fields	Text/TextArea	❌ No	❌ No	Free-form, no admin config needed

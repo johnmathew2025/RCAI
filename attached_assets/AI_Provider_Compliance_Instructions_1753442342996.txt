@@ -1,0 +1,153 @@
+
+# AI Provider Configuration - Compliance Instruction (No Hardcoding, Live Status, Encrypted)
+
+## 1. Objective
+Ensure that the OpenAI (or any AI provider) API key is:
+- NOT hardcoded in any part of the codebase
+- Securely stored and encrypted in the database
+- Dynamically loaded at runtime
+- Actively tested for validity
+- Audited with every change
+- Automatically checked during CI to prevent future hardcoding
+
+---
+
+## 2. SECURITY RULES - ENFORCE
+
+### 🔒 DO NOT:
+- Never reference process.env.OPENAI_API_KEY in runtime logic.
+- Never commit .env files with active API keys.
+- Never use plaintext variables with keys like:
+    const apiKey = "sk-xxx"; ❌
+
+### ✅ MUST:
+- Fetch the API key ONLY from the encrypted AdminConfig database.
+- At runtime, securely retrieve using a method like:
+    const apiKey = await getEncryptedAIKey("openai");
+
+---
+
+## 3. DATABASE STORAGE
+
+### Table: `AI_Provider_Configs`
+| Field           | Type        | Description                    |
+|----------------|-------------|--------------------------------|
+| id             | UUID        | Unique entry                   |
+| provider_name  | string      | E.g., "OpenAI"                 |
+| api_key_enc    | string      | Encrypted API key              |
+| created_by     | string      | Admin user email or ID         |
+| created_at     | timestamp   | Creation date                  |
+| last_tested    | timestamp   | Last successful test timestamp |
+| status         | string      | "active", "failed", etc.       |
+
+Ensure encryption-at-rest for `api_key_enc` field.
+
+---
+
+## 4. BACKEND CODE – FETCH & USE API KEY
+
+```ts
+// Example Node.js TypeScript - AI provider integration
+import { getAIKeyFromDB } from "./db-utils";
+import OpenAI from "openai";
+
+async function createOpenAIClient() {
+  const apiKey = await getAIKeyFromDB("openai"); // Fetches encrypted key securely
+  if (!apiKey) throw new Error("Missing OpenAI API key in Admin DB");
+
+  return new OpenAI({ apiKey });
+}
+```
+
+---
+
+## 5. KEY TEST FUNCTION (Live Check)
+
+### Endpoint: `/admin/test-ai-provider`
+
+```ts
+async function testAIProvider(provider: string): Promise<boolean> {
+  const key = await getAIKeyFromDB(provider);
+  const client = new OpenAI({ apiKey: key });
+
+  try {
+    const result = await client.models.list(); // Basic call to validate key
+    logTestResult(provider, "success");
+    return true;
+  } catch (error) {
+    logTestResult(provider, "failed", error.message);
+    return false;
+  }
+}
+```
+
+### UI Feedback:
+- ✅ Green = Passed
+- ❌ Red = Failed (with tooltip error)
+- Last tested time shown
+
+---
+
+## 6. UI - ADMIN PANEL REQUIREMENTS
+
+- "Add AI Provider" modal should store key to DB (not .env).
+- “Test Key” button triggers `/test-ai-provider`.
+- “Set Active” must update backend to switch active config.
+- Show `Status`, `Last Tested`, and `Created` clearly.
+
+---
+
+## 7. AUDIT LOGGING
+
+Log every action:
+- Key added
+- Key tested
+- Status changed
+- Who performed the action (admin email)
+- Timestamp
+
+### Table: `AuditLogs`
+| Field         | Description                      |
+|---------------|----------------------------------|
+| action_type   | add / test / delete / set_active |
+| provider      | e.g. "OpenAI"                    |
+| actor         | admin user/email                 |
+| timestamp     | ISO timestamp                    |
+| status        | success / fail                   |
+| notes         | test error, reason, etc.         |
+
+---
+
+## 8. CI/CD HARD-CODING SCANNER
+
+Add to build pipeline:
+
+```bash
+# 🔍 Fail CI if API key pattern or OPENAI_API_KEY is hardcoded
+grep -rE 'sk-[A-Za-z0-9]{20,}' ./src && echo "❌ Hardcoded API key detected!" && exit 1
+grep -r "process.env.OPENAI_API_KEY" ./src | grep -v "secure-db-fetch" && echo "❌ Env key detected!" && exit 1
+```
+
+---
+
+## 9. MONITORING & ALERTS (Optional)
+
+Set up cron job to:
+- Auto-test active API key every 12 hours
+- Notify admin by email/slack if test fails
+
+---
+
+## 10. FUTURE PROVIDER SUPPORT
+
+Use the same `AI_Provider_Configs` table to support multiple:
+- OpenAI (GPT-4)
+- Azure OpenAI
+- Claude
+- Google Gemini
+
+Dynamic selection from UI: dropdown based on available providers.
+
+---
+
+# END OF INSTRUCTION

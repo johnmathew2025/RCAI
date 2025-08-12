@@ -1,0 +1,30 @@
+Please review and confirm your understanding before making any changes. Do not proceed until I have given explicit permission.
+
+Add the following fields to the Incident Reporting screen:
+
+Operating Parameters at Incident Time
+Current Gap: These are not explicitly captured at the time of incident creation.
+Why Important: Early AI hypothesis generation relies on this contextual data.
+Action: Add a brief (optional, but strongly recommended) field for users to enter operating parameters present at the time of the incident. Alternatively, prompt users to add this data immediately after incident registration.
+Frequency and Severity of Issue
+Current Gap: There is no way to indicate if this is the first occurrence, a recurring issue, or to specify the severity of impact.
+Why Important: This helps the AI distinguish between common vs. rare failure modes.
+Action: Add dropdowns or checkboxes to quickly flag frequency (e.g., First, Recurring, Unknown) and severity (e.g., Low, Medium, High, Critical) as part of the initial form for hypothesis generation.
+Contextual Factors (Recent Maintenance or Operational Changes)
+Current Gap: No explicit fields for “recent maintenance performed,” “recent operational changes,” or “environmental impacts.”
+Why Important: These often provide vital clues for root cause analysis.
+Action: Add an optional “Contextual Factors” text field or checkboxes for commonly encountered changes.
+General Instructions:
+
+Do not alter any other working program logic or workflow.
+No hardcoding:
+Do not hardcode values, API keys, URLs, model names, provider names, or magic numbers.
+All configuration must be admin/database/environment-driven.
+No random value generation (e.g., Math.random, Date.now, etc.)—only use approved, deterministic, or admin-controlled methods.
+Always run protocol_check.sh before every commit or push.
+Any protocol violation is unacceptable and must be blocked.
+If uncertain, check for protocol compliance before proceeding.
+Confirmation Required:
+
+Respond first with a summary of what you understood and how you plan to implement these changes.
+Wait for my explicit permission before proceeding.

@@ -1,0 +1,43 @@
+Prompts Must Be Specific to the Field and Context:
+Not just “describe,” but suggest how and what to write.
+Offer examples and common values for that equipment and symptom.
+Highlight what an expert would check or expect for this asset/failure.
+Sample prompt for “Seal Condition”:
+
+“Please describe the physical state of the seal. Was there any visible scoring, swelling, or discoloration? Was there lubricant present, and did it appear clean?”
+“You can enter: ‘Seal appeared visually intact, light scoring present, slight discoloration on inner lip, no leakage observed, lubricant level normal.’”
+“Attach close-up photos if available.”
+Suggest Common Failure Patterns/Checks:
+If vibration is high, prompt: “Is there any sign of misalignment or unbalanced rotor?”
+If “seal replaced recently,” prompt: “Was it replaced by OEM or non-OEM part? Was installation done as per standard procedure?”
+Intelligent Re-Prompting:
+If user writes “seal was fine,” ask: “Did you inspect both visually and with measurement tools? Please specify method used.”
+B. For Logic Engine/Diagrams:
+Build Fault Trees from Evidence, Not Generic Templates:
+Use a database of asset-specific fault trees (per ISO 14224, FMEA libraries).
+Each answer should trigger or rule out certain failure paths.
+Branch out the tree logically as evidence is entered.
+The diagram should be deep and specific (e.g., Seal Leak → Cause: Abrasive Wear → Source: Dirty Fluid → Root: Filter Bypass/Failure).
+Add/Remove Branches Dynamically:
+If “Seal OK,” prune wear/failure branches, and suggest alternative causes (e.g., overpressure, chemical attack).
+Show Evidence on Diagram:
+Each node should show the supporting evidence or flag what is missing.
+Color code by confidence or data quality.
+C. Developer Implementation Instructions:
+For Each Evidence Field:
+Build a prompt/assistant module that suggests example phrases, asks clarifying questions, and validates input for completeness and relevance.
+Pull suggestions from a library of real-world RCA examples for each asset/failure type.
+For Fault Tree Logic/Diagrams:
+Use an asset-specific knowledge base (from ISO 14224, FMEA) to generate logical RCA trees based on input.
+Make diagrams dynamically update as user adds/refines evidence.
+Every node must have a reason for existing—linked to evidence or ruled out by negative evidence.
+Sample Instructions to Give Developer
+“Prompts must be contextual and asset-specific. For every free-text field, provide example statements and clarifying sub-questions based on the field label, asset type, and current evidence entered.
+Diagrams must be automatically generated based on the logical analysis path followed by the AI and the user’s evidence. Use standard RCA logic trees for each asset/failure type. Trees must be multi-level, evidence-driven, and updated as evidence is added or removed.
+The system should never show generic advice, but always specific prompts and logical diagrams based on the unique case being analyzed.”
+What Success Looks Like:
+
+User is never left guessing what to write.
+AI guidance adapts to evidence and context—no generic “collect data” statements.
+Fault tree diagrams show meaningful, deep branching, reflecting true logic and the evidence gathered.
+Every node in the diagram is linked to actual evidence, not just a default template.

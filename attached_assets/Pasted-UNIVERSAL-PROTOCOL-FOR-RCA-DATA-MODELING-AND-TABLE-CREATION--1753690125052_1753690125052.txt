@@ -1,0 +1,104 @@
+UNIVERSAL PROTOCOL FOR RCA DATA MODELING AND TABLE CREATION
+===========================================================
+
+OBJECTIVE:
+----------
+To ensure the EvidenceLibrary (main RCA investigation table) in Replit is robust, scalable, and maintainable, with zero hardcoding and strict adherence to standard normalization and data handling protocols.
+
+INSTRUCTIONS FOR PROTOTYPE DEVELOPMENT
+--------------------------------------
+
+1. EQUIPMENT GROUP:
+   - The EquipmentGroup table ALREADY EXISTS and is CORRECTLY MAPPED.
+   - Continue to use this as the source for all Equipment Group selections in EvidenceLibrary.
+   - No changes needed for EquipmentGroup.
+
+2. EQUIPMENT TYPE & EQUIPMENT SUBTYPE:
+   - You MUST CREATE two new master tables:
+       a) EquipmentType
+       b) EquipmentSubtype
+   - Each must follow standard normalization:
+       - EquipmentType links to EquipmentGroup by foreign key.
+       - EquipmentSubtype links to EquipmentType by foreign key.
+   - In EvidenceLibrary, store only the foreign keys (not free text) for:
+       - EquipmentGroup
+       - EquipmentType
+       - EquipmentSubtype
+   - These must be selectable in UI as dropdowns, fetched live from their respective tables (NO HARDCODING).
+   - Ensure foreign key relationships are enforced in the schema.
+
+3. EVIDENCELIBRARY TABLE (MAIN RCA RECORDS):
+   - This table must use:
+       - `equipmentGroupId` (FK to EquipmentGroup)
+       - `equipmentTypeId` (FK to EquipmentType)
+       - `equipmentSubtypeId` (FK to EquipmentSubtype)
+   - ALL OTHER FIELDS (root cause, contributing factor, detection gap, logic, etc.) should remain as free text (String or String @db.Text) for now.
+   - No need to create enums or lookup tables for these other fields in the prototype phase.
+   - Maintain clear field names for future migration to normalized design.
+
+4. STANDARD PROTOCOLS AND HARD CODING:
+   - NO HARDCODING of group, type, or subtype lists anywhere in code or UI.
+   - ALL dropdown options must always be fetched from their respective tables.
+   - Database migrations must be managed with Prisma or the official ORM tool, NOT by raw SQL or app-layer hacks.
+   - Do NOT allow hardcoded default values, magic numbers, or fallback data for any normalized field.
+   - Review and refactor any legacy logic that does not follow this protocol.
+
+5. FUTURE-PROOFING (FOR PRODUCTION):
+   - When ready to move beyond prototype:
+       - Convert important analytical fields (root cause, contributing factor, priorities, etc.) to lookup tables or enums.
+       - Map old free text entries to new standardized codes/tables for reporting and AI analytics.
+   - Document all schema changes and keep master tables auditable and version-controlled.
+
+--------------------------------------------------------
+
+**SCHEMA EXAMPLE**
+
+model EquipmentGroup {
+  id    String   @id @default(cuid())
+  name  String   @unique
+  types EquipmentType[]
+}
+
+model EquipmentType {
+  id      String   @id @default(cuid())
+  name    String
+  groupId String
+  group   EquipmentGroup @relation(fields: [groupId], references: [id])
+  subtypes EquipmentSubtype[]
+}
+
+model EquipmentSubtype {
+  id      String   @id @default(cuid())
+  name    String
+  typeId  String
+  type    EquipmentType @relation(fields: [typeId], references: [id])
+}
+
+model EvidenceLibrary {
+  id                   String   @id @default(cuid())
+  equipmentGroupId     String
+  equipmentTypeId      String
+  equipmentSubtypeId   String
+  group                EquipmentGroup   @relation(fields: [equipmentGroupId], references: [id])
+  type                 EquipmentType    @relation(fields: [equipmentTypeId], references: [id])
+  subtype              EquipmentSubtype @relation(fields: [equipmentSubtypeId], references: [id])
+  componentFailureMode String
+  aiQuestions          String   @db.Text
+  rootCause            String?  @db.Text
+  contributingFactor   String?  @db.Text
+  latentCause          String?  @db.Text
+  // ... all other fields as String or String? for free text in prototype
+}
+
+--------------------------------------------------------
+
+**MANDATORY PROTOCOL STATEMENT**
+
+- No hardcoding of master lists, lookups, or configuration data anywhere in application code, backend, or UI.
+- All data modeling and schema changes must strictly adhere to these normalization rules.
+- Deviations or temporary shortcuts must be documented and scheduled for refactor before production release.
+
+--------------------------------------------------------
+
+OWNER/APPROVER: [Your Name or Role]
+DATE: [Insert Date]

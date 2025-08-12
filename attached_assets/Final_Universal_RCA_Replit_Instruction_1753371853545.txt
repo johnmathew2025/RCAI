@@ -1,0 +1,140 @@
+
+UNIVERSAL AI-DRIVEN RCA ENGINE INSTRUCTION FOR REPLIT DEVELOPER
+================================================================
+
+MANDATORY WARNINGS:
+--------------------
+⚠️ UNDER NO CIRCUMSTANCE SHOULD ANY LOGIC, KEYWORDS, FAILURE MODES, OR EQUIPMENT TYPES BE HARDCODED.
+
+ALL RCA FLOW LOGIC MUST BE:
+- SCHEMA-DRIVEN
+- EVIDENCE-LIBRARY GUIDED
+- NLP AND AI INFERENCE BASED
+- BACKEND CONFIGURABLE, NOT FRONTEND HARDCODED
+
+NO STATIC IF-ELSE CHAINS. NO DEFAULT TEMPLATES BY EQUIPMENT TYPE. ALL FLOWS MUST BE BUILT USING UNIVERSAL RULES.
+
+================================================================
+RCA LOGIC FLOW (MUST BE FOLLOWED EXACTLY)
+================================================================
+
+STEP 1: INCIDENT INGESTION
+---------------------------
+- Parse incident description using NLP.
+- Extract symptoms, asset type context (Group + Type + Subtype).
+- DO NOT preload failure modes from equipment. Use type ONLY for context narrowing if required.
+
+STEP 2: AI-BASED ROOT CAUSE GENERATION
+---------------------------------------
+- Submit incident description to AI (OpenAI API or LLM):
+  “What are the most likely failure causes based on this incident?”
+- AI must generate hypotheses with:
+  - Root Cause Title
+  - Confidence (%)
+  - Reasoning trace
+  - Suggested required evidence
+
+STEP 3: HUMAN CONFIRMATION LOOP
+-------------------------------
+- Ask user (human investigator) to confirm hypotheses:
+  ✅ Accept
+  ❌ Reject
+  ➕ Add More
+- System logs hypothesis ID and decision.
+
+STEP 4: EVIDENCE PROMPTING PER HYPOTHESIS
+------------------------------------------
+- For each hypothesis:
+  - Prompt for relevant evidence (from AI or Evidence Library)
+    → Examples: IR scan, vibration spectrum, alarm logs, trend plots.
+  - User can mark each:
+    ✅ Provided (upload file)
+    ❌ Not available
+    🕒 Pending
+
+- AI validates evidence for:
+  - Type and content (not just file name)
+  - Clarity
+  - Match with fault signature pattern
+
+STEP 5: EVIDENCE VALIDATION & RE-PROMPT
+----------------------------------------
+- If evidence is unclear or missing:
+  - Prompt: “Please upload IR scan showing seal face temp trend.”
+  - Allow skip with justification if not available
+
+STEP 6: LOW CONFIDENCE FALLBACK LOGIC
+--------------------------------------
+Fallback only allowed if:
+- AI confidence < 50%
+- No match from Evidence Library
+- No usable evidence uploaded
+
+Fallback Path:
+- System shows AI-generated “basic” failure modes
+- User selects potential root cause
+- RCA continues after evidence upload
+
+STEP 7: RCA FINALIZATION
+-------------------------
+- Root cause output must include:
+  - Primary Root Cause
+  - Contributing Factor
+  - Latent Cause
+  - Detection Gap
+  - Confidence Score
+  - Fault Signature match if found
+
+- All outputs saved with JSON log structure:
+  - Incident ID
+  - Hypotheses with decisions
+  - Uploaded evidence with status
+  - Reasoning trace
+
+STEP 8: LIBRARY UPDATE (CONTROLLED)
+------------------------------------
+- If human accepts a hypothesis not found in Evidence Library:
+  - Ask Admin: “Would you like to add this as new row?”
+    ✅ Yes → Add with metadata
+    ❌ No
+    📝 Modify and save
+
+- Admin control mandatory. Never auto-update library from inference.
+
+================================================================
+AI API INTEGRATION
+================================================================
+- API Key must be ENV VARIABLE injected only.
+- Never hardcoded into source.
+- If unavailable, use fallback path.
+
+================================================================
+DEBUGGING ISSUES (BASED ON SCREENSHOTS)
+================================================================
+- “AI unavailable” triggered too early → must only occur if all other inference paths fail.
+- “Evidence Required: NO SYMPTOMS” → incorrect, use faultSignaturePattern not vague terms.
+- Buttons Accept/Reject not mapped → fix frontend state binding to hypothesis.id
+
+================================================================
+EXPECTED BEHAVIOR:
+================================================================
+✓ Human-AI loop always enabled
+✓ All AI inferences backed by evidence or symptom match
+✓ Confidence-based filtering applied
+✓ No static failure mode lists used
+✓ RCA always ends in traceable, evidence-linked inference
+✓ System logs every decision for traceability
+
+FINAL NOTE:
+===============
+⚠️ DO NOT PRELOAD FAILURE MODES BY EQUIPMENT TYPE EVER.
+All filtering and prompting must be driven by:
+1. Incident keywords
+2. Evidence Library fault signatures
+3. Human-validated hypotheses
+4. AI-generated reasoning
+
+⚠️ SYSTEM MUST REMAIN UNIVERSAL AND SCHEMA-DRIVEN — READY TO HANDLE ANY ASSET, ANY INCIDENT.
+
+Prepared on: 2025-07-24 15:37:05
+

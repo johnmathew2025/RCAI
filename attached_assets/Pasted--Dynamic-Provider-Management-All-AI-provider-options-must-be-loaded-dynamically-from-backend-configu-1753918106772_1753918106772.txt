@@ -1,0 +1,26 @@
+
+Dynamic Provider Management
+All AI provider options must be loaded dynamically from backend configuration (environment variable or admin UI), never hardcoded.
+I must be able to add or remove providers (e.g., OpenAI, Gemini, Claude) by updating config or UI only—no code changes.
+Secure API Key Handling
+API keys must be encrypted, securely stored, and never exposed in any frontend code or logs.
+The UI must provide fields for entering, saving, and updating keys per provider.
+Unique Provider Enforcement
+The system must prevent duplicate provider entries (enforce uniqueness by provider + key).
+Only one record per unique provider/API key combination should be allowed.
+End-to-End Testable Workflow
+When I enter a valid API key for a supported provider, I must be able to:
+Save the provider and key with no errors.
+Test the connection and receive a clear status (“Connected”, or the actual error if not).
+Set as active provider, and have this reflected everywhere.
+Successfully generate AI analysis or hypotheses using the configured provider.
+Robust Error Handling
+If I enter an invalid, missing, or wrong API key, the UI must show a clear, actionable error message (e.g., “Invalid API key” or “Provider unreachable”), NOT just “Test Failed” or “Unknown.”
+The system must not allow silent failures, ghost/duplicate records, or misleading “COMPLIANT” status when anything is broken.
+No Dummy Data or Faked Success
+The platform must never fake provider connectivity or return dummy AI results.
+All “Test” and “Generate” operations must make real API calls and return real results or real error feedback.
+Zero Hardcoding & Full Protocol Compliance
+There must be zero hardcoding of provider names, model IDs, API endpoints, or dropdown logic in frontend or backend code.
+All relevant files and modules must pass the Universal Protocol Standard compliance check.
+Provide the latest compliance check output and a recursive code search (e.g., grep -ir 'openai\|gpt\|gemini\|anthropic' .) showing no hardcoded values.

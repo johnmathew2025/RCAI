@@ -1,0 +1,111 @@
+UNIVERSAL RCA EVIDENCE FILE ANALYSIS & HUMAN REVIEW WORKFLOW
+STRICT RULE: ABSOLUTELY NO HARD CODING ALLOWED
+
+────────────────────────────────────────────
+PRINCIPLES (APPLY TO EVERY STEP AND MODULE)
+────────────────────────────────────────────
+- All logic must be schema-driven, configuration-based, and universally extensible for any equipment, failure mode, evidence type, or file format.
+- No code, UI, or backend should contain hardcoded equipment types, evidence categories, failure codes, file names, or column mappings.
+- All file parsing, analysis, pattern detection, and reporting must occur via generic, reusable, modular logic.
+
+────────────────────────────
+STAGE-BY-STAGE UNIVERSAL LOGIC
+────────────────────────────
+
+STEP 1-2: INCIDENT CREATION & AI HYPOTHESIS GENERATION
+- User inputs incident, selects equipment group/type/subtype (from dynamic schema, not hardcoded).
+- AI (LLM/GPT/Gemini) suggests possible causes and required evidence types based on equipment schema/failure library.
+
+STEP 3: INITIAL EVIDENCE UPLOAD (AI EVIDENCE CHECKLIST)
+- User uploads ANY allowed file type (CSV, TXT, XLSX, PDF, JPG, PNG, etc.) for each evidence checklist item.
+- ALL files—regardless of file type, naming, or data structure—must be sent to the universal Python backend for parsing and analysis.
+    - Python backend MUST use pandas, numpy, scipy, and signal-processing libraries to:
+        • Auto-detect structure, column types, and units (time, amplitude, frequency, temperature, etc.)
+        • Extract key features (trend, FFT, RMS, mean, std, data completeness, outliers, etc.)
+        • Summarize diagnostic value/confidence for each file
+        • Identify missing data or fields and provide a clear feedback message if needed (never silently ignore or skip)
+    - Results stored per file, per evidence item.
+
+STEP 3B: MANDATORY HUMAN REVIEW PANEL (AFTER STEP 3 UPLOAD)
+- Parsed summary for every uploaded file is shown to user for confirmation.
+- User can:
+    • Confirm/accept file as valid for RCA
+    • Request re-analysis or provide comments
+    • Upload a replacement or additional file
+- RCA cannot proceed until every uploaded file is confirmed/reviewed.
+- Status must be tracked for each evidence item: UNREVIEWED / ACCEPTED / NEEDS MORE INFO / REPLACED
+
+STEP 4: SECONDARY EVIDENCE UPLOAD (DEEPER COLLECTION)
+- As new hypotheses or gaps are identified, user can upload more files (any type).
+- ALL new files are also analyzed by the same universal Python backend logic (no skipping).
+- No distinction in backend logic between Step 3 and Step 4—ALL files, ALL stages, same universal pipeline.
+
+STEP 4B: MANDATORY HUMAN REVIEW PANEL (AFTER STEP 4 UPLOAD)
+- As in Step 3B, show analysis summary for each new file.
+- User must confirm, comment, or replace each file.
+- RCA cannot proceed to Step 5 until every file from both Step 3 and Step 4 is confirmed.
+
+──────────────────────────────────────────
+UNIVERSAL FILE PARSING & ANALYSIS PIPELINE
+──────────────────────────────────────────
+
+FOR EACH FILE (AT EVERY STAGE):
+1. Receive file and evidence context (category, equipment group/type/subtype).
+2. Attempt to parse structure and auto-detect column types/units using pattern matching (NO hardcoded mappings).
+3. Extract as many features as possible (using Python: pandas, numpy, scipy, etc.):
+   - Signal/statistical analysis: mean, std, RMS, FFT/trend if time-series, data completeness, outlier detection, pattern matching.
+   - Confidence/diagnostic score: % completeness, relevance to evidence type.
+4. If parsing fails or required fields are missing:
+   - Prompt user for clarification, a better file, or missing context (do not ignore or default).
+5. Generate analysis summary (including confidence, features, missing gaps, next-step recommendations).
+6. Store summary for human review.
+
+────────────────────────────
+AFTER HUMAN REVIEW OF ALL FILES:
+────────────────────────────
+- Only after ALL files (Step 3 & 4) are confirmed/accepted, proceed to AI-based RCA and Recommendations (Step 5-6).
+- RCA engine should clearly state if any evidence was incomplete/missing, and how that impacts the confidence of RCA output.
+
+────────────────────────────
+EXAMPLES OF UNIVERSAL PARSING (PYTHON PSEUDOCODE)
+────────────────────────────
+
+for file in all_uploaded_files:
+    parsed = universal_parse(file)  # Uses dynamic pattern matching, not hardcoding
+    if not parsed:
+        prompt_user("File cannot be parsed. Please upload a clearer file, e.g., CSV/TXT with standard columns, or add notes.")
+        continue
+    features = extract_features(parsed)  # Trend, FFT, completeness, stats, etc.
+    summary = ai_generate_summary(features)
+    store_file_summary(file, summary)
+    set_status(file, "UNREVIEWED")
+
+while any_file_status("UNREVIEWED"):
+    show_review_panel(all_file_summaries)
+    wait_for_user_review_actions()
+
+if all_files_reviewed_and_accepted:
+    run_RCA_analysis()
+else:
+    lock_RCA_progression()
+
+────────────────────────────────────
+KEY REQUIREMENTS FOR ALL DEVELOPERS:
+────────────────────────────────────
+- NO hardcoded column names, file names, equipment types, evidence categories, or parsing logic.
+- All backend parsing MUST use universal, extensible pattern matching and schema-driven configuration.
+- All file types currently supported by Replit platform must be analyzed (CSV, TXT, XLSX, PDF, images, etc.), with logic ready for extensibility.
+- Every stage, for every file, must use the same analysis logic—no bypassing, patching, or exception logic.
+- Human review is mandatory before RCA progression.
+- Any missing data or parsing failure must result in a prompt to the user—not silent failure.
+
+────────────────────────────
+INTEGRATION/DEPLOYMENT
+────────────────────────────
+- Universal RCA Evidence Analysis must be redeployed if schema or backend logic is updated.
+- UI/UX must always expose the human review panel after each evidence upload stage.
+- All feedback, prompts, and analysis outputs must be schema-driven and not hardcoded.
+
+────────────────────────────
+END OF UNIVERSAL INSTRUCTION
+────────────────────────────

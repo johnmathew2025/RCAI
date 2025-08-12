@@ -1,0 +1,25 @@
+
+Universal RCA – Universal Deterministic & Pinpointed AI Addendum
+
+The following requirements are universal and apply to all equipment types, all evidence files, and all RCA workflows, both current and future. No exceptions.
+
+AI Determinism Requirement
+--------------------------
+1. For any identical parsed summary (JSON) produced by the Python backend, the LLM output and recommendations MUST be 100% identical every time for same file.
+2. Implementation Controls:
+   - Set LLM “temperature” to 0.0 (or deterministic mode).
+   - LLM prompt must use a strict template, with keys in canonical order.
+   - No randomization, synonyms, or ad hoc language.
+   - If model is non-deterministic, use one that is.
+3. Test: Repeated uploads of the same file must generate identical recommendations.
+
+Pinpointed, Fault-Based Recommendation Requirement
+--------------------------------------------------
+4. No vague or generic AI recommendations.
+   - All recommendations must be pattern-matched from an editable fault signature library (CSV/JSON/config).
+   - AI must list the most probable specific fault(s), not generic terms.
+   - If ambiguous, must explain and recommend what evidence is required.
+
+No Static Example Lock-In
+-------------------------
+5. No examples from requirements/instructions may appear as hardcoded logic or prompts. All logic is pattern/library-driven.

@@ -1,0 +1,24 @@
+CRITICAL INSTRUCTION FOR EVIDENCE LIBRARY MODULE:
+
+1. BEFORE MAKING ANY CHANGES, run the full protocol compliance checker and confirm there are ZERO violations (no hardcoded dropdowns, all fields mapped to lookup tables, etc.).
+
+2. UI and form fields for "Add/Edit Evidence" must include ALL database columns (as per the master schema below), not just a subset. No column can be omitted or hidden from the admin workflow.
+
+3. All dropdown/select fields (Equipment Group, Equipment Type, Subtype, Risk Ranking, etc.) MUST be dynamically populated from their respective master/lookup tables in the admin section, never hardcoded.  
+   - Example: If "Risk Ranking" table in admin has 3 items, only those 3 should appear in the dropdown. No extra or missing values allowed.
+   - Example: "Subtype" dropdown must be linked to its Equipment Type master table, not allow free text.
+
+4. Do not proceed with any further UI/DB work until all of the above is confirmed, compliance is proven, and you (Replit agent) confirm understanding of this protocol.
+
+5. After implementation, provide a one-page report:
+   - Protocol compliance output (no violations)
+   - Screenshot of UI with all fields and correct mapping
+   - Confirmation that all dropdowns are fully dynamic and reflect admin config/master data
+
+REFERENCE:  
+Master Evidence Library Table Schema:  
+Equipment Group, Equipment Type, Subtype, Component / Failure Mode, Equipment Code, Failure Code, Risk Ranking, Required Trend Data / Evidence, AI or Investigator Questions, Attachments / Evidence Required, Root Cause Logic, Primary Root Cause, Contributing Factor, Latent Cause, Detection Gap, Fault Signature Pattern, Applicable to Other Equipment, Evidence Gap Flag, Confidence Level, Diagnostic Value, Industry Relevance, Evidence Priority, Time to Collect, Collection Cost, Analysis Complexity, Seasonal Factor, Related Failure Modes, Prerequisite Evidence, Followup Actions, Industry Benchmark
+
+NO HARDCODING OR STATIC DROPDOWNS. ALL MAPPINGS DYNAMIC FROM ADMIN CONFIG OR MASTER TABLES ONLY.
+
+Do not proceed further without my written approval after reviewing your compliance and demo evidence.

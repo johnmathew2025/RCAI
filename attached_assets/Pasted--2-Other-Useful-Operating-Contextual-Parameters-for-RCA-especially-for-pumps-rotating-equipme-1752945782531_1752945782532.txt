@@ -1,0 +1,67 @@
+**2. Other Useful Operating & Contextual Parameters for RCA
+
+(especially for pumps, rotating equipment, or process equipment)
+
+a) Lubrication:
+
+Oil level, oil pressure, oil temperature, oil condition (ppm particles, water content)
+Grease frequency, type
+b) Electrical:
+
+Current (amps), voltage, power factor, insulation resistance
+c) Run Hours / Duty Cycle:
+
+Actual run time since last maintenance
+Number of starts/stops (start frequency)
+d) Environmental:
+
+Ambient temperature/humidity, corrosive agents, dust, vibration from nearby machines
+e) Process Parameters:
+
+Suction/discharge conditions (NPSHa/NPSHr for pumps)
+Media type (water, slurry, oil, etc.)
+pH, solids content (for process failures)
+f) Maintenance History:
+
+Last maintenance date, type of PM done, replaced parts
+Previous failure modes for this asset
+g) Event Metadata:
+
+Operator at time of failure, shift, alarms active, sequence of events
+h) Setpoints/Alarm Limits:
+
+Operating vs. design setpoints, excursions, alarm/fault logs
+i) Equipment Specifics:
+
+Model/serial number, age, criticality, modifications/retrofits
+**3. How Should AI Use These for RCA?
+
+A) Data Cleansing & Validation
+AI checks if parameters are missing or obviously erroneous (e.g., negative pressures, out-of-range readings).
+If data is incomplete (e.g., missing lube oil data for bearing failure), the AI prompts user/admin for additional info.
+B) Feature Extraction & Correlation
+AI extracts trends/patterns, e.g.:
+Temperature spike before vibration increases
+Sudden pressure drop before failure
+Increased power for same flow (sign of wear)
+AI correlates events: "Was high vibration always associated with low flow?"
+Looks for parameter excursions vs. normal baseline.
+C) RCA Logic Application
+Maps symptoms/events to likely failure modes using knowledge base or pre-trained reliability rules.
+Example: High bearing temp + high vibration + low oil pressure → bearing lubrication failure likely.
+Uses Ishikawa/Fishbone or Apollo mapping to link:
+Root cause → Contributing factors → Evidence
+Provides confidence rating based on data sufficiency and parameter correlation.
+D) Recommendation & Evidence Explanation
+For each root cause, AI points to the parameter history that supports the conclusion ("Power consumption increased 10% before failure, indicating impeller wear").
+If more data is needed, AI lists which parameter is missing and why it’s important ("Please provide lube oil temperature to confirm lubrication issue").
+E) Integration into Your Solution
+Parameter Table: Add “+ Add Parameter” option for admins (to cover unique equipment)
+Evidence Widget: For each finding, show “Supported by” with parameter/time/reference
+Missing Data Prompt: If a parameter is typically relevant but missing, show “Missing Parameter” banner and allow upload/addition
+Correlation Visualization: Time trend overlays (e.g., power vs. vibration vs. temperature, showing fault development)
+Expert System Layer: Use AI to map real data to reliability “rules” and LLM to explain findings in plain English
+**4. Best Practice: “Configurable Parameter Library”
+
+Don’t hardcode the parameters—let users (admin role) add custom parameters as needed, mapping them to equipment type/class.
+AI can learn over time which parameters matter most for your plant/fleet and suggest new ones.

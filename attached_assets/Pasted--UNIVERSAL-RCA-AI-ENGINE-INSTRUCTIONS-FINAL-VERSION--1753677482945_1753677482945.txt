@@ -1,0 +1,73 @@
+
+UNIVERSAL RCA AI ENGINE INSTRUCTIONS — FINAL VERSION
+====================================================
+
+CORE PRINCIPLES:
+----------------
+1. UNIVERSAL DESIGN:
+   - The system must operate across ANY industrial asset, without relying on specific equipment types, failure modes, or domain hardcoding.
+   - No part of the codebase should contain if-else or switch-case blocks referring to specific assets (e.g., Pumps, Motors, Compressors).
+
+2. NO HARDCODING RULE (MANDATORY):
+   - No hardcoded:
+     • Equipment names
+     • Failure mode lists
+     • Symptom keywords
+     • Evidence prompts
+   - All logic must be schema-driven and dynamically pulled from the Evidence Library or GPT-powered symptom inference.
+
+3. GPT-POWERED FAILURE LOGIC:
+   - Upon incident submission, GPT must be prompted in the backend to:
+     a) Infer likely failure causes based on symptom narrative.
+     b) Return potential root causes and symptom signatures (with confidence estimates).
+     c) Ask the user: “What do you think might be the root cause?” to allow human hypothesis input.
+     d) Map GPT output and human feedback to initiate failure path evidence gathering.
+
+4. EVIDENCE LOGIC & DATA REQUEST:
+   - Each AI-inferred cause must be paired with a dynamic evidence checklist pulled from the Evidence Library.
+   - User can upload or declare: “Not available” for each request.
+   - AI must analyze uploaded evidence (PDFs, CSVs, Excel, Text, Vibration Spectrum, IR images) and:
+     • Confirm or reject the failure hypothesis.
+     • If data is inconclusive, request clearer or specific evidence (e.g., time waveform, IR comparison).
+
+5. AI FILTERING MECHANISM:
+   - All failure mode filtering must be:
+     • Based on incident NLP parsing,
+     • Matched dynamically to `faultSignaturePattern` in the Evidence Library,
+     • Confidence-ranked (e.g., 90% match = top).
+   - Do NOT preload or suggest failure modes based on Equipment Type.
+
+6. AI OVERRIDE RULE:
+   - If AI (GPT) achieves ≥ 90% confidence from symptoms + evidence, it may override Evidence Library suggestions.
+   - However, this must be logged and shown to the user with a confidence tag and the reason.
+
+7. HUMAN-AI FEEDBACK LOOP:
+   - The investigator must be allowed to:
+     • Agree/disagree with AI hypothesis.
+     • Enter observations or field insight.
+   - This input must then refine the AI checklist further.
+
+8. AUDIT & TRACEABILITY:
+   - All elimination and evidence prompting decisions must be logged in structured JSON:
+     {
+       "IncidentID": 73,
+       "FailureMode": "Seal Face Wear",
+       "MatchedKeyword": "seal leak",
+       "EvidenceRequested": ["IR Trend", "Pump Current"],
+       "Confidence": 92,
+       "Source": "AI + Evidence Library"
+     }
+
+CONCLUSION:
+-----------
+✓ The goal is to ensure RCA scales across all assets, adapts to any failure narrative, and remains transparent.
+✓ GPT must act as the reasoning engine, not a lookup tool.
+✓ The system must *never* suggest irrelevant modes like "Casing Crack" for a seal leak or “Bearing Overheating” unless context supports it.
+
+IMPLEMENTATION CHECKLIST:
+--------------------------
+- [ ] No hardcoded asset names or failure lists in any file (e.g., routes.ts, elimination-engine.ts)
+- [ ] Dynamic GPT symptom → mode → evidence matching
+- [ ] Evidence Library used as flexible suggestion source, not fixed logic
+- [ ] Human interface and investigator feedback integrated
+- [ ] Logs and audit files generated per incident

@@ -1,0 +1,2 @@
+Equipment Group,Equipment Type,Subtype,Component / Failure Mode,Equipment Code,Failure Code,Risk Ranking,Required Trend Data Evidence,AI or Investigator Questions,Attachments Evidence Required,Root Cause Logic
+Valve,Control Valves,Pneumatic,Stem Stiction,VLV-TEST-002,,Medium,Stem Position Trends,When did stiction start? Any recent maintenance?,Valve maintenance records,Check actuator condition and stem alignment

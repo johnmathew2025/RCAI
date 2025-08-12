@@ -1,0 +1,18 @@
+#!/bin/bash
+# UNIVERSAL PROTOCOL STANDARD ENFORCEMENT - PRE-PUSH HOOK
+# NO VIOLATIONS PERMITTED - ZERO TOLERANCE POLICY
+
+echo "🔍 Running Universal Protocol Standard compliance check before push..."
+./protocol_check.sh
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ PROTOCOL VIOLATION DETECTED - PUSH BLOCKED"
+  echo "❌ Zero tolerance policy enforced"
+  echo "❌ Fix all violations before pushing"
+  echo ""
+  exit 1
+fi
+
+echo "✅ Protocol compliance verified - push allowed"
+exit 0

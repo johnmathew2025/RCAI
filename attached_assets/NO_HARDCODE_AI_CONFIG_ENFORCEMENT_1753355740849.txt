@@ -1,0 +1,72 @@
+
+# 🔒 Universal RCA AI Integration Configuration Enforcement
+
+## 🚫 Absolutely No Hardcoding (Critical Enforcement)
+
+1. **Do NOT hardcode** any API key, AI provider name, or model selection in:
+   - Backend logic
+   - Route handlers
+   - Failure mode filters
+   - Symptom pattern extractors
+   - Equipment-specific dictionaries
+   - RCA step navigation flows
+
+2. **All AI inference must dynamically load configuration** from the backend settings (AI Settings Page), where:
+   - The provider (e.g., OpenAI GPT-4)
+   - API key
+   - Active model
+   - Test status
+
+   ...are securely stored and maintained.
+
+3. Any hardcoded reference to:
+   - `'OpenAI'`
+   - `'GPT-4'`
+   - `'sk-xyz...'` or any string resembling API key
+   - `equipmentFailureModes`
+   - `generateEquipmentSpecificFailureModes()`
+
+   ...must be flagged and **removed**.
+
+---
+
+## ✅ REQUIRED BEHAVIOR
+
+- At runtime, before triggering any AI analysis (incident triage, failure mode suggestion, evidence question generation), the system must:
+  - Fetch the **active AI provider** from database.
+  - Use **API key from secure backend settings**.
+  - **Fail gracefully** if no valid key is configured, prompting admin to set it.
+
+---
+
+## 🔍 Audit Guidance
+
+- All AI-triggered decisions must log:
+  - `incidentID`
+  - `usedProvider`
+  - `model`
+  - `apiSource: "dynamic"`
+  - `invokedBy: "user/system"`
+  - `timestamp`
+
+- Do not use fallback keys.
+- Do not embed logic based on "equipmentType" or "assetClass" into AI prompt logic.
+
+---
+
+## 🔁 Example (Correct Implementation Logic)
+
+```
+const aiProvider = await getActiveAIProvider(); // from DB config
+if (!aiProvider || !aiProvider.apiKey) {
+   return error("AI provider not configured. Contact admin.");
+}
+```
+
+✅ The above ensures dynamic AI invocation without violating your universal enforcement.
+
+---
+
+🛡️ This file must be referred to in all commits involving RCA intelligence, elimination engine, and AI workflow. It overrides any local override or shortcut.
+
+📅 Enforcement last updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}

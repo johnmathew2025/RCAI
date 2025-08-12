@@ -1,0 +1,92 @@
+# STANDARD PROTOCOL - DO NOT IGNORE 
+
+This protocol MUST be strictly followed for all current and future development on this application (including by AI agents and human developers).
+If you do not understand or spot ambiguity, STOP and ask for clarification before proceeding.
+==========================================================================================
+0.no hard coding under any circumstances
+==========================================================================================
+1. ROUTING & ID PASSING
+==========================================================================================
+- All incident, investigation, or evidence IDs MUST be passed using [choose one: path parameters or query parameters]. Never mix both styles.
+    EXAMPLES:
+      - Path param: /incidents/:id/evidence
+      - Query param: /evidence?incident_id=123
+- All navigation, route definitions, API endpoints, and ID access in code MUST use the chosen style—always.
+- NO hardcoded IDs, route fragments, or fallback values.
+- If any legacy or mismatched pattern exists, refactor to the standard and report where you found it.
+- Add a comment at the top of every file/module handling routing, explaining the ID protocol and linking to this file.
+
+==========================================================================================
+2. STATE & DATA FLOW
+==========================================================================================
+- All uploaded evidence files MUST remain associated with the correct incident ID across all workflow stages (frontend and backend).
+- State MUST persist through navigation (e.g., using Redux, React context, or API/database)—never rely solely on browser state.
+- The backend must expose endpoints (e.g., /api/incidents/:id/evidence-files) that match the frontend protocol for IDs.
+- Data parsing (Python or otherwise) must always associate evidence to the correct incident as used by the frontend.
+- No workflow step may "drop" state—evidence must persist and be visible at all times unless intentionally deleted.
+- All workflow steps (evidence collection, human review, AI analysis, etc.) MUST display and access evidence based on the current incident context.
+
+==========================================================================================
+3. COMPONENT & UI CONSISTENCY
+==========================================================================================
+- All frontend tabular data MUST use the DataGrid component from @mui/x-data-grid (version 6+), unless otherwise specified.
+- Table/grid columns MUST match backend field names (map to human-friendly headers as needed).
+- Column order should be: id, entity fields, timestamps, status, actions (or as required).
+- Every evidence grid/table MUST include at minimum:
+    - file_name (string)
+    - file_type (string)
+    - status (enum, e.g., Uploaded/Processing/Valid/Error)
+    - date_uploaded (timestamp)
+    - uploaded_by (user/email)
+- All tables MUST support sorting, filtering, and pagination for >50 records.
+- All forms MUST use a common form component with field-level validation (required, type, length, pattern).
+- Error messages MUST be clear, user-facing, and actionable.
+
+==========================================================================================
+4. DATABASE & API SCHEMA PROTOCOL
+==========================================================================================
+- All table names MUST be singular, lowercase, and use underscores (e.g., evidence_file).
+- Every table MUST have a primary key column named id (UUID or serial integer).
+- Foreign keys MUST be named <referenced_table>_id with proper foreign key constraints.
+- Every table MUST have created_at and updated_at (timestamp with timezone, auto-managed).
+- No nullable fields unless absolutely necessary; declare all constraints and validation in schema (e.g., Prisma, SQL).
+- Add a docstring or comment to every model/table describing its use and main fields.
+- API endpoints MUST use REST conventions (e.g., /api/<resource> for GET/POST/PUT/DELETE).
+- API MUST always return JSON with either { data: ..., error: null } or { data: null, error: <message> }.
+- Bulk API operations should be supported where relevant (e.g., file uploads).
+- API input MUST be validated for type, format, and required fields.
+
+==========================================================================================
+5. ERROR HANDLING
+==========================================================================================
+- Frontend: If files or data are missing at any step, display a clear error message and an obvious way for the user to return/re-upload/resolve.
+- Backend/API: Return specific, user-friendly error messages with the relevant HTTP status code (400, 404, 422, 500, etc.).
+- Never allow silent failures or generic error messages.
+
+==========================================================================================
+6. DOCUMENTATION
+==========================================================================================
+- Add a clear comment block at the top of every file handling routing, data, or schema/model, describing:
+    - The protocol in use
+    - Any exceptions and why
+    - Date of last review
+- Maintain this file (`Quanntaum_CONVENTIONS.txt`) or a Markdown equivalent (`CONVENTIONS.md`) in the project root and keep it up to date.
+- Always refer to this protocol before starting any new work.
+
+==========================================================================================
+7. GENERAL REQUIREMENTS
+==========================================================================================
+- NO HARD CODING of IDs, magic numbers, keys, or static paths. All such values must be dynamic, config-driven, or parameterized.
+- All code MUST be TypeScript-typed (if using TS), with interfaces for props, state, and API responses.
+- Every new feature/change MUST be checked for compliance with this protocol before merge/release.
+- If unsure or encountering any edge case, ask for clarification before coding or merging.
+- If a protocol update is needed, propose the change and get approval before deviating.
+
+==========================================================================================
+
+# THIS PROTOCOL IS NON-NEGOTIABLE AND APPLIES TO ALL AI/HUMAN CONTRIBUTORS.
+# VIOLATIONS MUST BE FLAGGED AND DISCUSSED BEFORE PROCEEDING.
+# FOR QUESTIONS, CONTACT THE SYSTEM OWNER/DESIGNATED PRINCIPAL.
+
+==========================================================================================
+

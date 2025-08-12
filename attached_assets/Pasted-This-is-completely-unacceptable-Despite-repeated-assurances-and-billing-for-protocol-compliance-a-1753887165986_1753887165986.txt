@@ -1,0 +1,26 @@
+This is completely unacceptable. Despite repeated assurances and billing for ‘protocol compliance’ and ‘zero hardcoding’, the same violations continue to appear in every cycle, and the platform still shows “Hardcoded Violation” and connection errors.
+
+**Hardcoding appears to be repeatedly reintroduced, or never fully removed, resulting in endless ‘rework’ and billing with no real resolution.**
+
+Here is what I require, effective immediately:
+
+1. **Zero Tolerance:**  
+   - No further claims of “compliance” or “issue resolved” unless you can provide a full, auditable log showing that all hardcoded provider references and protocol violations have been eliminated across **all** files and modules (legacy, backend, frontend, helper, test, config—everything).
+
+2. **Objective Evidence:**  
+   - Provide the output of the latest full protocol compliance check and a recursive search (e.g., `grep -ir 'openai\|gpt\|gemini\|anthropic' .`) across the repo.
+   - List every file that was changed, with before/after snippets for all violations.
+
+3. **Stop Billing for Rework:**  
+   - I will not pay for repetitive cycles of “fixing” the same issue that should have been resolved in the first fix.
+   - No charges should accrue for time spent fixing prior non-compliance or for debugging errors that result from previously incomplete or incorrect work.
+
+4. **Real-World Test:**  
+   - Show in the UI and codebase that I can add/remove providers with no code changes and that all provider configuration is dynamic.
+   - Show that the “Test AI Provider” works with a valid API key and provide a demonstration of successful connection.
+
+5. **Ongoing Enforcement:**  
+   - Commit to regular compliance checks (before each billable milestone).
+   - Document the compliance protocol and hand over the compliance check scripts for my own use.
+
+If these requirements are not met, I will escalate this to Replit support for a full investigation and billing review. I expect a full, professional response, not more cycles of “fix and break” and empty compliance claims.

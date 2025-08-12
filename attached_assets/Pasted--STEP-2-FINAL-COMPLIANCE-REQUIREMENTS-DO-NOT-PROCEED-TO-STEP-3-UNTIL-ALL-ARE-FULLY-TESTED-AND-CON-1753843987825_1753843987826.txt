@@ -1,0 +1,57 @@
+**STEP 2 FINAL COMPLIANCE REQUIREMENTS — DO NOT PROCEED TO STEP 3 UNTIL ALL ARE FULLY TESTED AND CONFIRMED**
+
+Read each point below and confirm with evidence (screenshots and explanation) after implementing and user testing. Do not claim Step 2 is complete until ALL requirements are met. No hardcoding under any circumstances.
+
+---
+
+1. **ADD ITEM**
+    - There must be a button or clearly visible option to add new evidence items one by one through the UI.
+    - Add form must include all required fields.
+
+2. **EDIT ITEM**
+    - Each row must have a working “Edit” button to update any field.
+    - Changes must be saved to the database and reflected in the UI.
+
+3. **DELETE ITEM (SINGLE, MULTIPLE, ALL)**
+    - Users must be able to select one, multiple, or all items using checkboxes and delete them with a single action.
+    - Deletion must be permanent (“hard delete”)—removed completely from the database, not just hidden or flagged.
+    - After delete, the record(s) must not reappear on refresh.
+
+4. **STICKY HEADERS**
+    - Table headers must remain visible (“sticky”) at the top while scrolling vertically.
+    - Both vertical and horizontal scrolling must work with header always in view.
+    - Use CSS: `position: sticky; top: 0; z-index: 2;` or library equivalent.
+    - Provide screenshot of table scrolled down with header still visible.
+
+5. **FILTERING**
+    - Fully functional filters (dropdowns or multi-select) for Equipment Group, Equipment Type, and Subtype must be available and dynamically loaded from the database.
+    - No filter options may be hardcoded.
+
+6. **IMPORT / EXPORT**
+    - Working “Import CSV” and “Export CSV” options must be available.
+    - Import must accept all current schema fields.
+    - Export must output all current schema fields (as shown in the UI).
+    - Both functions must handle all data without omissions or errors.
+
+7. **COLUMN VISIBILITY AND CONTENT**
+    - All columns from the master schema (and current DB/API) must be present and visible in the table.
+    - Long/detailed content must be fully accessible (use cell expansion, tooltips, or word-wrap).
+    - No column or content may be truncated or hidden.
+
+8. **NO HARDCODING**
+    - All filtering, importing, exporting, and table rendering must be schema-driven and dynamic—absolutely no hardcoded field names, dropdown values, or static logic.
+
+9. **USER TESTING**
+    - I (the user) must be able to:
+        - Add, edit, and delete individual records.
+        - Select and delete multiple/all records (permanently).
+        - Filter, import, export, and scroll with sticky header.
+        - View all columns and contents as required.
+    - Only after I have personally tested and confirmed all the above will Step 2 be approved.
+
+---
+
+**ACTION:**  
+Implement and test every requirement above. Provide screenshots and a summary of how each item is addressed.  
+Request approval for Step 3 ONLY after all these points are fully completed and confirmed by user testing.  
+No hardcoding allowed under any circumstances.

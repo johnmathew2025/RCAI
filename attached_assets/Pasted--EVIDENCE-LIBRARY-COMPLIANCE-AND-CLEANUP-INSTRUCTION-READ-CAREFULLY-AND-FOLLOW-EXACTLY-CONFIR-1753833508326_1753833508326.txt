@@ -1,0 +1,76 @@
+**EVIDENCE LIBRARY COMPLIANCE AND CLEANUP INSTRUCTION**
+**READ CAREFULLY AND FOLLOW EXACTLY — CONFIRM EACH STEP BEFORE PROCEEDING TO THE NEXT.**
+
+Protocol: ZERO hardcoding, full schema/UI/import/export alignment, and system field best practice.
+
+For every step below:
+- Read and understand the instruction.
+- Implement the step fully.
+- Test and validate the outcome.
+- After completion, CONFIRM with a summary and request approval to proceed to the next step.
+
+---
+
+**STEP 1: REMOVE UNUSED/BLANK COLUMNS FROM SCHEMA**
+
+- Remove `blankColumn1`, `blankColumn2`, and `blankColumn3` from the Evidence Library table schema.
+- Update all backend models, migrations, and API layers to ensure these columns no longer exist or are referenced anywhere.
+- Validate that all forms, UI, import/export logic, and codebase do not reference these columns.
+- After removal, test add/edit/import/export to confirm no “unknown column” errors.
+- **On completion:** Confirm this step is done and provide details of database/migration changes. WAIT FOR APPROVAL BEFORE CONTINUING.
+
+---
+
+**STEP 2: ENFORCE AND DISPLAY THE FULL MASTER SCHEMA**
+
+- Ensure that the Evidence Library UI table and all import/export functions show ALL fields from the current Master Schema (29 fields as per your specification).
+- No field should be hidden, omitted, or grouped under "Other."
+- System columns (such as `id`, `createdAt`, `updatedBy`, etc.) should only be displayed for admin/reference, and clearly separated from main data fields.
+- Add horizontal scrolling to the UI table if columns overflow the visible area.
+- **On completion:** Show screenshots or code confirmation, then WAIT FOR APPROVAL.
+
+---
+
+**STEP 3: FAILURE CODE UNIQUENESS AND OPERATIONS**
+
+- Set `failureCode` as the unique identifier in the database (enforce `@unique` or equivalent).
+- All add/edit/delete/import operations must use `failureCode` as the record selector—do not use `id` for any user operation.
+- `id` should remain system-generated and for admin/reference only.
+- Test to ensure duplicate `failureCode` entries are rejected and all CRUD operations work as intended.
+- **On completion:** Provide test results, then WAIT FOR APPROVAL.
+
+---
+
+**STEP 4: HARD DELETE ONLY (NO SOFT DELETE)**
+
+- Remove any soft-delete fields (such as `isActive`) or logic from the Evidence Library table.
+- When a record is deleted via the UI or API, it must be permanently removed from the database.
+- Ensure this is reflected in all UI, API, and import/export logic.
+- Validate by deleting a record and confirming it no longer exists in the database.
+- **On completion:** Confirm, show test result, and WAIT FOR APPROVAL.
+
+---
+
+**STEP 5: AI SETTINGS — ABSOLUTELY NO HARDCODING**
+
+- Remove all hardcoded AI model names, provider names, and values from both frontend and backend.
+- All AI dropdowns and options must be dynamically generated from backend config or an API endpoint (such as `/api/ai-models`). No static entries like 'GPT' or 'Claude' in code.
+- Update protocol checkers to block any commit containing hardcoded AI model references.
+- Provide evidence (code snippets or screenshots) of dynamic AI model handling.
+- **On completion:** Confirm and WAIT FOR FINAL APPROVAL.
+
+---
+
+**FINAL STEP: UNIVERSAL PROTOCOL COMPLIANCE CHECK**
+
+- Run the full Universal Protocol Compliance Check.
+- Ensure NO hardcoding, NO schema/UI mismatch, NO orphan fields, and NO protocol violations exist.
+- Provide screenshot or report showing full compliance.
+- **Confirm when all steps are 100% complete.**
+
+---
+
+**IMPORTANT:**
+- DO NOT proceed to the next step without confirmation.
+- At every step, summarize what was done and await approval.
+- All actions must comply with the universal no-hardcoding, dynamic logic, and schema-alignment protocol.

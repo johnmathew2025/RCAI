@@ -1,0 +1,49 @@
+1. Error Handling & UI Feedback
+All plugin/runtime errors must be caught and handled gracefully.
+If the tool encounters an error (e.g., “Cannot access uninitialized variable”), display a clear, user-friendly message and log the technical error for the developer.
+No tab or function should crash the UI; always offer a way to retry, contact support, or return to a safe screen.
+2. Evidence Gathering – ACTIVE, AI-ASSISTED
+What’s wrong now:
+
+The current “Evidence” tab is passive—just a data dump, not a smart assistant.
+AI is not guiding the user, checking for gaps, or validating sufficiency of evidence.
+What must change:
+
+The tool must proactively support and prompt the user during evidence gathering.
+2A. AI-Supported Evidence Flow (MANDATORY):
+
+As the user fills out each evidence section, the AI must:
+Check each answer for completeness, relevance, and plausibility.
+Flag missing, inconsistent, or suspicious data immediately.
+(Example: If “vibration data” is missing for a pump failure, AI prompts: “No vibration readings found—please provide or explain why unavailable.”)
+Prompt for additional information if responses are vague, incomplete, or illogical.
+(Example: If operator is left blank, AI asks: “Who was the operator at the time of failure?”)
+The evidence form should NOT allow submission for RCA analysis until all critical information is gathered or an explanation is provided for why it’s unavailable.
+2B. Dynamic Prompts:
+
+Use dynamic, context-sensitive prompts—AI should adapt questions based on previous answers and equipment type.
+AI should suggest what supporting data (files, images, logs) would strengthen the investigation.
+For complex fields (like “Describe failure”), use NLP to extract key info and prompt for what’s missing (“You mentioned ‘noise’—please specify the type and source.”).
+3. AI-Driven Evidence Check (BEFORE ANALYSIS STARTS)
+After evidence gathering, the AI must perform a structured evidence sufficiency check:
+List all missing or weak evidence with clear prompts for user action.
+Allow the user to upload/add new data or explicitly mark as “not available.”
+AI only proceeds to root cause analysis if evidence meets a minimum standard (customizable threshold). Otherwise, it returns to evidence gathering with a summary of what is still needed.
+4. Continuous Guidance & Support
+AI should offer in-line support and tooltips explaining why each evidence field matters.
+Provide sample answers or examples for each field if users seem stuck.
+If user repeatedly misses fields, offer a “Need help?” or “AI can suggest next step” button.
+5. After-the-Fact Review
+After initial analysis, if the root cause is “Unknown” or confidence is low, AI should:
+Review the evidence list and recommend the next most valuable evidence or action (“Consider reviewing motor current history; this is often linked to failures like yours.”)
+Prompt for expert review or escalate to a higher-level investigation.
+6. Evidence and Reasoning Transparency
+Always show the user what evidence the AI used to reach its conclusions.
+If evidence is missing or was estimated, the AI must state that clearly in the output.
+7. Developer Implementation Checklist
+ Implement AI-driven, section-by-section evidence validation and prompting.
+ Do not allow RCA analysis until all critical evidence is gathered or justified as unavailable.
+ Add dynamic prompts, tooltips, and sample answers for every key field.
+ After analysis, review missing/weak evidence and recommend user actions if confidence is low or root cause is “Unknown.”
+ Ensure all UI/UX elements fail gracefully, no crashes or plugin errors visible to the user.
+ Show all evidence (used and missing) in the report for transparency.

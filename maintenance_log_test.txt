@@ -1,0 +1,1 @@
+This is a maintenance log file showing pump bearing temperature rising from 65C to 85C over 2 hours. Operator noted unusual noise at 14:30. Vibration increased from normal 2.5mm/s to 8.2mm/s. Shutdown initiated at 15:45 due to high temperature alarm.

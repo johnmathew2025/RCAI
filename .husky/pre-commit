@@ -1,0 +1,18 @@
+#!/bin/bash
+# UNIVERSAL PROTOCOL STANDARD ENFORCEMENT - PRE-COMMIT HOOK
+# NO VIOLATIONS PERMITTED - ZERO TOLERANCE POLICY
+
+echo "🔍 Running Universal Protocol Standard compliance check..."
+./protocol_check.sh
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ PROTOCOL VIOLATION DETECTED - COMMIT BLOCKED"
+  echo "❌ Zero tolerance policy enforced"
+  echo "❌ Fix all violations before committing"
+  echo ""
+  exit 1
+fi
+
+echo "✅ Protocol compliance verified - commit allowed"
+exit 0

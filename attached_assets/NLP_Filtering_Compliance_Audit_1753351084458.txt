@@ -1,0 +1,79 @@
+
+NLP FILTERING COMPLIANCE AUDIT — RCA SYSTEM
+=============================================
+
+
+SCOPE:
+------
+This audit file focuses on validating that the symptom keyword filtering and failure mode elimination logic:
+- Uses strict NLP from incident descriptions only
+- Applies schema-based evidence linkage
+- Never defaults to any hardcoded fallback templates or equipment logic
+
+KEY INCIDENT EXAMPLE — FAILURE DETECTED:
+-----------------------------------------
+Incident #70: “Pump seal failure – dripping continuously”
+
+❌ Failure Modes like “Casing Crack” and “Impeller Damage” were shown.
+❌ Indicates fallback or preload of pump-type failure modes.
+❌ Violation of instructions in Root_Cause_Filtering_Enforcement.txt
+
+KEY COMPLIANCE REQUIREMENTS:
+-----------------------------
+✅ NLP keyword extraction must:
+   - Parse only `incident.title` and `incident.description`
+   - Use tokenization and relevance scoring
+   - Match terms such as: seal, leak, rotor, burned, etc.
+   - Be equipment-agnostic (no hardcoded lookup tables)
+
+✅ Failure mode filtering must:
+   - Use only dynamically matched keywords
+   - Pull failure modes from schema-mapped Evidence Library
+   - NOT preload by equipment type, subtype, or group
+
+✅ Evidence prompting must:
+   - Ask only for evidence related to filtered failure modes
+   - Use adaptive prompts — not template questionnaires
+
+✅ JSON Audit Logging must:
+   - Record extracted keywords
+   - Show filtered failure modes and prompt chain
+   - Log each logic step in clear structured format
+
+MANDATORY AUDIT TASKS FOR REPLIT DEVELOPER:
+--------------------------------------------
+1. ✅ **Submit JSON audit logs for at least 5 incidents**:
+   - Include examples like: pump seal leak, motor rotor burn, vessel overpressure, etc.
+   - Show NLP token output and resulting failure modes
+
+2. ✅ **Submit evidence of NLP module**:
+   - Show the `elimination-engine.ts` logic that performs true NLP
+   - Prove no fallback lists or hardcoded symptom maps are used
+
+3. ✅ **Demonstrate edge case handling**:
+   - Example: “Pump failed” — should return NO failure modes unless evidence is uploaded
+   - No fallback to generic pump faults
+
+4. ✅ **Prove “Zero Hardcoding” compliance**:
+   - Keyword lists must not be hardcoded
+   - Failure mode options must not be tied to fixed equipment types
+   - Templates must not be reused
+
+5. ✅ **Include confidence logs and filtering outcomes**:
+   - Sample: “Seal Face Wear – 90% match from ‘seal + leak’”
+   - Missing evidence? Prompt explicitly: “Upload seal flush pressure trend or IR image”
+
+FINAL WARNING — NO HARDCODING:
+-------------------------------
+⚠️ UNDER NO CIRCUMSTANCE must any part of this system include:
+- Preloaded equipment-specific failure modes
+- Hardcoded symptom or keyword lists
+- Default fallback logic that assumes type = mode
+
+This logic MUST scale universally. If it fails to match incident content, the system must:
+→ Prompt for clarification
+→ Or show “insufficient input to analyze – please provide more details”
+
+This is non-negotiable and subject to retesting.
+
+END OF COMPLIANCE AUDIT

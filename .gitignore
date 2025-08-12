@@ -1,0 +1,16 @@
+# Node / Next / build
+node_modules/
+.next/
+dist/
+build/
+coverage/
+*.log
+*.cache/
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+# Misc
+.DS_Store
+.env*

@@ -1,0 +1,88 @@
+
+Fallback Logic for RCA System When Evidence Library Confidence Is Low
+=====================================================================
+
+📅 Generated: 2025-07-24 11:50:43
+
+This document defines universal logic for the AI-based RCA system when evidence confidence from the Evidence Library is LOW or NOT MATCHED. This ensures continuity of intelligent analysis without fallback to hardcoded equipment logic.
+
+--------------------------------------------------------------------------
+🚫 ABSOLUTE RULE: NO HARDCODING ALLOWED
+- Do not preload equipment-specific failure modes or symptoms
+- Do not fallback to static templates
+- All logic must be AI-driven or schema-driven
+--------------------------------------------------------------------------
+
+✅ Step-by-Step Logic
+
+1️⃣ FALLBACK TO AI-ONLY INFERENCE
+----------------------------------
+- When no Evidence Library entry matches with high confidence (>80%), the system must use OpenAI or equivalent LLM to infer potential failure modes.
+- Prompt example: 
+  "Based on the following incident description and symptoms, what are the  most likely root causes?"
+
+- Context provided:
+    - Incident ID
+    - Equipment Group / Type / Subtype
+    - Extracted keywords/symptoms from NLP
+    - Attached evidence summary (if any)
+
+2️⃣ DISPLAY INFERRED FAILURE MODES (LABELLED)
+---------------------------------------------
+- Any failure modes returned by AI should be tagged clearly:
+  "confidenceSource": "AI-Inferred"
+
+- Present them in the UI alongside confidence scores (if available), and note that these were *not* matched from the library.
+
+3️⃣ COLLECT INVESTIGATOR FEEDBACK
+----------------------------------
+- Ask investigator for action:
+  [ ] Confirm one or more inferred causes
+  [ ] Disagree with all
+  [ ] Suggest alternative
+  [ ] Add custom failure mode manually
+
+4️⃣ TEMPORARY LOCAL USE ONLY
+-----------------------------
+- Inferred causes, if confirmed, can be used to drive evidence gathering and conclusion *for this incident only*
+- DO NOT update the Evidence Library yet
+
+5️⃣ OPTIONAL FLAGGING FOR REVIEW
+---------------------------------
+- Allow system to log unmatched inferences into a "review queue"
+  Fields to log:
+  - Incident ID
+  - Inferred Failure Mode
+  - Evidence Summary
+  - User Confirmation Status
+  - Confidence (if calculated)
+  - Timestamp
+
+6️⃣ ESCALATE IF REPEATED PATTERNS EMERGE
+-----------------------------------------
+- If same unmatched cause is confirmed by multiple human investigators across incidents:
+  - Flag for admin/manual review
+  - THEN and ONLY THEN consider adding to Evidence Library
+
+--------------------------------------------------------------------------
+🔒 JSON Logging Example
+
+{
+  "incidentID": "INC-078",
+  "equipmentGroup": "Rotating",
+  "equipmentType": "Pump",
+  "subtype": "Seal Leak",
+  "inferredCause": "Seal Flush Line Blocked",
+  "confidenceSource": "AI-Inferred",
+  "userConfirmed": true,
+  "evidenceSummary": ["IR image provided", "Leak rate log"],
+  "timestamp": "2025-07-24T19:55:00Z"
+}
+
+--------------------------------------------------------------------------
+📌 Reminder:
+- No hardcoded lists
+- No static if-else chains
+- All analysis, prompting, and logging must be schema-based and universally applicable
+
+END OF DOCUMENT

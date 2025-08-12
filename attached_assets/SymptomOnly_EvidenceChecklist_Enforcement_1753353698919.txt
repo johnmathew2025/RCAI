@@ -1,0 +1,74 @@
+
+Symptom-Only Evidence Checklist Enforcement – Incident #72 (Pump Seal Leak)
+============================================================================
+
+🔍 Root Problem:
+----------------
+The AI-generated Evidence Checklist for Incident #72 includes **irrelevant failure modes and evidence types**, such as:
+- SF6 Leak
+- Refrigerant Leak
+- Tube Leak
+- Roof Corrosion
+- Cylinder Leak
+- Steam Leak
+
+The symptom described was ONLY: "Pump seal leaking – dripping continuously"
+
+This violates the checklist logic and indicates one or more of the following implementation failures:
+❌ Equipment-type-based evidence preloading
+❌ Loose evidence library tagging (e.g., all leak-related items shown for any "Pump")
+❌ Lack of strict `faultSignaturePattern` filtering against extracted symptoms
+
+🛑 This behavior is **unacceptable** for a system meant to be universal and symptom-driven.
+
+✅ Correct Logic Architecture:
+------------------------------
+1. ➤ Incident text is the **only source** for initial filtering.
+   - Extract tokens: ["seal", "leak", "dripping"]
+   - Tokens must be matched against `faultSignaturePattern` in the Evidence Library
+
+2. ➤ Evidence Library filtering must obey:
+   a. `faultSignaturePattern` CONTAINS extracted symptom tokens
+   b. `symptomType` is relevant to the symptom (e.g., "Leak", "Seal", "Face Wear")
+   c. `Component Group/Type/Subtype` is compatible ONLY if derived post-filter
+
+3. ➤ No unrelated domain evidence is ever shown (e.g., SF6, HVAC, exchangers)
+
+4. ➤ No fallback to equipment-type-specific templates, dictionaries, or hardcoded suggestions
+
+✅ Mandatory Output Behavior:
+-----------------------------
+For Incident #72, only relevant evidence types should appear, such as:
+- Seal face temperature (IR)
+- Seal pot pressure/level
+- Flush line pressure
+- Local leak detection sensor trend
+- Operator photos of leak
+- Alarm/event log around time of leak
+
+🧱 Required Enforcement Structure:
+----------------------------------
+- Primary Filter: NLP symptom keywords → Evidence Library `faultSignaturePattern`
+- Secondary Match (optional): Relevant domain + symptomType
+- Confidence score applied to each evidence item
+- No evidence shown below confidence threshold (e.g., <0.6)
+
+❌ ABSOLUTELY FORBIDDEN:
+-------------------------
+- ❌ Static dictionaries of evidence per equipment type
+- ❌ Loading all "leak"-tagged evidence just because it's a pump
+- ❌ Using group/type/subtype to preload default failure modes or evidence
+- ❌ Switch-case, object maps, or any hardcoded fallback
+- ❌ Displaying generic evidence prompts not tied to symptom match
+
+✅ Every decision must be made dynamically using NLP → pattern match → scoring → audit log
+
+⚠️ Summary:
+-----------
+This violation shows the system is still relying on legacy behavior or template-style fallback logic. That must be **completely removed**. 
+
+The only driving logic for evidence prompting must be **incident-specific symptom extraction**, not equipment type.
+
+📎 Incident #72 must be re-run after applying this correction and verified to show ONLY seal-related evidence prompts.
+
+-- END OF ENFORCEMENT INSTRUCTION --

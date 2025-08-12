@@ -1,0 +1,27 @@
+name: Universal Protocol Standard Compliance Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  protocol-compliance:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run Protocol Compliance Check
+      run: |
+        chmod +x ./protocol_check.sh
+        ./protocol_check.sh
+        
+    - name: Block on Violations
+      if: failure()
+      run: |
+        echo "❌ PROTOCOL VIOLATION DETECTED - BUILD/DEPLOY BLOCKED"
+        echo "❌ Zero tolerance policy enforced"
+        echo "❌ Fix all violations before merge/deploy"
+        exit 1

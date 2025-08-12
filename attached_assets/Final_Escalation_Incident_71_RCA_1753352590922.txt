@@ -1,0 +1,88 @@
+
+Final Escalation – RCA Filtering Violation: Incident #71 (Pump Seal Leak)
+==========================================================================
+
+📌 Incident Summary:
+--------------------
+Test Incident #71:
+User Incident Description: "Pump seal leaking continuously, minor dripping noticed"
+
+Observed Behavior:
+- Failure modes shown: Bearing Failure, Casing Crack, Impeller Damage, etc.
+- Irrelevant modes still displayed despite prior enforcement
+- Interface claims "Intelligent Elimination Applied", yet unrelated modes remain
+
+🚫 Critical Violations Confirmed:
+---------------------------------
+1. Equipment-type preloading still active (e.g., 'Rotating - Pumps')
+2. Failure mode list appears tied to group/type/subtype, not just incident text
+3. Symptom-based NLP filtering either bypassed, weak, or implemented AFTER preload
+4. Evidence Library is still being queried with fallback loading methods
+5. ZERO filtering based on pattern relevance score or symptom match threshold
+
+🚫 THIS VIOLATES:
+------------------
+✔ Hardcoding_Violation_Incident_Report.txt
+✔ Evidence_Library_Filtering_Enforcement.txt
+✔ Root_Cause_Filtering_Enforcement.txt
+✔ NLP_Filtering_Compliance_Audit.txt
+
+✅ Required Immediate Fixes:
+----------------------------
+1. 🚫 Completely DISABLE equipment-type preloading logic:
+   • No Rotating-Static-Electrical based template loading
+   • No failure mode lists based on Group/Type/Subtype
+
+2. ✅ ALL failure mode suggestions must be based only on:
+   • NLP keyword extraction from incident text
+   • faultSignaturePattern or failureModeDescription match from Evidence Library
+
+3. 🧠 Evidence Library query pattern:
+   • incidentText → tokenizedKeywords[]
+   • match keywords against faultSignaturePattern
+   • shortlist only those failureModes with ≥ threshold pattern match
+
+4. 📊 Filtering Threshold Enforcement:
+   • If confidence of match < 60%, do NOT show the failure mode
+   • No fallback suggestions if nothing matches
+   • Instead, prompt user: “Cannot match clear failure mode. Please clarify...”
+
+5. 🔒 ABSOLUTE RULE: ZERO HARDCODING
+   • No dictionaries like `equipmentFailureModes`
+   • No template-based failure lists per asset group
+   • No fallbacks triggered by equipment metadata
+   • No static arrays, lists, mappings or switch-cases
+
+6. 📑 Required Log Sample (for Incident #71):
+```
+{
+  "incidentID": 71,
+  "keywordExtracted": ["seal", "drip", "leak"],
+  "matchedFailureModes": [
+    {
+      "failureMode": "Seal Face Wear",
+      "matchedPattern": "drip",
+      "confidence": 82,
+      "libraryRowID": "FM012"
+    }
+  ],
+  "eliminatedFailureModes": [
+    "Bearing Failure", "Casing Crack", "Impeller Damage"
+  ]
+}
+```
+
+🧪 Test Protocols (Must Pass All):
+-----------------------------------
+✔ Incident #65: "Motor rotor burnt": Only winding/rotor-related failures shown
+✔ Incident #70: "Seal leaking": Only seal-related failure modes appear
+✔ Incident #71: "Pump seal leak": No bearing, casing, impeller failures should show up
+✔ Vague incident: System must first ask clarification (not preload anything)
+
+📛 Final Enforcement Note:
+---------------------------
+Under NO CIRCUMSTANCE shall ANY component of this RCA tool include hardcoded logic. The system must operate purely on dynamic symptom-based matching from incident text, using the Evidence Library schema.
+
+Any further fallback to templates, dictionaries, or hardcoded pattern matching violates architectural integrity and credibility.
+
+-- END OF FINAL ESCALATION DOCUMENT --

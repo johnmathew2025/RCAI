@@ -1,0 +1,133 @@
+
+🔧 RCA AI Evidence Handling & Evaluation Instructions (vFinal)
+📅 Issued: 2025-07-25
+🧠 Goal: Enable AI to intelligently evaluate uploaded evidence in Step 3 & Step 4, without hardcoding, and retain working logic in other steps.
+
+---
+
+✅ GENERAL RULE: PRESERVE FUNCTIONALITY
+
+- DO NOT CHANGE ANYTHING in Steps 0–2 or Steps 5–6 — these are working.
+- DO NOT hardcode values (e.g., categoryId, match IDs, library scores).
+- DO NOT rely exclusively on library match — instead analyze actual uploaded data.
+
+---
+
+🟡 START INTELLIGENT LOGIC FROM STEP 3
+
+🔍 STEP 3: Generate Evidence Checklist
+
+- Checklist must be generated  based on equipment group/type/subtype logic already built.
+- Each checklist item should contain:
+  - evidenceCategory: Vibration, IR, Current, Temp, etc.
+  - required: true/false
+  - expectedFileTypes: ["csv", "txt", "xlsx", "pdf"]
+  - aiPrompt: Question to ask the user (e.g., "Can you upload vibration trend or spectrum?")
+- Save the checklist under incident.evidenceChecklist in DB.
+
+---
+
+🔎 STEP 4: Evidence Collection & Backend AI Evaluation
+
+1. Evidence File Parsing (No Hardcoding)
+- Based on uploaded file type:
+  - .txt ➜ Check for waveform, timestamps, peak readings.
+  - .csv ➜ Parse headers, time series, detect key fields: RPM, Temp, 1X/2X Vibration.
+  - .xlsx ➜ Read table ranges, extract time series if present.
+- Each file should trigger AI to compute:
+  - diagnosticValue: Low, Medium, High
+  - parsedResultSummary: e.g., “Dominant 1X spike observed”
+  - evidenceConfidenceImpact: numerical or tag
+  - aiRemarks: Any intelligent interpretation
+
+2. Evaluate If Data is Incomplete or Missing
+- If uploaded data is missing structure (e.g., no time column, or axis units), AI must:
+  - Prompt the user clearly:  
+    “This vibration file lacks timestamp or frequency units. Please clarify or re-upload.”
+  - Allow user to respond with:
+    - Re-upload
+    - Tick “Not Available” with a reason
+- If user cannot provide data:
+  - Mark that item as status = Unavailable with reason
+  - AI should continue using hypothesis
+
+---
+
+🧠 STEP 4.5: Proceeding with Hypothesis
+
+If uploaded evidence is missing or weak:
+- AI continues with hypothesis-based RCA, using symptom, incident description, and checklist data.
+- Show message in UI:  
+  > "Analysis is based on hypothesis due to missing or insufficient evidence. Confidence reduced."
+- Root Cause and Recommendations must be auto-labeled with lowered confidence (e.g., <50%)
+
+---
+
+🔍 STEP 5 OUTPUT ENHANCEMENT
+
+For each RCA tab (Root Cause, Recommendations, Evidence Gaps):
+- Always show a summary of what AI found in evidence (even if confidence is low).
+- Examples:
+  - “Uploaded vibration file shows normal 1X/2X amplitude. No severe signature found.”
+  - “IR scan was not provided — shaft misalignment assumed based on symptoms.”
+- Avoid blank screens like in attached screenshots — always show AI's reasoning, even if assumption-based.
+
+---
+
+📁 Evidence Metadata Requirements
+
+Every uploaded file should save metadata:
+- filename
+- evidenceType (trend / log / image / report)
+- diagnosticValue
+- parsedResultSummary
+- aiRemarks
+- evidenceConfidenceImpact
+- status (Available / Unavailable)
+- userProvidedReason (if marked Unavailable)
+
+---
+
+📚 Evidence Library — Use With Caution
+
+- AI should NOT fall back entirely on library match.
+- Library match is just one input.
+- Even if library match fails, continue based on actual uploaded data, and show logic in UI.
+
+---
+
+🧩 Evidence Library Enrichment (Long-Term)
+
+- Whenever new evidence is analyzed and result accepted (by admin), AI can suggest updates to:
+  - Fault Signature Pattern
+  - AI Prompt Templates
+  - Required Evidence Fields
+
+But:
+- Admin must approve suggested enrichment.
+- Never auto-update Evidence Library without user/admin approval.
+
+---
+
+⚠️ NO HARDCODING MANDATE
+
+- All logic must be schema-driven and AI-interpreted.
+- DO NOT hardcode:
+  - IncidentId, CategoryId
+  - Any specific logic path for Incident # or Equipment ID
+  - Any fallback threshold (e.g., match > 80%) — use configurable flags
+
+---
+
+🧱 FINAL NOTES
+
+- Preserve all functioning transitions and UI logic in current Steps 5–6.
+- From Step 3 onwards, ensure AI analyzes every file and shows results in Step 5 tabs.
+- Prevent “empty tabs” as seen in screenshots. Every RCA must show:  
+  - AI Interpretation  
+  - Confidence Level  
+  - Missing Data Prompts
+
+---
+
+✅ END OF INSTRUCTION FILE

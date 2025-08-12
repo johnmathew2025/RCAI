@@ -1,0 +1,113 @@
+
+UNIVERSAL RCA INSTRUCTION WITH TIMELINE & CONTEXT PARSING
+=========================================================
+
+❗ ABSOLUTE RULE: NO HARDCODING ALLOWED
+--------------------------------------
+- DO NOT hardcode failure modes, equipment types, symptoms, prompts, questions, or file structures.
+- All logic must be schema-driven, dynamic, and work universally for ANY industrial asset type.
+- The system must use AI inference and Evidence Library schema to drive analysis—not fixed logic.
+
+STEP 1: INCIDENT INGESTION AND CONTEXT EXTRACTION
+-------------------------------------------------
+- Parse both structured fields and freeform incident description.
+- Use NLP to extract:
+  • Component involved (pump, motor, valve…)
+  • Action verbs (leaked, tripped, burned, surged…)
+  • Failure symptoms (smoke, vibration, overheating…)
+  • Operating context (load, pressure, startup…)
+  • First observed time, duration, frequency (e.g., “suddenly failed yesterday”)
+- If vague, AI must generate clarifying questions automatically.
+
+STEP 2: UNIVERSAL FAILURE MODE HYPOTHESIS GENERATION
+-----------------------------------------------------
+- AI must generate likely failure modes using:
+  • Parsed keywords from incident
+  • Evidence Library symptom patterns
+  • Internal AI model inference
+- Also generate questions for each hypothesis (e.g., “Was the seal flush blocked?”)
+- Allow the investigator to ✅ Accept / ❌ Reject / ➕ Add More hypotheses.
+
+STEP 3: SMART EVIDENCE REQUEST & CLARIFICATION
+----------------------------------------------
+- For each accepted hypothesis, system must:
+  • Retrieve required evidence types from Evidence Library
+  • Ask: “Please provide X (IR scan, vibration spectrum, temperature log…)”
+  • Show status: [Provided] [Not Available] [Pending]
+- If the evidence is unclear or junk:
+  • System must request clearer version (e.g., “Please upload vibration time waveform”)
+- Evidence Adequacy Scoring: Each file should be auto-evaluated for diagnostic usefulness.
+
+STEP 4: SYMPTOM CHRONOLOGY & TIMELINE ANALYSIS
+-----------------------------------------------
+- Parse incident timeline elements:
+  • “First noticed”, “gradually”, “suddenly”, “yesterday”, “while starting”, etc.
+- Identify symptom progression (e.g., vibration → leakage → trip)
+- Cross-reference with known fault signature progressions in Evidence Library
+- AI should flag unusual sequences or missing transitions.
+
+STEP 5: RCA LOGIC EXECUTION (NO HARD CODING)
+---------------------------------------------
+- Failure modes must be dynamically matched using:
+  • Symptom → Signature → Evidence → Cause inference
+- Confidence scores must drive decisions.
+- If low confidence:
+  • AI prompts investigator for more data
+  • Falls back to general hypothesis model and re-evaluates
+- All elimination or confirmation of hypotheses must be explainable with audit trace.
+
+STEP 6: HUMAN INTERACTION LAYER (MANDATORY)
+-------------------------------------------
+- Human must confirm or override each suggested hypothesis.
+- Buttons:
+  ✅ Accept | ❌ Reject | ➕ Add More
+- System must store human response, update logic, and re-trigger evidence checks as needed.
+
+STEP 7: RCA OUTPUT WITH COMPLIANCE FIELDS
+-----------------------------------------
+- Root Cause Structure:
+  • Primary Root Cause
+  • Contributing Factor(s)
+  • Latent Condition(s)
+  • Detection Gap
+- Also include:
+  • PHA reference (if any)
+  • MOC related to component
+  • SIS compliance issue (IEC 61511)
+  • Human actions noted (from timeline or logs)
+  • Environmental/external contributing data
+
+STEP 8: EVIDENCE LIBRARY AUTO-ENRICHMENT (REVIEWED BY ADMIN)
+-------------------------------------------------------------
+- If human confirms a root cause and provides valid evidence:
+  • System suggests update to Evidence Library:
+    - New fault signature pattern (keywords, symptom order)
+    - New evidence type (e.g., photos, waveform)
+    - Better phrasing for AI prompts
+- Admin must ✅ approve before update is saved.
+
+RULES FOR SCHEMA-DRIVEN DESIGN
+-------------------------------
+- The Evidence Library must include:
+  • Fault Signature Pattern
+  • Required Evidence
+  • AI Prompt Structure
+- RCA must query Evidence Library ONLY based on symptom & evidence logic.
+- No preloading or filtering based on equipment type, group or subtype.
+
+AI FALLBACK / REINFERENCE LOGIC
+-------------------------------
+- If no failure mode can be inferred with >80% confidence:
+  • System must revert to AI model inference to generate new hypotheses
+  • Prompt user again for clarification or more data
+- Never fall back to a hardcoded list
+
+✅ Architecture should support all asset types, sectors, and data types
+✅ RCA must degrade gracefully in low-data cases and request what’s needed
+✅ EVERYTHING must be explainable in logs: what matched, what failed, what confidence.
+
+💥 If this instruction is not followed:
+- The result will be equipment-specific, inflexible, non-scalable logic
+- All fixes must be logic-based, not symptom patches
+
+Final Reminder: Build a universal system, not an expert system with hidden rules.

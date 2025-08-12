@@ -1,0 +1,53 @@
+
+🚫 URGENT ENFORCEMENT: RCA SYSTEM STILL USING EQUIPMENT-TYPE-BASED LOGIC 🚫
+
+📌 VIOLATION CASE: Incident #73 (See attached TTT.pdf)
+    - Incident Text: "SOME HIGH VIBRATION AND HIGH AMPS OBSERVED. BUT NOT SURE WHAT CAUSED. AFTER SOME TIME SEAL LEAKED AND PLANT STOPPED."
+    - Evidence Check List Response: "Based on your equipment type (Pumps) and reported symptoms..."
+    - ❌ This clearly shows AI is using hardcoded or preloaded equipment-type logic.
+
+🛑 THIS IS A VIOLATION OF ALL ENFORCEMENT PRINCIPLES:
+    1. NO HARDCODED EQUIPMENT TYPE LOGIC
+    2. NO DEFAULT FAILURE MODES BASED ON GROUP/TYPE/SUBTYPE
+    3. ONLY NLP-EXTRACTED INCIDENT SYMPTOMS TO BE USED
+
+✅ IMMEDIATE FIX REQUIRED:
+    - All symptom → cause inference must originate from incident text using AI/NLP only.
+    - Eliminate ANY fallback to equipment-based inference or Evidence Library pre-filters.
+    - All AI prompts must be generated contextually based on extracted incident tokens (e.g., "seal leak", "high vibration", etc.)
+
+🧠 INCIDENT-ONLY RCA LOGIC ENFORCEMENT:
+    - INPUT: Incident description (free text)
+    - STEP 1: Extract keywords using NLP
+    - STEP 2: Use those keywords to generate 5–6 possible failure hypotheses using GPT/AI
+    - STEP 3: PRESENT TO USER for verification:
+        - "Here are the possible causes based on the incident description. Please review."
+        - Allow investigator to:
+            ✅ Accept suggestions
+            ❌ Reject irrelevant ones
+            ➕ Add new hypotheses manually
+    - STEP 4: For each retained cause, prompt for evidence or data
+    - STEP 5: Analyze data → Confirm cause or ask for clarification/more data
+
+🔍 SYSTEM BEHAVIOR MUST BE:
+    - Suggestive, never prescriptive
+    - Transparent: Always log user selections and overrides
+    - Collaborative: Combine AI logic with investigator insight
+    - Adaptive: Re-prompt or regenerate if user rejects all suggestions
+
+📂 EVIDENCE LIBRARY USAGE RULE:
+    - Use ONLY as a support for AI suggestions
+    - Match only symptom-based fault signatures
+    - AI can override if ≥90% confidence is reached from incident + evidence
+
+📢 CRITICAL:
+    - REMOVE all fallback logic, templates, or defaults based on equipment
+    - AUDIT the checklist generation system immediately
+    - CONFIRM IN LOG: All failure mode prompts were symptom-derived only and investigator-reviewed
+
+📁 THIS ENFORCEMENT FILE SUPPLEMENTS:
+    - Universal_RCA_Instructions_For_Replit.txt
+    - NO_HARDCODE_AI_CONFIG_ENFORCEMENT.txt
+
+NO HARD CODING UNDER ANY CIRCUMSTANCE — THIS MUST BE UNIVERSAL, AI-DRIVEN, AND INCIDENT-SPECIFIC, WITH VERIFIED HUMAN INPUT
+

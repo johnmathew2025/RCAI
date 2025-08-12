@@ -1,0 +1,42 @@
+[PYTHON ANALYZER] Starting real data science analysis for test.csv
+[PYTHON ANALYZER] Parsing CSV/TXT file with pandas
+[PYTHON ANALYZER] Successfully parsed 3 rows, 6 columns
+{
+  "filename": "test.csv",
+  "evidenceType": "Vibration Analysis",
+  "diagnosticValue": "Medium",
+  "parsedResultSummary": "Dataset: 3 rows x 6 columns. Data completeness: 100.0% Good column type diversity",
+  "evidenceConfidenceImpact": 50,
+  "aiRemarks": "Data completeness: 100.0% | Good column type diversity",
+  "status": "Available",
+  "detectedColumns": [
+    "Time_s",
+    "Velocity_mm_s",
+    "Acceleration_g",
+    "RPM",
+    "Temperature_C",
+    "Frequency_Hz"
+  ],
+  "extractedFeatures": {
+    "rowCount": 3,
+    "columnCount": 6,
+    "columnTypes": {
+      "Time_s": "time",
+      "Velocity_mm_s": "amplitude",
+      "Acceleration_g": "amplitude",
+      "RPM": "speed",
+      "Temperature_C": "temperature",
+      "Frequency_Hz": "frequency"
+    },
+    "signalAnalysis": {},
+    "delimiter": ",",
+    "dataQuality": {
+      "completeness_score": 100.0,
+      "total_score": 50,
+      "assessment_factors": [
+        "Data completeness: 100.0%",
+        "Good column type diversity"
+      ]
+    }
+  }
+}

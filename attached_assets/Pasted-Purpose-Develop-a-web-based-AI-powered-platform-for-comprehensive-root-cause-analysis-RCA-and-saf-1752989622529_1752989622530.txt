@@ -1,0 +1,193 @@
+Purpose
+
+Develop a web-based AI-powered platform for comprehensive root cause analysis (RCA) and safety investigation.
+
+Plant Asset RCA: Based on fault tree (or failure logic tree) for equipment failures.
+Safety/Incident RCA: Based on Event-Causal Factor Analysis (ECFA) or similar methodologies.
+1. Data Ingestion, Parsing & Validation
+
+A. File Upload & Supported Formats:
+
+Accept Excel, CSV, PDF, JSON, and TXT.
+Support bulk import and drag-and-drop functionality.
+B. Data Parsing:
+
+Parse structured and unstructured work order, incident, and maintenance data.
+NLP to extract entities, parameters, events, and relationships from free text (incident descriptions, operator logs, notes).
+C. Data Validation:
+
+Validate for completeness, correct units/formats, duplicates, outliers.
+Flag and prompt user for missing or suspicious entries.
+Store data in normalized, queryable schema.
+2. Questionnaire-Driven Evidence Gathering (Form Builder)
+
+A. General Approach:
+
+Implement a dynamic questionnaire/form system, starting with broad questions and drilling down based on user answers and ISO 14224 taxonomy.
+The form must adapt based on selected equipment, event, or incident type (see conditional logic).
+A.1. Equipment/Asset Types
+(Based on ISO 14224—must be expandable)
+
+Rotating: Pumps (centrifugal, reciprocating, rotary), compressors, turbines, motors, fans, blowers, mixers.
+Static: Vessels, exchangers, boilers, columns, filters, tanks, piping, valves.
+Electrical: Switchgear, transformers, circuit breakers, UPS, cables.
+Instrumentation/Control: Sensors, transmitters, control valves, analyzers, PLC/DCS.
+Support: HVAC, cranes, fire protection, others.
+A.2. Evidence-Gathering Questionnaire
+A. General Information
+
+Equipment Tag/ID (text)
+Equipment Type (dropdown, per taxonomy)
+Subtype/Model (dropdown or text)
+Manufacturer
+Year of Installation
+Location/Area (site, process line)
+Parent System/Asset Hierarchy
+B. Failure/Event Details
+
+Date & Time of Event
+Who Detected Problem (operator, technician, system alarm)
+How was the problem first noticed? (dropdown: alarm, inspection, operator report, etc.)
+Operating mode (normal, startup, shutdown, standby)
+Was equipment running, idle, or standby at failure?
+Environmental conditions (ambient temp, humidity, weather, corrosive/dusty)
+C. Symptom and Evidence
+
+Describe problem/failure (free text + NLP extraction)
+Where is the symptom? (e.g., for valve: seat, stem, body)
+Is the problem constant, intermittent, or recurring?
+Were any alarms or trips triggered? (list, timestamps)
+Any abnormal readings? (pressure, temp, flow, current, etc.)
+Photographs or supporting docs? (upload)
+Any safety/environmental impact?
+D. Operating and Maintenance History
+
+Date of last maintenance/inspection
+Type of last maintenance (PM, CM, PdM)
+Details of recent work, modifications, or repairs
+History of similar failures? (dropdown/description)
+Operating within design limits? (yes/no, explain)
+Recent process upsets, trips, or abnormal ops?
+E. Equipment-Specific Parameters (conditional on equipment type)
+
+Pumps/Compressors: Suction/discharge pressure, vibration/noise, seal/lube condition, cavitation/overheat?
+Vessels/Exchangers/Boilers: Operating P&T, corrosion, inspection findings, relief device status.
+Electrical: Load/current, last insulation resistance, trip records, overheating/arcing.
+Control/Instrumentation: Last calibration, alarm/fault logs, power supply, wiring issues.
+F. Human Factors
+
+Operator at time of event (name/shift/role)
+Procedures followed? (yes/no, comments)
+Any known operator error?
+Training/competence details
+Recent staffing/procedure changes?
+G. Materials & Spares
+
+Non-OEM parts used? (yes/no)
+Material certification for replaced parts?
+Spares stock/quality issues?
+H. Contributing/External Factors
+
+External events (power loss, utility, weather)
+Upstream/downstream impacts
+Associated system failures
+Any cyber/automation incidents
+I. Safety/Incident (ECFA-Specific)
+
+Chronology: Time of first indication, alarms, responses, interventions, restoration.
+Incident severity/risk rating
+Immediate & underlying causes (dropdown + free text)
+Regulatory/Reportable event? (yes/no)
+Formal investigation initiated? (yes/no)
+Post-incident actions taken and verification/closure
+J. Attachments & References
+
+Upload incident reports, images, test results
+Reference past similar RCAs/incidents (if in system)
+A.3. UI/UX Notes
+Use dropdowns, date pickers, number fields, file uploaders.
+Conditional logic: show/hide questions based on context (e.g., equipment type, event severity).
+All required fields must be validated before allowing AI analysis to proceed.
+3. AI Workflow (Analysis Engine)
+
+A. Data Parsing & Validation
+What: Cleans and structures user-entered/uploaded data.
+Why: Ensures analysis uses high-quality, valid data.
+Status/Tooltip: "Checking your input for completeness and format..."
+B. NLP Analysis
+What: Extracts entities, actions, and relationships from text descriptions, logs, notes.
+Why: Converts unstructured data into structured evidence for analysis.
+Status/Tooltip: "Understanding incident narratives and operator comments..."
+C. Pattern Recognition
+What: Identifies patterns, trends, or anomalies in parameter history, events, maintenance, etc.
+Why: Finds hidden relationships or recurring issues not obvious in single events.
+Status/Tooltip: "Detecting trends, outliers, or recurring failure patterns..."
+D. Root Cause Identification
+What: Uses rules, logic trees (Fault Tree for assets; ECFA for safety), and/or ML inference to propose root/contributing causes.
+Why: Delivers data-driven diagnosis, not just symptom reporting.
+Status/Tooltip: "Diagnosing root causes and contributing factors..."
+E. Recommendations Generation
+What: Links findings to actionable recommendations—corrective, preventive, process, or training changes.
+Why: Makes analysis actionable for improvement.
+Status/Tooltip: "Suggesting targeted corrective and preventive actions..."
+4. Fault Tree & ECFA Logic
+
+A. Fault Tree (Plant Assets):
+
+Use a knowledge base and/or editable logic trees for mapping symptoms → causes → root cause.
+Each equipment type must have associated fault tree logic, tailored to common failure modes per ISO 14224 and FMEA/FMECA libraries.
+Allow admin editing of tree structure/rules for customization.
+B. ECFA (Safety Events):
+
+Build timeline of events, actions, and conditions leading to incident.
+Mark causal and contributing factors (human, system, environmental, design, management).
+Visualize as event-causal factor chart (nodes: event, contributing, barrier, outcome).
+5. Output & Visualization
+
+RCA output must include:
+Asset/event context and details
+Step-by-step logic leading to root and contributing causes (with supporting evidence cited)
+Visual: Fault tree or ECFA chart (downloadable/exportable)
+Recommendations, confidence scores, and required follow-ups
+Links to all supporting documentation and evidence
+Output must be explainable, traceable, and auditable (store all input/logic/output for QA/regulatory needs).
+6. User Interaction & Audit Trail
+
+Allow users to adjust/edit findings, provide additional evidence, and re-run analysis.
+Record all user input, edits, and AI reasoning for each RCA for transparency and learning.
+Provide “Help” tooltips on each workflow/status step (see explanations above).
+7. Admin & Security
+
+Only admin can configure/modify equipment taxonomy, RCA/ECFA logic rules, or upload AI provider keys (e.g., OpenAI API).
+API keys and sensitive configs stored securely, never exposed client-side.
+Role-based access for evidence editing, RCA validation, and report approval.
+8. ISO 14224 Equipment Taxonomy
+
+(High-level; must be implemented as dynamic dropdown/lookup table, expandable by admin)
+
+Rotating: Pumps (centrifugal, reciprocating, rotary), Compressors, Turbines, Motors, Fans, Blowers, Mixers
+Static: Vessels, Exchangers, Boilers, Columns, Filters, Tanks, Piping, Valves
+Electrical: Switchgear, Transformers, Breakers, UPS, Cables
+Instrumentation/Control: Sensors, Transmitters, Valves, Analyzers, PLC/DCS
+Support: HVAC, Cranes, Fire Protection
+See ISO 14224 for further breakdown as needed.
+9. Testing, Validation, and Continuous Improvement
+
+Thoroughly test forms, AI workflow, and logic trees for each equipment class and safety event scenario (using both full and partial data).
+Allow admin to refine question lists, logic, and outputs based on user feedback and post-event audits.
+10. Deliverables
+
+Dynamic evidence-gathering questionnaire/forms (with conditional logic per equipment/event type)
+Data parser and validator (with user prompts for missing/invalid data)
+Integrated NLP extraction for free text
+Pattern recognition engine
+Fault tree (plant asset) and ECFA (safety event) logic implementation
+Explainable, evidence-linked RCA/ECFA output with visualization
+Admin panel for taxonomy, logic, user roles, and API key management
+Comprehensive audit trail and export/reporting functions
+Summary
+
+Start with the forms: No RCA analysis should occur until all required evidence is collected.
+Build the AI/logic engine: Use structured, explainable logic—fault tree for assets, ECFA for safety.
+Design for auditability: Every step, decision, and user input is tracked.
+Make it modular: Easy to expand with new equipment types, logic rules, and evidence questions.

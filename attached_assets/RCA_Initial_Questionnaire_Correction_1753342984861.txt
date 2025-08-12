@@ -1,0 +1,92 @@
+
+RCA TOOL — CORRECTIVE INSTRUCTION FOR INITIAL QUESTIONNAIRE DESIGN
+==================================================================
+
+
+CONTEXT:
+--------
+This instruction addresses the flaws observed during testing of the RCA tool’s initial questionnaire and timeline section, specifically in a case where:
+
+Incident Description:
+"motor failed all of sudden ... noise for a short period ... load reduced ... rotor had burnt mark"
+
+PROBLEM:
+--------
+The system presented only two failure modes — "Rotor Bar Crack" and "Winding Insulation Fail" — both from the Evidence Library for Induction Motors.
+
+However:
+- The failure description clearly suggests thermal/electrical overload or winding damage.
+- No other relevant failure modes (e.g., Bearing Seizure, Phase Loss, Rotor Grounding Fault) were included.
+- The evidence prompting and AI clarification logic was missing.
+
+As a result, the system behaved too narrowly — or worse, statically — even though the logic must be fully universal.
+
+MANDATORY UNIVERSAL DESIGN RULE:
+---------------------------------
+⚠️ UNDER NO CIRCUMSTANCE SHOULD ANY FAILURE MODE OR QUESTION BE HARDCODED TO A PARTICULAR EQUIPMENT TYPE.
+
+ALL logic must be dynamically driven by the Evidence Library and AI interpretation of user-submitted incident information.
+
+CORRECT UNIVERSAL DESIGN LOGIC:
+-------------------------------
+
+Step 1: NLP-Based Keyword Extraction
+------------------------------------
+- Parse the user’s incident title and description
+- Extract key terms: e.g., "burnt", "rotor", "sudden", "load drop"
+- Use synonyms: burnt = thermal, failure = fault, noise = vibration/humming
+
+Step 2: Dynamic Failure Mode Filtering
+--------------------------------------
+- Query Evidence Library for matching subtype
+- THEN FILTER failure modes where:
+  a) failure_mode_description OR
+  b) failure_mode_tags
+  MATCH the extracted incident keywords
+
+DO NOT pre-load all failure modes by subtype. Only dynamically match based on description relevance.
+
+Step 3: AI Clarification Layer
+------------------------------
+- If incident description is vague (e.g., “some noise”), insert clarifying questions:
+  - “Was the noise mechanical or electrical?”
+  - “Any alarms triggered?”
+  - “Was the motor cooling functional?”
+- This helps narrow the AI reasoning track before presenting evidence questions.
+
+Step 4: Evidence Prompting Logic
+--------------------------------
+- For each matched failure mode, load associated required_evidence
+- Prompt user to upload relevant files (PDF, image, Excel, CSV)
+- Do this in the timeline/question stage (not only in a later upload step)
+
+Example:
+Failure Mode = Winding Insulation Failure → Ask for:
+- IR report
+- Temperature trend
+- Alarm log
+
+Step 5: Confidence and Gap Handling
+-----------------------------------
+- If key evidence not uploaded or marked “Not Known” → confidence score degrades
+- AI can trigger a fallback question:
+  “The evidence provided is not sufficient to confirm winding insulation failure. Please upload IR report or winding temp trend if available.”
+
+Step 6: User Control
+--------------------
+- Allow user to add more failure modes manually (e.g., “I also suspect rotor imbalance”)
+- But default list must be filtered by the AI + library logic
+
+FINAL NOTES FOR DEVELOPMENT TEAM:
+---------------------------------
+🚫 DO NOT HARDCODE any failure mode into the frontend or backend
+🚫 DO NOT tie failure mode logic to fixed equipment names
+✅ All prompts, evidence needs, and scoring must be driven dynamically using:
+  - User-entered incident text (parsed)
+  - Matching logic with Evidence Library entries
+  - Subtype-level equipment filtering
+
+✅ The above logic must apply universally to any Equipment Group → Type → Subtype
+✅ System must be scalable for all industrial assets, not just motors or pumps
+
+END OF INSTRUCTION

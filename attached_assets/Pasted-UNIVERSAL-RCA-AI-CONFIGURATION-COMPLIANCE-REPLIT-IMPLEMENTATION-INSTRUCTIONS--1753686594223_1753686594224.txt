@@ -1,0 +1,160 @@
+UNIVERSAL RCA AI CONFIGURATION COMPLIANCE - REPLIT IMPLEMENTATION INSTRUCTIONS
+================================================================================
+
+PURPOSE:
+--------
+To enforce secure and compliant handling of AI API keys in the Replit-hosted Universal RCA system.
+This includes AES-256 encryption, strict environment variable use, zero hardcoding, and robust audit logging.
+
+OVERVIEW:
+---------
+This instruction ensures that:
+- All API keys are entered via the Admin UI panel only (NEVER in .env or code)
+- All keys are encrypted with AES-256-CBC using a secret stored in .env
+- No hardcoded API keys or encryption secrets exist in any file
+- Replit’s environment always loads .env properly at runtime
+- The UI → backend → database flow is compliant, traceable, and transparent
+- The “Hardcoded Violation” warning is permanently eliminated
+
+--------------------------------------------------------------------------------
+
+STEP-BY-STEP INSTRUCTIONS
+=========================
+
+1. CREATE `.env` FILE IN ROOT PROJECT DIRECTORY (NOT `.env.example`)
+--------------------------------------------------------------------
+This file must contain the AES encryption secret used to encrypt all AI keys entered through the Admin UI panel:
+
+.env
+----
+AI_KEY_ENCRYPTION_SECRET=a9f1c5d26e7e438dab9a1efea4b74983
+
+- Must be at least 32 characters long
+- Used ONLY to encrypt/decrypt AI keys submitted via Admin Panel
+- Never store actual API keys here
+- Never commit this file to GitHub
+
+2. COMMIT `.env.example` TO DOCUMENT REQUIRED ENV STRUCTURE
+------------------------------------------------------------
+.env.example
+------------
+# AES encryption key used ONLY to encrypt AI API keys submitted via the Admin Panel.
+# DO NOT store actual AI keys here.
+# This key is required by the backend to encrypt and decrypt the UI-submitted keys using AES-256-CBC.
+# Must be at least 32 characters long (256-bit).
+AI_KEY_ENCRYPTION_SECRET=your-32-character-aes-secret-here
+
+3. ENSURE `.env` IS IGNORED BY GIT
+----------------------------------
+.gitignore
+----------
+.env
+
+4. ENSURE BACKEND LOADS `.env` AT STARTUP
+------------------------------------------
+Add this to the top of your main backend entrypoint (e.g., server.ts, index.ts, main.js):
+
+import dotenv from 'dotenv';
+dotenv.config();
+
+const encryptionKey = process.env.AI_KEY_ENCRYPTION_SECRET;
+
+if (!encryptionKey || encryptionKey.length < 32) {
+  throw new Error("PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET missing or too short");
+}
+
+5. IMPLEMENT AES-256 ENCRYPTION FOR API KEYS
+--------------------------------------------
+Use the following logic before saving any API key submitted through the Admin Panel:
+
+import crypto from 'crypto';
+
+const ENCRYPTION_KEY = process.env.AI_KEY_ENCRYPTION_SECRET;
+const IV_LENGTH = 16;
+
+function encrypt(text: string): string {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+Use a matching `decrypt()` function when retrieving the key for internal use.
+
+6. UI PANEL MUST HANDLE ALL AI KEY INPUT
+----------------------------------------
+- All AI keys must be entered ONLY via the Admin Panel UI
+- Never stored in code or injected via `.env`
+- Frontend must POST the key securely to `/api/ai/configure`
+- Backend must encrypt it using the secret, then save it to DB
+
+7. LOG ALL KEY STORAGE EVENTS WITH AUDIT DATA
+---------------------------------------------
+Example log structure:
+{
+  "event": "AI_KEY_STORED",
+  "status": "ENCRYPTED",
+  "provider": "OpenAI",
+  "timestamp": "2025-07-28T15:26:00Z",
+  "auditSource": "UI → Backend Encryption → DB"
+}
+
+8. BLOCK ALL STORAGE IF ENCRYPTION SECRET IS MISSING
+-----------------------------------------------------
+Do NOT fallback to plaintext storage.
+
+If `AI_KEY_ENCRYPTION_SECRET` is not set:
+→ Abort the save request  
+→ Return error:
+"400: Cannot store API key — AI_KEY_ENCRYPTION_SECRET not set"
+
+9. ADD COMPLIANCE CHECK ENDPOINT `/api/security/check`
+-------------------------------------------------------
+Return this JSON:
+{
+  "AI_KEY_ENCRYPTION_SECRET": "OK",
+  "KeyStorageEncryption": "AES-256-CBC",
+  "Compliant": true,
+  "Message": "Secure key storage active"
+}
+
+10. RESTART BACKEND WHEN `.env` IS UPDATED
+------------------------------------------
+Replit does not auto-reload `.env`.
+
+To reload:
+> kill 1
+
+Or restart the container manually.
+
+--------------------------------------------------------------------------------
+
+SANITY COMPLIANCE CHECKLIST
+===========================
+
+[ ] `.env` exists with AES key  
+[ ] `.env.example` committed (only describes structure)  
+[ ] `.env` excluded via `.gitignore`  
+[ ] Admin Panel UI used for all API key input  
+[ ] AES-256-CBC enforced  
+[ ] No hardcoded API keys or fallback plaintext paths  
+[ ] All encrypted keys stored via backend  
+[ ] Save logs created and timestamped  
+[ ] /api/security/check endpoint implemented  
+
+--------------------------------------------------------------------------------
+
+NOTES:
+------
+- AI_KEY_ENCRYPTION_SECRET is NOT the API key — it is the encryption key for the key
+- Replit or any developer must NEVER bypass this UI-based secure flow
+- All attempts to write keys without encryption must be rejected
+- No developer should ever commit `.env`, `.env.local`, or plain keys to Git
+
+--------------------------------------------------------------------------------
+
+STATUS:
+=======
+✅ FINAL — Required for protocol-compliant, zero-trust AI key management in Universal RCA
+

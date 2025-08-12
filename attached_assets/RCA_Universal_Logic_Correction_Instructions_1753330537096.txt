@@ -1,0 +1,77 @@
+
+CORRECTIVE INSTRUCTION TO REPLIT AGENT — RCA LOGIC IMPLEMENTATION
+=================================================================
+
+
+BASED ON TESTING FINDINGS:
+---------------------------
+During testing, it was found that the current RCA interface presents a static list of failure modes and timeline questions (e.g., Bearing Failure, Seal Leak, etc.) regardless of the actual failure described by the user.
+
+Example: For an incident where the user clearly states:
+  "Pump failed and shaft broken into 2"
+
+The system presented questions about bearing failure, seal leak, motor overload, etc., which are not directly relevant to the described failure mode.
+
+This violates the core principle of universal logic and introduces hardcoded or broad static logic for a specific equipment subtype.
+
+WHAT MUST BE FIXED:
+--------------------
+
+✅ The system MUST NOT load all known failure modes blindly for a given equipment subtype.
+
+✅ The system MUST read the incident title and description FIRST, extract relevant keywords, and use them to FILTER the failure modes dynamically from the library.
+
+✅ It MUST then load only the evidence prompts and questions relevant to the filtered, matched failure modes.
+
+✅ All logic must remain universal. No hardcoding for specific equipment, failure modes, or keywords in the UI/backend.
+
+CORRECT RCA ENGINE LOGIC FLOW:
+------------------------------
+
+Step 1: Extract Keywords
+------------------------
+From user input (incident title and description), extract key terms using NLP or regex:
+Examples:
+- "shaft broken into 2" → keywords: "shaft", "break", "fracture"
+
+Step 2: Query Evidence Library
+------------------------------
+Search the evidence_library (CSV/JSON) for rows where:
+- equipment_group + type + subtype match user selection
+- AND failure_mode description OR tags match extracted keywords
+
+DO NOT pre-load all failure modes just based on subtype.
+
+Step 3: Show Filtered Failure Modes
+-----------------------------------
+Display only those failure modes with matched relevance and required evidence prompts.
+
+Let the user manually add more failure modes if needed, but default list MUST be filtered by logic.
+
+Step 4: Prompt Evidence Upload
+------------------------------
+Prompt the user ONLY for evidence types (e.g., Torque trend, IR, Vibration) listed for the filtered failure modes.
+
+Step 5: Inference & Suggest Mode
+--------------------------------
+- Continue with scoring logic only for the matched failure modes
+- If evidence is weak or incomplete, ask user for more specific evidence
+- If confidence still low, activate AI Suggest mode
+
+EXAMPLE FILTERING BEHAVIOUR (UNIVERSAL)
+---------------------------------------
+Input: Incident Description = "shaft broken into 2"
+
+System should:
+→ Match failure modes like "Shaft Breakage", "Shaft Key Shear", "Overload"
+→ Ask for: Torque trend, Metallurgical inspection, Overload logs
+→ NOT ask about: Bearing temp, Seal leak, Motor overload — unless separately reported
+
+MANDATORY UNIVERSAL DESIGN RULE:
+--------------------------------
+❌ Do NOT embed any static equipment-type logic
+❌ Do NOT use if/else logic based on "Pump", "Motor", etc.
+✅ All logic should be controlled by the evidence library entries + NLP keyword matching
+✅ Allow fallback to AI-powered similarity if no perfect keyword match
+
+END OF INSTRUCTION

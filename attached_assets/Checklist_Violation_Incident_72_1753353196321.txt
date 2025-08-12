@@ -1,0 +1,62 @@
+
+AI RCA Checklist Logic Violation – Incident #72 (Pump Seal Leak)
+=================================================================
+
+📌 Incident Summary:
+--------------------
+Incident #72 Description: "Pump seal leaking – slight dripping, no abnormal noise"
+
+System Behavior:
+- Displayed failure modes: Bearing Failure, Casing Crack, Impeller Damage, Misalignment, Motor Overload, Seal Leak
+- Only one failure mode ("Seal Leak") was correct
+- System incorrectly retained irrelevant failure modes
+
+🚫 Checklist Logic Violations:
+------------------------------
+1. Equipment-Type Preloading Still Active:
+   • System is still loading all "Pump" failure modes regardless of symptom match
+   • Evidence: Bearing, Impeller, Motor modes appearing for simple "seal leak" report
+
+2. Fault Signature Pattern Match Not Primary Filter:
+   • System does not prioritize symptom tokens like "seal", "leak", "drip" in filtering
+   • Symptom-based filtering should eliminate any mode without matching pattern
+
+3. Confidence Threshold Not Applied:
+   • No confidence scores shown to justify why modes like "Casing Crack" appeared
+   • Modes below 60% symptom relevance should be excluded automatically
+
+4. Equipment → Failure Mode architecture is still present:
+   • System seems to follow: Equipment → Failure Modes → Symptom Matching
+   • CORRECT approach: Symptom Tokens → Failure Modes (via Evidence Library) → Equipment back-inferred if needed
+
+🧠 What Should Happen:
+-----------------------
+- NLP engine should extract: ["seal", "leak", "dripping"]
+- Evidence Library filtered where `faultSignaturePattern` contains ≥1 symptom token
+- Only matching failure modes shown
+- All others eliminated
+- AI must prompt for more data ONLY if insufficient to proceed (not preload others)
+
+✅ Required Fix Actions:
+------------------------
+1. 🚫 Eliminate equipment-type failure mode dictionaries
+2. 🚫 Stop all fallback lists based on group/type/subtype
+3. ✅ All filtering must begin with symptom keyword extraction from user incident text
+4. ✅ Evidence Library must be indexed and queried by faultSignaturePattern relevance
+5. ✅ Any failure mode below confidence threshold (e.g. 60%) should be omitted
+6. ✅ Only show fallback option if NO match is found – prompt for clarification instead
+7. 🧾 Required audit logging JSON format per enforcement doc
+
+🔒 ABSOLUTE RULE – NO HARDCODING:
+----------------------------------
+Under **NO CIRCUMSTANCE** may the system:
+- Preload failure modes from equipment metadata
+- Use static dictionaries or lists tied to equipment group/type/subtype
+- Trigger fallbacks unless explicitly justified by missing symptoms
+- Use switch-cases, hardcoded maps, or static arrays of failure templates
+
+✅ Final Instruction:
+---------------------
+All questionnaire generation, failure mode elimination, and evidence prompts must be generated **dynamically** based solely on symptom tokens extracted from incident descriptions, compared against `faultSignaturePattern` entries in the Evidence Library. This must be true for ALL equipment types — **no exceptions**.
+
+-- END OF CHECKLIST VIOLATION MEMO --

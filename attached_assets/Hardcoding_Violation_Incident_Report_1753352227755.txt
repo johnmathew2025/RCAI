@@ -1,0 +1,83 @@
+
+Hardcoding Violation Incident Report – Root Cause & Permanent Prevention
+=========================================================================
+
+📌 Purpose:
+-----------
+This document outlines the critical violations found in the implementation of the RCA engine regarding hardcoded logic and provides permanent enforcement guidelines to ensure universal, schema-driven, symptom-based logic without fallback to hardcoded equipment or failure mode lists.
+
+🚫 VIOLATION SUMMARY:
+----------------------
+Incident: #70 (Pump Seal Failure)
+Issue Observed: Despite user instructions, the system was still showing irrelevant failure modes like "Bearing Failure", "Casing Crack", and "Impeller Damage" based on equipment-type preloading.
+
+Root Cause:
+✔ Use of `generateEquipmentSpecificFailureModes()`
+✔ Existence of `equipmentFailureModes` hardcoded dictionary
+✔ Search fallback was based on group/type/subtype, not symptom keywords
+✔ Logs showed loading of "Reagent Pump Failure" and other unrelated modes
+
+🧱 VIOLATED INSTRUCTIONS:
+-------------------------
+❌ Do NOT preload failure modes based on Equipment Group / Type / Subtype
+❌ Do NOT use fallback templates or generic equipment-specific suggestions
+❌ Do NOT match evidence library using group/type – only symptom pattern
+
+✅ UNIVERSAL LOGIC ENFORCEMENT:
+-------------------------------
+1. All filtering and investigation prompts MUST begin with the Incident Description.
+2. Use NLP-driven extraction of symptom keywords ONLY (e.g., 'seal leak', 'dripping', 'burnt', 'rotor').
+3. Match these keywords against:
+   • faultSignaturePattern
+   • failureModeDescription
+   • requiredEvidence fields in the Evidence Library
+4. Generate failure mode shortlist based on pattern match score (≥ threshold).
+5. Eliminate ALL fallback failure mode loading based on:
+   - Group
+   - Type
+   - Subtype
+   - Component Templates
+6. Prompt user only for relevant evidence (e.g., "Please upload IR scan", etc.) based on matched failure mode entries.
+
+🔒 ZERO HARDCODING RULE:
+------------------------
+- No fixed dictionary allowed (e.g., `equipmentFailureModes`)
+- No static template-based lists for Pumps, Motors, Generators, etc.
+- No preloading by group/type — system must start from incident text
+
+📑 REQUIRED AUDIT LOG FORMAT:
+-----------------------------
+Every filtering decision must be logged as JSON:
+```
+{
+  "incidentID": 70,
+  "keywordExtracted": ["seal", "dripping"],
+  "matchedFailureModes": [
+    {
+      "failureMode": "Seal Face Wear",
+      "matchedPattern": "dripping",
+      "source": "faultSignaturePattern",
+      "libraryRowID": "FM001"
+    }
+  ],
+  "eliminatedFailureModes": [
+    "Bearing Failure",
+    "Casing Crack",
+    "Impeller Damage"
+  ]
+}
+```
+
+🔁 PERMANENT PREVENTION TEST CASES:
+-----------------------------------
+✔ Incident #70 (Seal leak): Must match only seal-related modes (e.g., Face Wear, Flush Line Blocked)
+✔ Incident #65 (Burnt Rotor): Must match only winding/rotor failures (e.g., Rotor Bar Crack)
+✔ Incident with vague symptom: Must ask clarifying questions FIRST
+
+🔄 FINAL STATEMENT:
+-------------------
+Under no circumstance should ANY logic be hardcoded for any equipment group, type, subtype, or component. All analysis MUST be driven dynamically from incident description + evidence library pattern matching.
+
+Any fallback to equipment-based templates, failure mode preloading, or static lists is strictly prohibited and will violate RCA architecture principles.
+
+-- END OF ENFORCEMENT DOCUMENT --

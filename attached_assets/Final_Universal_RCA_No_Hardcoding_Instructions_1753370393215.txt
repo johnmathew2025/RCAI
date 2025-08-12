@@ -1,0 +1,110 @@
+
+🧠 UNIVERSAL RCA SYSTEM INSTRUCTION — STRICTLY NO HARDCODING ⚠️
+
+This document outlines the finalized, universal, schema-driven Root Cause Analysis (RCA) logic for the AI-driven investigation system. It MUST be followed exactly as specified. UNDER NO CIRCUMSTANCES is any hardcoding allowed for equipment types, failure modes, or symptom keywords.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚫 ABSOLUTE RULES — NO HARDCODING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. NO equipment-specific dictionaries, lists, or conditionals.
+2. NO static symptom-to-failure-mode mappings.
+3. NO preloaded failure modes based on equipment name/type.
+4. ALL logic must be schema-driven, evidence-based, and adaptable across industries and assets.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ UNIVERSAL RCA INVESTIGATION FLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ INCIDENT RECEIVED:
+- Incident text submitted by user (e.g. "Pump seal leaking continuously")
+
+2️⃣ NLP SYMPTOM EXTRACTION:
+- Extract symptoms (e.g. "leak", "seal", "drip") using universal NLP (no keyword list).
+- Match only against symptom descriptions in the Evidence Library (not equipment type).
+
+3️⃣ FAILURE MODE FILTERING (SYMPTOM-BASED):
+- Use Evidence Library’s `Fault Signature Pattern` and match incident keywords.
+- Present only relevant failure modes based on match score (>80%).
+- Log match score, evidence type required, and prompt structure.
+
+4️⃣ EVIDENCE PROMPTING (TARGETED):
+- Ask only for `Required Evidence` fields from matched failure modes.
+- Examples: IR scan, Vibration Spectrum, Pressure Trend.
+
+5️⃣ HUMAN INTERACTION REQUIRED:
+- AI shows potential causes (with source explanation).
+- Investigator can:
+    • Confirm likely causes
+    • Add their own reasoning
+    • Reject AI suggestion
+- AI reprocesses based on updated input.
+
+6️⃣ DATA VALIDATION:
+- Uploaded files must be validated against `Required Evidence` rules (e.g. time series, IR image, waveform).
+- Junk/irrelevant files must be flagged and cause low confidence score.
+- If data insufficient, AI should request specifics (e.g. "Upload IR scan after seal leak onset").
+
+7️⃣ ROOT CAUSE INFERENCE:
+- If ≥1 failure mode has >90% match score AND validated evidence → infer Root Cause.
+- If <90% confidence → trigger fallback logic.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔁 FALLBACK RCA LOGIC (LOW CONFIDENCE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IF:
+- No high-confidence failure mode match (>80%)
+- Or evidence mismatches known patterns
+
+THEN:
+- AI queries LLM (GPT) at backend with symptom context: “List most likely causes of [incident]”
+- AI uses that to regenerate filtered failure modes and evidence prompts.
+- Investigator reviews: ✅ Agree / ❌ Disagree / ➕ Add More
+- RCA continues with refreshed analysis.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔒 EVIDENCE LIBRARY ADAPTIVE UPDATING — WITH ADMIN GATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The system MUST NOT update the Evidence Library automatically.
+
+INSTEAD:
+
+1. AI can propose updates to:
+   • Fault Signature Pattern
+   • Required Evidence
+   • AI Prompt Structure
+
+2. Admin Review Interface must include:
+   - Incident Reference
+   - Suggested Change vs Current Value
+   - Confidence Score / Source
+   - Approve / Reject / Edit options
+
+3. Only after Admin ✅ approval → library updates.
+
+4. All edits should be version-controlled and auditable.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📂 ALL LOGIC = UNIVERSAL & SCHEMA-DRIVEN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Primary Index: `Group + Type + Subtype`
+Failure Modes: Dynamic, symptom-based
+Prompting: Based on `AI Prompt Structure` field
+Validation: Matched vs `Required Evidence` with structured parser
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ OUTPUT MUST BE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Modular
+- Fully schema-compliant
+- Auditable (JSON logs)
+- Zero fallback to static templates
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FINAL NOTE:
+If GPT or any AI is used for inference, it must NEVER be fed hardcoded lists or return static answers.
+All suggestions must be dynamically adapted based on schema + incident description.
+
+📛 All logic must be tested with at least 5 diverse equipment incidents to verify generalization.

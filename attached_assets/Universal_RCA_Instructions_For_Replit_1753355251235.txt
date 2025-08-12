@@ -1,0 +1,120 @@
+
+📄 UNIVERSAL AI-DRIVEN ROOT CAUSE ANALYSIS (RCA) SYSTEM – FINAL BUILD INSTRUCTIONS FOR REPLIT AGENT
+
+🚫 STRICT ENFORCEMENT: NO HARDCODING POLICY
+Under no circumstances must any part of the RCA system hardcode:
+- Equipment Groups / Types / Subtypes
+- Failure Modes or Component-Specific Logic
+- Symptom Keywords or Equipment Templates
+
+All logic must be **dynamically generated**, **schema-driven**, and **AI/NLP inferred**, as outlined below.
+
+---------------------------------------------------------------------------------------------------
+🧠 RCA FLOW LOGIC (MUST BE IMPLEMENTED AS UNIVERSAL ENGINE)
+---------------------------------------------------------------------------------------------------
+
+1️⃣ INCIDENT ENTRY (User provides natural-language failure description)
+   - Example: “Pump seal is leaking continuously. No unusual noise.”
+   - System logs Incident ID and stores initial description.
+
+2️⃣ NLP-BASED SYMPTOM EXTRACTION (DO NOT HARDCODE WORDS)
+   - Use OpenAI GPT (or custom NLP parser) to extract key technical phrases.
+   - Example extracted terms: "seal", "leaking", "continuous", "flush", "pump"
+
+3️⃣ AI-BACKEND RCA INFERENCE ENGINE
+   - Prompt AI internally:
+     “What are the likely causes of [incident description] for [group/type/subtype] equipment?”
+   - AI responds with dynamic, logical failure hypotheses (e.g. seal face wear, flush failure, misalignment, etc.)
+   - These are **not loaded from a list**, but dynamically inferred.
+
+4️⃣ MATCH AGAINST EVIDENCE LIBRARY (Optional Filter Layer)
+   - For each AI-inferred cause, check if there’s a matching row in Evidence Library.
+   - If found → include related evidence requirements, prompt questions, detection gaps.
+   - If not found → proceed anyway if AI’s confidence in the cause is ≥ 90%.
+   - ⚠️ Evidence Library must NEVER override AI unless AI confidence < 90%.
+
+5️⃣ GENERATE DYNAMIC EVIDENCE REQUEST PROMPTS
+   For each inferred cause:
+   - Ask targeted question (e.g., “Was the seal flush pressure normal?”)
+   - Prompt for specific evidence (e.g., IR scan, vibration trend, alignment report)
+   - User selects:
+     - ✅ Provided (uploads file)
+     - ❌ Not available
+     - 🔄 Will upload later
+
+6️⃣ ANALYZE THE FILE (VIA AI OR CODE LOGIC)
+   - System checks content of uploaded file.
+   - If insufficient, AI says: “Trend data is unclear – please provide clearer file or DCS tag log.”
+   - If supports hypothesis, AI says: “Flush pressure abnormality confirmed. Supports root cause with 83% confidence.”
+
+7️⃣ ROOT CAUSE DETERMINATION LAYER (UNIVERSAL LOGIC)
+   - Based on evidence sufficiency + pattern match:
+     - Declare Primary Cause
+     - List Contributing Factors (if multiple causes have partial evidence)
+     - List Latent Cause (from known procedural/design gaps)
+
+8️⃣ EVIDENCE GAP / DEGRADATION LOGIC
+   - If key evidence is not available or unclear:
+     - Warn the user (e.g., “Unable to validate misalignment hypothesis due to missing vibration spectrum.”)
+     - Report degraded confidence (e.g., “RCA confidence: 45% - inconclusive without time waveform.”)
+   - System must NEVER generate fake conclusions from junk files.
+
+9️⃣ OUTPUT RCA REPORT (STRUCTURED)
+   - Show:
+     - Selected failure mode(s)
+     - Supporting evidence and analysis result
+     - Confidence levels
+     - Unanswered prompts
+     - Attachments used
+     - Recommendation(s)
+
+---------------------------------------------------------------------------------------------------
+📌 ADDITIONAL TECHNICAL NOTES
+---------------------------------------------------------------------------------------------------
+
+✅ Must use universal schema from Evidence Library:
+- Group / Type / Subtype
+- FaultSignaturePattern
+- Required Trend Data
+- AI Prompt Field (optional)
+- Evidence Priority, Confidence, Gap Flag
+
+✅ Logging:
+- Store each decision as JSON audit object:
+  {
+    incidentId: “123”,
+    cause: “Seal face wear”,
+    keywordMatched: [“seal”, “drip”],
+    evidence: “IR scan”,
+    result: “Confirmed”,
+    confidence: 84%
+  }
+
+✅ Enforcement Checks:
+- No fallback to preloaded equipment templates
+- No hardcoded lists of failure modes per equipment
+- All logic must begin from user-entered incident + NLP
+- All evidence must be validated before inference
+- Evidence Library supports, but does not dictate root cause
+
+---------------------------------------------------------------------------------------------------
+✅ SUMMARY: DO THIS
+---------------------------------------------------------------------------------------------------
+
+✅ Use AI to dynamically infer failure causes per incident
+✅ Prompt user only for relevant data per inferred cause
+✅ Validate evidence logically before root cause decision
+✅ Allow AI to override Library if 90%+ confident
+✅ Structure all output with JSON/audit/traceable formats
+
+---------------------------------------------------------------------------------------------------
+🚫 NEVER DO THIS
+---------------------------------------------------------------------------------------------------
+
+❌ Never hardcode failure mode lists for specific equipment
+❌ Never show prompts for all failure modes at once
+❌ Never generate final analysis from junk/unreadable data
+❌ Never let equipment group/type/subtype drive logic directly
+
+---------------------------------------------------------------------------------------------------
+📤 FILE HANDOVER: Build from where system is today (as seen in current app), but apply this full logic layer.

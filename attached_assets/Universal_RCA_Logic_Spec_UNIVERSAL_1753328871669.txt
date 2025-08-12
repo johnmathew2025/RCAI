@@ -1,0 +1,129 @@
+
+UNIVERSAL AI-DRIVEN ROOT CAUSE ANALYSIS (RCA) LOGIC SPECIFICATION
+=================================================================
+
+
+GOAL:
+-----
+To develop a fully universal, AI-assisted RCA tool where:
+- Users select Equipment Group → Equipment Type → Equipment Subtype
+- Failure modes and required evidence are dynamically retrieved from a non-hardcoded Evidence Library
+- AI prompts the user for relevant evidence (e.g., Vibration, IR, Temp, Trend, Reports)
+- AI analyzes the uploaded data to evaluate adequacy
+- If data is inadequate, AI requests more specific input
+- Upon receiving adequate data, AI infers the most probable root cause and provides actionable recommendations
+
+CRITICAL REQUIREMENT:
+---------------------
+⚠️ NO HARD-CODED LOGIC based on specific equipment names (e.g., Motor, Pump, etc.)
+All investigation logic must be data-driven and universally applicable across all equipment types.
+
+COMPONENTS:
+-----------
+
+1. Evidence Library (CSV or JSON)
+---------------------------------
+Structure (must be generic and schema-driven):
+
+{
+  "equipment_group": "<group_name>",
+  "equipment_type": "<type_name>",
+  "subtype": "<subtype_name>",
+  "failure_mode": "<failure_mode_description>",
+  "required_evidence": {
+    "<evidence_type_1>": <weight>,
+    "<evidence_type_2>": <weight>
+  },
+  "confidence_threshold": <value_between_0_and_1>,
+  "investigation_prompts": [
+    "<question_1>",
+    "<question_2>"
+  ],
+  "recommendation_template": [
+    "<recommended_action_1>",
+    "<recommended_action_2>"
+  ]
+}
+
+Examples of evidence_type:
+- "Vibration Trend"
+- "Infrared Thermography Report"
+- "Current Signature Analysis"
+- "Ultrasound Spectrum"
+- "Maintenance Log"
+
+2. Evidence Request UI (Frontend)
+---------------------------------
+- Dropdown selection for Equipment Group → Type → Subtype
+- Loads failure modes and associated evidence dynamically from library
+- Automatically generates upload prompts for required evidence
+- Allows file types: PDF, Excel, CSV, Images
+
+3. AI Evidence Parser (Backend)
+-------------------------------
+- Detect MIME type and parse content
+- Extract data from file using AI (OCR, NLP, table detection)
+- Match content to expected evidence type
+- Mark as:
+  - Sufficient
+  - Partially adequate
+  - Inadequate or irrelevant
+
+4. Confidence Scoring Engine
+----------------------------
+Logic:
+
+For each candidate failure mode:
+  total_score = 0
+  For each required evidence:
+    if matching evidence found and valid:
+      total_score += evidence_weight
+    else:
+      record as evidence_gap
+
+If total_score ≥ confidence_threshold:
+  infer root cause
+  generate recommendations
+Else:
+  trigger additional evidence request or fallback AI mode
+
+5. AI Suggestion Fallback (Optional)
+------------------------------------
+If evidence confidence is low:
+
+"The current data is not sufficient to confidently identify root cause. Based on failure pattern clustering for this equipment subtype, you may also consider the following possible causes:
+1. <Suggested Failure Mode 1>
+2. <Suggested Failure Mode 2>
+
+Please upload supporting evidence such as <recommended_evidence_type>."
+
+6. Inference Output
+-------------------
+System will output:
+
+{
+  "inferred_root_cause": "<failure_mode>",
+  "confidence_score": "<score_in_%>",
+  "evidence_used": ["<evidence_type_1>", "<evidence_type_2>"],
+  "missing_evidence": ["<evidence_type_missing>"],
+  "recommended_actions": [
+    "<corrective_action_1>",
+    "<preventive_action_2>"
+  ]
+}
+
+7. Developer File and Module Structure
+--------------------------------------
+- Evidence Library: evidence_library_universal.csv or .json
+- AI File Interpreter: ai_attachment_parser.ts
+- Confidence Engine: rca_confidence_scoring.ts
+- Evidence Upload UI: evidence_uploader.tsx
+- Result Renderer: rca_output_display.tsx
+
+NO HARDCODING POLICY:
+---------------------
+- Do not hardcode any subtype-specific failure mode or prompt
+- Do not embed logic in UI or backend that depends on equipment names
+- All logic, scoring, and recommendations must be derived from the data library
+
+END OF UNIVERSAL SPEC

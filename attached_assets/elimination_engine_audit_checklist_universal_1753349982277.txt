@@ -1,0 +1,82 @@
+
+# ✅ RCA Elimination Engine Debug & Audit Logging Checklist (UNIVERSAL LOGIC ONLY — NO HARDCODING)
+
+## 🔒 CRITICAL WARNING FOR REPLIT AGENT
+
+🚫 UNDER NO CIRCUMSTANCE should the elimination engine or ANY logic in the RCA system reference:
+- Specific incident IDs (e.g., #65, #70, #88)
+- Equipment names like "motor", "pump", "gearbox"
+- Failure mode names like "burnout", "seal failure"
+- Symptom strings like "burn mark", "overheat"
+- Any inline constants in logic
+
+✅ ALL logic must use a universal, schema-driven approach:
+- Use equipment subtype → failure mode → evidence mapping via EvidenceLibrary or structured schema
+- Dynamically infer relationships between symptoms and modes using metadata, not static strings
+
+---
+
+## ✅ Testing Checklist for Elimination Engine (APPLICABLE TO ALL INCIDENTS)
+
+- [ ] System never eliminates 100% of failure modes — fallback logic must retain minimum modes
+- [ ] Evidence-based elimination is based on subtype-linked expectations from the Evidence Library
+- [ ] Dynamic symptom matching is used — no keyword hardcoding
+- [ ] "Evidence gap" or "low confidence" is reported instead of forceful elimination
+- [ ] All dropdowns or subtype behaviors are populated dynamically from DB
+- [ ] Elimination logic behaves consistently regardless of incident content
+
+---
+
+## 📝 Logging Requirements for Elimination Engine (UNIVERSAL AUDIT FORMAT)
+
+Every time a failure mode is evaluated (kept or eliminated), log the following structure:
+
+```
+{
+  "incidentId": "<dynamic>",
+  "equipmentSubtype": "<dynamic>",
+  "failureModeId": "<dynamic>",
+  "failureModeName": "<from schema>",
+  "decision": "KEPT" or "ELIMINATED",
+  "reason": "<schema-driven rule applied>",
+  "confidenceScore": 0.xx,
+  "evidenceUsed": ["list", "of", "evidence"],
+  "eliminationRule": "<e.g., PatternMatch-v1 or FallbackRestore-v2>"
+}
+```
+
+If ALL modes are eliminated, system MUST:
+- Abort the elimination
+- Log recovery:
+```
+"recoveryAction": "Failsafe triggered – all modes restored due to invalid logic"
+```
+
+---
+
+## 🚫 Hardcoding Violations (ALWAYS FORBIDDEN)
+
+```ts
+// ❌ WRONG: DO NOT DO THIS
+if (incidentId === 65) { ... }
+if (equipmentSubtype === "motor") { ... }
+if (desc.includes("burnt rotor")) { eliminate("burnout") }
+
+// ✅ CORRECT (UNIVERSAL)
+const subtypeProfile = await getFailureModeProfile(equipmentSubtype);
+const symptomMatch = matchSymptomsUsingLibrary(subtypeProfile, evidence);
+```
+
+---
+
+## 🔐 Summary: Enforce These Rules at All Times
+
+| DO ✅ | DO NOT 🚫 |
+|------|-----------|
+| Use schema-driven, equipment-agnostic logic | Reference any specific incident or symptom keyword |
+| Use EvidenceLibrary and failure mode database | Hardcode logic trees or conditionals |
+| Log every elimination decision with traceability | Skip logging or silently eliminate modes |
+| Use fallback if all modes are eliminated | Allow 0-mode state to crash RCA process |
+
+✅ This file applies globally to ALL INCIDENTS and EQUIPMENT TYPES. No special cases allowed.
+

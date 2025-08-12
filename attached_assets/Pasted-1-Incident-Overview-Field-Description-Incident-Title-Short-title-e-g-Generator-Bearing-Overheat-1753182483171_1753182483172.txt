@@ -1,0 +1,53 @@
+1. Incident Overview
+Field	Description
+Incident Title	Short title (e.g., “Generator Bearing Overheating”)
+Date of Incident	DD-MM-YYYY
+Reported By	Name, Role
+Equipment Tag	Asset ID or Equipment Code
+Location	Site / Plant / Area
+System/Process	e.g., Power Generation / Utility Support
+2. Incident Description
+Provide a clear narrative:
+
+What failed?
+When did it happen?
+How was it discovered?
+Initial consequence (e.g., production loss, safety risk)
+3. Impact Summary
+Category	Description
+Safety	Injuries, LTI, near miss?
+Environment	Spill, emissions, fire
+Production	Downtime hours, lost output
+Cost Estimate	$$ in maintenance, production loss, replacement
+Regulatory/Compliance	Any violations or reportable incidents?
+4. Timeline of Events
+Time	Event
+00:00	Alarm triggered
+00:05	Operator attempted restart
+00:10	Equipment tripped again
+01:00	Technician on site
+5. Evidence Collected
+Type	Source / File	Observations
+Vibration Trends	DCS trend chart	Spike 12 hrs before failure
+Thermal Images	FLIR camera	Hotspot on DE bearing
+Inspection Report	Mechanical team	Oil degraded, bearing scored
+Photos	Attached	Discoloration on housing
+6. Root Cause Summary
+Classification	Description
+Primary Root Cause	e.g., Lube oil starvation due to clogged filter
+Contributing Factors	e.g., Overload, poor oil quality
+Latent/Systemic Cause	e.g., No oil filter replacement interval in PM
+Detection Gaps	No online oil quality monitoring, delayed alarm response
+7. Root Cause Analysis Methodology
+Example: 5-Whys, Fishbone (Ishikawa), Fault Tree, Apollo RCA
+📌 You may include a diagram or logic tree here for clarity.
+
+8. Corrective and Preventive Actions (CAPA)
+Action	Type	Owner	Due Date	Status
+Install oil differential pressure switch	Corrective	Electrical	31/08/2025	Open
+Revise PM to include oil filter check	Preventive	Maintenance Planner	15/08/2025	Done
+Add DCS alarm for temp rise >80°C	Preventive	Controls Eng	20/08/2025	In Progress
+9. Lessons Learned
+Include what was missed or could’ve been done better
+Share with other sites or teams
+Suggest updates to training, design, SOPs

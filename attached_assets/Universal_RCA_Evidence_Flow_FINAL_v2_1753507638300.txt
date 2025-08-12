@@ -1,0 +1,95 @@
+
+RCA Evidence Handling & Review – FINAL, UNIVERSAL, AND STEPWISE FLOW
+
+ABSOLUTE RULES:
+- No hardcoding allowed.
+- No bypassing backend parsing or AI flow.
+
+Universal Step-by-Step Workflow
+-------------------------------
+
+STEP 1 & STEP 2: (NO CHANGES – ALREADY WORKING)
+- Incident creation, equipment selection, initial AI hypothesis.
+
+STEP 3: INITIAL EVIDENCE UPLOAD
+- User uploads one or more evidence files (any supported format).
+- Backend (Python):
+    - Parses every file with pattern-recognition.
+    - Extracts features (trend, FFT, RMS, etc.) into a structured summary (JSON).
+    - Detects missing fields, poor data, and gives confidence/warning in the summary.
+
+STEP 3B: AI/LLM INTERPRETATION
+- Only the parsed summary JSON from backend is passed to LLM AI.
+- LLM interprets:
+    - Explains what the parsed evidence means (e.g., trend, likely fault types).
+    - Suggests possible root causes, confidence, and what further evidence is needed.
+    - Output is a clear, human-readable diagnostic (never generic; must cite specific patterns/faults).
+
+STEP 3C: HUMAN REVIEW PANEL (CONSOLIDATED)
+- The system must show, in one unified screen for all uploaded files:
+    - The backend-parsed summary for each file.
+    - The AI/LLM interpretation for each file.
+- For each file, the user can:
+    - Accept (file/interpretation is valid)
+    - Request More Info (comment what’s missing, system prompts for new upload)
+    - Replace (upload a better file, triggers re-parse and new AI/LLM analysis)
+- No file is accepted until the reviewer takes one of these actions.
+- Every action is logged, and status updates are shown in the UI.
+- No RCA can proceed until all files have been reviewed and have status (Accepted or clear next step).
+
+STEP 4: ADDITIONAL EVIDENCE UPLOAD
+- User uploads any additional files requested by AI/reviewer.
+- Each new file:
+    - Is parsed by backend as in Step 3.
+    - Parsed summary is sent to LLM for interpretation.
+    - Shown again in the same consolidated human review panel for action.
+
+STEP 4B: REPEAT HUMAN REVIEW
+- Same unified review panel as Step 3C, now with all new and old evidence.
+- All files must be acted upon (Accepted, More Info, Replace).
+- Only when all files are reviewed, workflow continues.
+
+STEP 5: RCA DRAFT SYNTHESIS
+- After all evidence is reviewed and accepted, all parsed summaries and AI interpretations are sent to the RCA LLM engine.
+- LLM synthesizes all evidence, reviewer notes, and library knowledge.
+- Provides final root cause(s) and recommendations with clear evidence trail.
+
+STEP 6: FINAL HUMAN CONFIRMATION
+- User reviews final AI RCA and can accept, edit, or send back for further clarification.
+- All reviewer actions logged.
+
+Key Implementation Principles (No Exceptions)
+---------------------------------------------
+- No part of the system may skip backend parsing or AI/LLM interpretation.
+- Human review panel always shows both parsed data and AI summary for each file, on a unified screen.
+- Buttons/actions must immediately update backend status, trigger required workflows, and log all actions.
+- All rules/equipment types/fault patterns are in extendable config/library, never hardcoded.
+
+Explicit Instruction for Replit
+-------------------------------
+"DO NOT hardcode any logic or flow. DO NOT allow raw file or user input to go directly to LLM. The flow is ALWAYS:
+ 1. File is parsed by backend Python to a standard summary,
+ 2. That summary is sent to LLM for interpretation,
+ 3. Both are presented in one review panel for every evidence file,
+ 4. User reviews/acts; only then can workflow proceed.
+If any step is skipped or hardcoded, it is a non-compliant implementation."
+
+---
+ADDITIONAL UNIVERSAL REQUIREMENTS (DO NOT OMIT):
+
+1. Deterministic Output for Same Evidence:
+   - For any identical parsed evidence summary, the LLM output and recommendations MUST be identical each time (unless the AI model or library is updated).
+   - LLM prompts must use a strict template, with keys in a normalized order and no additional context.
+   - LLM temperature must be set to zero or deterministic mode.
+
+2. Pinpointed Recommendations Based on Evidence Patterns:
+   - All AI recommendations must reference a structured fault signature library (config/CSV/JSON), NOT static code or hardcoded rules.
+   - AI output must list the most probable specific fault(s) (e.g., “bearing wear”, “misalignment”, “unbalance”), never just generic terms.
+   - For ambiguous or low-confidence cases, AI must explain why and recommend exactly what additional evidence is needed to distinguish between possibilities.
+
+3. No Example-Based or Static Hardcoding:
+   - Examples in requirements or instructions are for illustration only and MUST NOT appear as hardcoded logic, strings, or rules in any backend, frontend, or prompt logic.
+   - All new equipment or fault types are added by updating library/config, not code.
+
+---
+END OF INSTRUCTION

@@ -1,0 +1,46 @@
+✅ Implementation Statement (Rephrased for Clarity)
+
+In the incident reporting interface, group the Sample Structured Timeline Questions under a dedicated "Timeline Section", capturing them as structured fields (not just free-text). These questions should be a combination of:
+✅ Universal timeline anchors (e.g., first alarm, failure time, operator action)
+✅ Equipment-specific questions based on Equipment Group + Type + Subtype
+This structured data will allow AI to:
+🔁 Reconstruct the sequence of events
+🔍 Detect lead-lag relationships between symptoms and failures
+❌ Disqualify failure modes that occurred after the primary event
+🧠 Map evidence (e.g., vibration spike, pressure dip) directly to the failure window
+🧱 Categorization of Questions
+
+🔹 Universal Timeline Questions (Apply to All Equipment)
+Field Label	Description
+First observed abnormality	When something first seemed wrong
+Alarm triggered	Was there an alarm? When?
+Operator intervention	What action was taken and when?
+Time of failure/trip	When did the actual failure occur?
+Equipment restarted	Time of recovery or bypass
+🔸 Equipment-Specific Timeline Anchors
+Based on Equipment Group + Type + Subtype, ask additional time-stamped questions. For example:
+
+For Rotating → Pumps → Centrifugal
+
+Field Label	Purpose
+Vibration spike time	Link to shaft/bearing issues
+Seal pot level drop time	Link to seal degradation
+Suction/discharge pressure trend time	For cavitation or blockage
+For Static → Heat Exchanger → Shell & Tube
+
+Field Label	Purpose
+Tube rupture observation time	Confirms physical breach timing
+Differential pressure deviation time	Detect fouling or restriction
+✅ AI Integration Logic
+
+Once the incident form captures this timeline:
+
+Events are timestamped
+AI maps each symptom to potential causes
+AI checks sequence logic:
+“If Seal Leak occurred after shaft broke → it's not the cause”
+AI filters evidence relevance
+AI ranks remaining root causes
+🔄 Final Output (to user or report)
+
+“Timeline analysis shows that the vibration increased at 13:00, bearing temperature spiked at 13:30, and shaft broke at 13:47. Seal leak was detected only at 14:10. Therefore, seal leak is not a root cause, but a downstream effect.”

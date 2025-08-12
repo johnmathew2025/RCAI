@@ -1,0 +1,131 @@
+
+# 🔧 UNIVERSAL RCA FIX PLAN FOR REPLIT AGENT
+# Generated on 2025-07-26 13:57:35
+# This document defines the REQUIRED FIXES to restore compliance with the "Universal Protocol Standard" (see Universal Protocol -Standard.txt)
+# This file MUST be followed with ZERO deviation.
+
+==========================================================================================
+SECTION 1: RCA LLM INTERPRETATION COMPLIANCE (NO MORE INCONSISTENT OUTPUT)
+==========================================================================================
+
+✅ Create schema file: `rca_interpretation.schema.ts`
+-------------------------------------------------------
+export interface RCAInterpretation {
+  component: string;
+  suspected_failure_mode: string;
+  confidence: number;  // range: 0 to 1
+  evidence_used: string[];
+  evidence_gaps: string[];
+  root_cause_hypothesis: string;
+  recommendations: string[];
+}
+
+✅ Enforce deterministic JSON schema
+-------------------------------------
+- LLM system prompt must say: “Strictly return a JSON following RCAInterpretation schema. No additional commentary.”
+- Add zod validator to parse response before storing:
+  `zRCAInterpretation.parse(llmResponse)`
+
+✅ If validation fails:
+------------------------
+- Log full failed response
+- Return `422` with message: “Malformed LLM output – please retry.”
+- Do NOT save partial data
+
+==========================================================================================
+SECTION 2: HARD CODING ELIMINATION (ZERO TOLERANCE)
+==========================================================================================
+
+✅ Create `UniversalAIConfig.ts`:
+----------------------------------
+export const AIConfig = {
+  modelName: process.env.AI_MODEL || "gpt-4o",
+  generateTimestamp: () => new Date().toISOString(),
+  uuidProvider: () => crypto.randomUUID(),
+}
+
+✅ Remove all hardcoded values from:
+------------------------------------
+- `Date.now()` → use `AIConfig.generateTimestamp()`
+- `Math.random()` → use config or UUID
+- Any hardcoded strings (model names, tokens, file paths)
+
+✅ Audit with:
+--------------
+grep -rn "Date.now\|Math.random\|hardcoded" . --include="*.ts" --include="*.js"
+
+==========================================================================================
+SECTION 3: ROUTING AND FILE UPLOAD FIX
+==========================================================================================
+
+✅ Route ID protocol (Clause 1):
+--------------------------------
+Use ONLY path param: `/api/incidents/:incidentId/evidence`
+- Add header comment in every route handler:
+  // ID routing per Universal Protocol Standard - uses path params
+
+✅ Multer configuration:
+------------------------
+- Accept field `files[]`
+- Require `incident_id` or infer from path param
+- Validate on backend: reject if no incident_id is found
+
+✅ File path:
+-------------
+Store uploaded files in: `incident_id/evidence_files/<uuid>_<filename>`
+
+✅ API Response example:
+-------------------------
+{
+  "file_name": "vibration_waveform.txt",
+  "file_type": "text/plain",
+  "incident_id": "abc-123",
+  "status": "Uploaded",
+  "llmInterpretation": { ... }
+}
+
+==========================================================================================
+SECTION 4: FRONTEND REVIEW PANEL – COMPLIANCE ENFORCEMENT
+==========================================================================================
+
+✅ Mandatory indicators:
+------------------------
+- ✅ Green = Python analysis success
+- ✅ Purple = LLM interpretation success
+
+✅ Review table format (uses MUI DataGrid):
+-------------------------------------------
+- Columns: file_name, file_type, status, date_uploaded, uploaded_by
+- Add tooltips for interpretation statuses
+- If either analysis is missing → show warning + prompt to re-upload or retry
+
+==========================================================================================
+SECTION 5: DOCUMENTATION AND CONVENTIONS
+==========================================================================================
+
+✅ Add to `CONVENTIONS.md`:
+----------------------------
+# RCA LLM Diagnostic Compliance
+
+All LLM interpretations must conform to `RCAInterpretation` schema.
+- Must be validated via zod before DB insert
+- No freeform or unstructured interpretation allowed
+- All prompt templates must enforce JSON response with confidence scores
+
+✅ Header for every route/schema/data file:
+-------------------------------------------
+/**
+ * Protocol: Universal Protocol Standard v1.0
+ * Routing Style: Path param only (no mixed mode)
+ * Last Reviewed: 2025-07-26
+ */
+
+==========================================================================================
+⚠️ NON-NEGOTIABLE REQUIREMENTS
+==========================================================================================
+
+- NO HARD CODING of IDs, timestamps, model names, or API keys
+- ALL NEW FEATURES must validate LLM JSON schema before merge
+- ANY deviation must be discussed with the system owner (Probin)
+
+# END OF FILE

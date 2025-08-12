@@ -1,0 +1,84 @@
+
+FINAL ENFORCEMENT — UNIVERSAL RCA LOGIC COMPLIANCE (INCIDENT 66)
+=================================================================
+
+
+CONTEXT:
+--------
+This instruction addresses the failure observed in Incident 66 ("pump failed with casing damage") despite Replit’s prior claim that universal RCA filtering logic has been implemented.
+
+KEY FAILURE OBSERVED:
+---------------------
+✔️ The system checks Equipment Group + Type + Subtype:
+    → "Rotating → Pumps → Centrifugal"
+✔️ Then loads all failure modes related to this subtype.
+
+❌ BUT it fails to filter those failure modes based on incident text ("casing damage").
+
+This means the system is still functioning on **static subtype-level logic**, not truly universal logic based on incident-specific context.
+
+FAILURE MODES SHOWN (INCORRECTLY):
+----------------------------------
+- Shaft Breakage
+- Shaft Key Shear
+- Motor Overload (!)
+- Seal Leak
+- Misalignment
+- Impeller Damage
+- Bearing Failure
+...and more
+
+ONLY the following should have been prompted:
+- Casing Crack
+- Overpressure
+- Structural Fatigue
+...with prompts for evidence like Pressure Trends, Leak Logs, Inspections
+
+THIS IS A CRITICAL NON-COMPLIANCE.
+
+MANDATORY LOGIC THAT MUST BE IMPLEMENTED:
+-----------------------------------------
+
+✅ STEP 1: Match Equipment Group + Type + Subtype  
+→ Load *candidate* failure modes from the Evidence Library (OK)
+
+✅ STEP 2: Parse Incident Title + Description  
+→ Extract keywords (e.g., "casing", "damage", "crack")
+
+✅ STEP 3: Filter Failure Modes  
+→ From candidate modes, select only those where:
+    - failure_mode.description OR
+    - failure_mode.keywords
+    MATCH incident keywords
+
+✅ STEP 4: Present Only Relevant Prompts  
+→ Ask for only those evidence items associated with filtered failure modes
+
+✅ STEP 5: Allow Manual Expansion  
+→ Let user add failure modes manually if needed (but don’t load all by default)
+
+🚫 ABSOLUTELY FORBIDDEN:
+------------------------
+❌ DO NOT load all failure modes for a given subtype by default  
+❌ DO NOT hardcode ANY logic tied to "Pump", "Motor", "Valve", or ANY subtype  
+❌ DO NOT insert failure modes manually in code based on equipment keywords
+❌ DO NOT add or insert any hardcoded RCA logic
+
+✅ ALL LOGIC MUST BE:
+---------------------
+- Data-driven
+- NLP-assisted
+- Based on evidence library match
+- Equipment-agnostic and scalable
+- Fully universal across all asset types
+
+THIS IS NON-NEGOTIABLE FOR UNIVERSAL RCA SYSTEM DESIGN.
+
+ACTION REQUIRED:
+----------------
+Replit developers must update the RCA engine to:
+- Add dynamic keyword-based filtering layer
+- Ensure failure modes are selected using NLP logic, not just equipment subtype
+- Verify that the tool behaves the same regardless of what equipment is selected — logic must be completely portable
+
+END OF FINAL ENFORCEMENT INSTRUCTION

@@ -1,0 +1,188 @@
+🚨 CRITICAL VIOLATION FOUND: openai
+./server/clean-ai-attachment-analyzer.ts:8:import OpenAI from 'openai';
+./server/clean-ai-attachment-analyzer.ts:45:      const openai = await DynamicAIClientFactory.createOpenAIClient();
+./server/clean-ai-attachment-analyzer.ts:65:        const response = await openai.chat.completions.create({
+./server/clean-ai-attachment-analyzer.ts:104:        const response = await openai.chat.completions.create({
+./server/clean-ai-evidence-parser.ts:8:import OpenAI from 'openai';
+./server/clean-ai-evidence-parser.ts:47:      const openai = await DynamicAIClientFactory.createOpenAIClient();
+./server/clean-ai-evidence-parser.ts:70:        return await this.parseImageEvidence(filePath, equipmentType, evidenceCategory, openai);
+./server/clean-ai-evidence-parser.ts:89:      const response = await openai.chat.completions.create({
+./server/clean-ai-evidence-parser.ts:176:    openai: OpenAI
+./server/clean-ai-evidence-parser.ts:183:    const response = await openai.chat.completions.create({
+./server/evidence-validation-engine.ts:12:import OpenAI from 'openai';
+./server/evidence-validation-engine.ts:180:      const response = await openai.chat.completions.create({
+./server/evidence-validation-engine.ts:358:      const response = await openai.chat.completions.create({
+./server/ai-attachment-analyzer.ts:1:import OpenAI from "openai";
+./server/ai-attachment-analyzer.ts:13:  private openai: OpenAI;
+./server/ai-attachment-analyzer.ts:16:    this.openai = new OpenAI({
+./server/ai-attachment-analyzer.ts:173:      const response = await this.openai.chat.completions.create({
+./server/ai-evidence-parser.ts:7:import OpenAI from "openai";
+./server/ai-evidence-parser.ts:30:  private openai: OpenAI;
+./server/ai-evidence-parser.ts:33:    this.openai = new OpenAI({
+./server/ai-evidence-parser.ts:218:      const response = await this.openai.chat.completions.create({
+./server/ai-evidence-parser.ts:326:      const response = await this.openai.chat.completions.create({
+./server/ai-hypothesis-generator.ts:283:    if (config.provider === 'openai') {
+./server/ai-hypothesis-generator.ts:284:      const { OpenAI } = await import('openai');
+./server/universal-ai-evidence-analyzer.ts:70:      if (aiSettings.provider === 'openai') {
+./server/universal-ai-evidence-analyzer.ts:71:        const { default: OpenAI } = await import('openai');
+./server/dynamic-ai-config.ts:117:      if (config.provider.toLowerCase() === 'openai') {
+./server/dynamic-ai-config.ts:118:        const { OpenAI } = await import('openai');
+./server/llm-security-validator.ts:118:      case 'openai':
+./server/enhanced-ai-test-service.ts:191:      const openai = await import('openai').then(module => {
+./server/ai-service.ts:53:        case "openai":
+./server/ai-service.ts:183:      case "openai":
+./client/src/pages/admin-settings.tsx:22:    provider: "openai",
+./client/src/pages/admin-settings.tsx:450:      case "openai": return "OpenAI";
+./client/src/pages/admin-settings.tsx:550:                  <SelectItem value="openai">OpenAI</SelectItem>
+Checking pattern: claude-3
+Checking pattern: model.*:
+🚨 CRITICAL VIOLATION FOUND: model.*:
+./server/ai-status-monitor.ts:16:    model: string;
+./server/ai-status-monitor.ts:97:          model: activeProvider.model,
+./server/ai-status-monitor.ts:132:    model?: string;
+./server/ai-status-monitor.ts:150:    model?: string;
+./server/ai-status-monitor.ts:167:        model: activeProvider.model,
+./server/ai-status-monitor.ts:177:        model: activeProvider.model
+./server/ai-status-monitor.ts:184:        model: activeProvider.model
+./server/clean-ai-attachment-analyzer.ts:66:          model: await DynamicAIConfig.getModel(), // Dynamic model from admin configuration
+./server/clean-ai-attachment-analyzer.ts:105:          model: await DynamicAIConfig.getModel(),
+./server/clean-ai-evidence-parser.ts:90:        model: await DynamicAIConfig.getModel(),
+./server/clean-ai-evidence-parser.ts:184:      model: await DynamicAIConfig.getModel(), // Dynamic model from admin configuration
+./server/evidence-validation-engine.ts:181:        model: await DynamicAIConfig.getModel(), // Dynamic model from admin configuration
+./server/evidence-validation-engine.ts:359:        model: await DynamicAIConfig.getModel(), // Dynamic model from admin configuration
+./server/ai-attachment-analyzer.ts:174:        model: activeConfig?.model || UniversalAIConfig.getDefaultModel(),
+./server/ai-evidence-parser.ts:219:        model: activeConfig?.model || UniversalAIConfig.getDefaultModel(),
+./server/ai-evidence-parser.ts:327:        model: activeConfig?.model || UniversalAIConfig.getDefaultModel(),
+./server/ai-hypothesis-generator.ts:154:        model: aiConfig.model,
+./server/ai-hypothesis-generator.ts:229:        model: aiConfig.model,
+./server/ai-hypothesis-generator.ts:269:        model: activeConfig.model,
+./server/universal-ai-evidence-analyzer.ts:479:        model: UniversalAIConfig.getDefaultModel(),
+./server/universal-ai-evidence-analyzer.ts:578:        model: UniversalAIConfig.getDefaultModel(),
+./server/dynamic-ai-config.ts:30:  model: string;
+./server/dynamic-ai-config.ts:39:  model: string;
+./server/dynamic-ai-config.ts:75:        model: activeProvider.model,
+./server/dynamic-ai-config.ts:180:        model: aiProvider.model,
+./server/dynamic-ai-config.ts:201:        model: aiProvider.model,
+./server/enhanced-ai-test-service.ts:32:    model: string;
+./server/enhanced-ai-test-service.ts:61:          providerDetails: { id: providerId, provider: 'unknown', model: 'unknown' }
+./server/enhanced-ai-test-service.ts:68:        model: provider.model
+./server/enhanced-ai-test-service.ts:90:              model: provider.model
+./server/enhanced-ai-test-service.ts:128:        model: provider.model
+./server/enhanced-ai-test-service.ts:155:        providerDetails: { id: providerId, provider: 'unknown', model: 'unknown' }
+./server/ai-service.ts:114:          model: activeConfig?.model || UniversalAIConfig.getDefaultModel(),
+./server/ai-service.ts:207:        model: activeConfig?.model || UniversalAIConfig.getDefaultModel(), // Dynamic model selection from admin configuration
+./server/ai-service.ts:231:    const response = await fetch(${geminiUrl}/v1/models/gemini-pro:generateContent?key=${apiKey}, {
+./server/ai-service.ts:263:        model: "dynamic-model-selection",
+./server/routes.ts:880:        model: settingsData.model || UniversalAIConfig.getDefaultModel()
+./server/storage.ts:308:          model: setting.model || setting.provider, // Use database model field
+./client/src/components/ai-status-indicator.tsx:22:    model: string;
+./shared/schema.ts:216:  model: varchar("model").notNull(), // Dynamic model selection
+Checking pattern: provider.*:
+🚨 CRITICAL VIOLATION FOUND: provider.*:
+./server/ai-status-monitor.ts:15:    provider: string;
+./server/ai-status-monitor.ts:26:    provider: string;
+./server/ai-status-monitor.ts:58:        console.log([AI STATUS MONITOR] Active provider found - testStatus: ${activeProvider.testStatus}, lastTestedAt: ${activeProvider.lastTestedAt});
+./server/ai-status-monitor.ts:96:          provider: activeProvider.provider,
+./server/ai-status-monitor.ts:131:    provider: string;
+./server/ai-status-monitor.ts:140:    console.log([AI STATUS MONITOR] AI Operation Logged: ${operation.source} using ${operation.provider} - ${operation.success ? 'SUCCESS' : 'FAILED'});
+./server/ai-status-monitor.ts:149:    provider?: string;
+./server/ai-status-monitor.ts:176:        provider: activeProvider.provider,
+./server/ai-status-monitor.ts:183:        provider: activeProvider.provider,
+./server/ai-status-monitor.ts:194:        provider: 'unknown'
+./server/ai-hypothesis-generator.ts:268:        provider: activeConfig.provider,
+./server/ai-hypothesis-generator.ts:290:    throw new Error(Unsupported AI provider: ${config.provider});
+./server/dynamic-ai-config.ts:29:  provider: string;
+./server/dynamic-ai-config.ts:67:      console.log([Dynamic AI Config] Active provider: ${activeProvider.provider} (${activeProvider.model}));
+./server/dynamic-ai-config.ts:74:        provider: activeProvider.provider,
+./server/dynamic-ai-config.ts:82:      console.error('[Dynamic AI Config] Failed to load AI provider:', error);
+./server/dynamic-ai-config.ts:97:      console.error('[Dynamic AI Config] API key not configured for provider:', config.provider);
+./server/dynamic-ai-config.ts:102:      console.error('[Dynamic AI Config] AI provider is not active:', config.provider);
+./server/dynamic-ai-config.ts:125:      throw new Error(Unsupported AI provider: ${config.provider});
+./server/llm-security-validator.ts:32:  static validateLLMKeyCompliance(key: string | undefined, provider: string, callerModule: string): SecurityValidationResult {
+./server/llm-security-validator.ts:34:    console.log([LLM SECURITY] Mandatory security check for provider: ${provider} from module: ${callerModule});
+./server/llm-security-validator.ts:116:  private static isValidKeyFormat(key: string, provider: string): boolean {
+./server/llm-security-validator.ts:134:  static assertKeyIsValidAndNotHardcoded(key: string | undefined, provider: string, callerModule: string): void {
+./server/llm-security-validator.ts:169:export function validateLLMSecurity(key: string | undefined, provider: string, callerModule: string): void {
+./server/dynamic-ai-client-factory.ts:24:    console.log([Dynamic AI Client] Creating ${activeProvider.provider} client from admin database (ID: ${activeProvider.id}));
+./server/enhanced-ai-test-service.ts:29:  providerDetails: {
+./server/enhanced-ai-test-service.ts:31:    provider: string;
+./server/enhanced-ai-test-service.ts:41:  static async testAIProvider(providerId: number, maxRetries: number = 3): Promise<AITestResult> {
+./server/enhanced-ai-test-service.ts:50:      const provider = aiSettings.find((setting: any) => setting.id === providerId);
+./server/enhanced-ai-test-service.ts:61:          providerDetails: { id: providerId, provider: 'unknown', model: 'unknown' }
+./server/enhanced-ai-test-service.ts:67:        provider: provider.provider,
+./server/enhanced-ai-test-service.ts:89:              provider: provider.provider,
+./server/enhanced-ai-test-service.ts:127:        provider: provider.provider,
+./server/enhanced-ai-test-service.ts:155:        providerDetails: { id: providerId, provider: 'unknown', model: 'unknown' }
+./server/enhanced-ai-test-service.ts:163:  private static async performSingleTest(provider: any): Promise<{ success: boolean; error?: any }> {
+./server/enhanced-ai-test-service.ts:188:  private static async testProviderConnectivity(provider: any, timeoutMs: number = 30000): Promise<{ success: boolean; error?: any }> {
+./server/enhanced-ai-test-service.ts:287:  private static async updateTestResult(providerId: number, success: boolean, errorMessage: string | null): Promise<void> {
+./server/enhanced-ai-test-service.ts:291:      const provider = aiSettings.find((setting: any) => setting.id === providerId);
+./server/enhanced-ai-test-service.ts:294:        provider.testStatus = success ? 'success' : 'failed';
+./server/enhanced-ai-test-service.ts:297:        console.log([Enhanced AI Test] Updated database - Provider ${providerId}: ${success ? 'SUCCESS' : 'FAILED'});
+./server/enhanced-ai-test-service.ts:307:  static async performLivePing(providerId: number): Promise<{ success: boolean; latency: number; error?: string }> {
+./server/enhanced-ai-test-service.ts:312:      const provider = aiSettings.find((setting: any) => setting.id === providerId);
+./server/ai-service.ts:50:  static async testApiKey(provider: string, apiKey: string): Promise<{ success: boolean; error?: string }> {
+./server/ai-service.ts:133:    provider: string;
+./server/ai-service.ts:146:      provider: data.provider,
+./server/ai-service.ts:155:  static async getActiveAiProvider(): Promise<{ provider: string; apiKey: string } | null> {
+./server/ai-service.ts:165:        provider: activeSettings.provider,
+./server/routes.ts:869:      console.log([ADMIN] Saving new AI settings - Provider: ${settingsData.provider}, Active: ${settingsData.isActive} (ADMIN-MANAGED ONLY - NO HARDCODING));
+./server/routes.ts:879:        provider: settingsData.provider,
+./server/routes.ts:927:        provider: activeProvider.provider
+./server/routes.ts:935:        providerId: activeProvider.id,
+./server/routes.ts:936:        provider: activeProvider.provider
+./server/storage.ts:307:          provider: setting.provider,
+./server/storage.ts:343:          provider: data.provider,
+./server/storage.ts:353:        provider: newSetting.provider,
+./server/storage.ts:372:        provider: setting.provider,
+./client/src/components/ai-status-indicator.tsx:21:    provider: string;
+./client/src/components/ai-status-indicator.tsx:32:    provider: string;
+./client/src/pages/admin-settings.tsx:22:    provider: "openai",
+./client/src/pages/admin-settings.tsx:74:    mutationFn: async (data: { provider: string; apiKey: string }) => {
+./client/src/pages/admin-settings.tsx:421:      provider: formData.provider,
+./client/src/pages/admin-settings.tsx:448:  const getProviderName = (provider: string) => {
+./client/src/pages/admin-settings.tsx:544:                onValueChange={(value) => setFormData(prev => ({ ...prev, provider: value }))}
+./shared/schema.ts:215:  provider: varchar("provider").notNull(), // Dynamic provider selection
+Checking pattern: randomUUID\(\)
+Checking pattern: crypto\.randomBytes"
+ChatGPT said:
+Short Answer:
+Yes, this output means your compliance script has detected multiple protocol violations in your codebase.
+Anything with 🚨 CRITICAL VIOLATION FOUND: is a violation, and anything with ⚠️ Missing protocol header in: is a documentation/process warning.
+
+Detailed Explanation:
+CRITICAL VIOLATION FOUND:
+Whenever you see this, it means your protocol_check.sh script found code that matches one of your forbidden patterns.
+Examples:
+Hardcoded URLs (e.g. http://${window.location.hostname}:... is still a partly hardcoded pattern).
+Use of forbidden words or magic numbers.
+Direct references to "openai", "model", "provider" in certain ways.
+The actual line/file is listed after the violation. For example:
+./client/src/pages/evidence-library-management.tsx:185: const directResponse = await fetch(`http://${window.location.hostname}:${import.meta.env.VITE_BACKEND_PORT || '5000'}${url}`, {
+Here, the use of http:// and hardcoded port is a violation.
+Pattern: hardcoded, openai, model.*:, provider.*:
+These patterns are very broad and may even flag legit comments, docstrings, or variable names—not just true violations.
+You’ll need to review each case. If it’s only in a comment/docstring, it’s not critical, but if it’s a value assignment, it is.
+Pattern: Magic numbers, random UUID, API keys, etc.
+If found, they are critical.
+⚠️ Missing protocol header:
+This just means certain files don’t have the required compliance header at the top.
+Fix: Add the compliance block at the top of every flagged file.
+What To Do With This Information:
+For each CRITICAL VIOLATION FOUND, review the code line referenced.
+If it’s a real hardcoding (value, key, URL, etc.), refactor.
+If it’s a comment or a docstring (e.g., "No hardcoded failure modes"), consider tuning your compliance script to skip comments, or just leave it (it’s not harmful).
+For Missing protocol header, add the required comment block at the top of each file.
+After all fixes, re-run your compliance check until no critical violations remain.
+Bottom Line:
+Any line flagged as “CRITICAL VIOLATION FOUND” must be reviewed and (if valid) fixed.
+No code should be committed/pushed with a real violation present.
+Your process is working as intended—blocking non-compliant code from leaving your workspace.
+If you want help:
+
+Improving the compliance script to avoid false positives
+Fixing specific violations
+Or automatically adding protocol headers
+Just let me know!
+
+

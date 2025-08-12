@@ -1,0 +1,117 @@
+1. Data Inputs & Parsing
+
+A. Input Types
+
+Work order data (Excel, CSV, PDF, JSON, text, etc.)
+Free-text descriptions (symptoms, actions, events)
+Structured operating data (flow, pressure, cycles, temperature, etc.)
+Maintenance history, event/condition logs
+B. Data Cleaning & Normalization
+
+Handle missing, misaligned, or partial records
+AI/ML/NLP to extract key info from unstructured text (e.g., “valve leaking at seat”)
+Map data fields to standardized RCA schema
+2. Asset and Context Understanding
+
+A. Asset Identification
+
+Parse equipment type (valve, pump, motor, conveyor, etc.)
+Parse subtype/model/class (ball valve, centrifugal pump, etc.)
+Parse key attributes (location, ID, age, duty, service type)
+B. Symptom Localization
+
+Extract main issue (leak, overheat, noise, failure, low output, etc.)
+Localize affected part (e.g., “leak at stem” vs. “leak at body”)
+Extract when/how symptom manifested (after PM, during operation, sudden/gradual)
+3. Stepwise RCA Logic
+
+A. Rule-Based & Data-Driven Reasoning
+
+Use a knowledge base (industry standards, OEM manuals, historical plant data, FMEA/FMECA tables) to map:
+Asset type + symptom → typical failure modes
+Part affected → likely causes
+Process context (e.g., pressure spikes, maintenance overdue, abnormal temperature, operator action)
+B. Cause-and-Effect Mapping
+
+For every symptom, generate a cause-and-effect tree (Fishbone/Ishikawa or Apollo logic tree)
+Correlate with historical and real-time data (parameter excursions, recent work orders, alarms/events)
+C. Probable Cause Validation
+
+For each possible cause, score based on supporting/refuting evidence in the data
+Use statistical correlation if possible (e.g., “high vibration always precedes seal failure”)
+List multiple possible causes if evidence is ambiguous; flag “inconclusive” with missing data prompts
+4. AI-Driven User Interactions (Evidence Gathering)
+
+A. Missing Data Prompts
+
+If key data is missing, automatically prompt user/admin:
+“Asset type not specified—please select: Ball Valve / Gate Valve / Other”
+“No recent maintenance history—please confirm last PM date”
+“No pressure trend data—upload if available for more accurate RCA”
+B. Progressive Querying
+
+Only ask for information relevant to narrowing down root cause (“Was the valve cycling frequently before the leak?”)
+Allow user to provide clarification, then re-run RCA with new evidence
+5. Confidence Scoring & Output Explanation
+
+A. Confidence Rating
+
+Calculate a confidence score based on the match between data and typical failure models
+High: clear, matching evidence
+Medium: some evidence, possible ambiguity
+Low: insufficient/contradictory data
+B. Explainable Output
+
+Each conclusion must include a plain English explanation:
+The asset type, the specific symptom, the affected subsystem
+Why this root cause was chosen (data-driven logic: “Pressure spikes + overdue maintenance + seat leak = likely seat failure”)
+Contributing factors (e.g., process upsets, operator error, late PM)
+Data/evidence references (timestamps, parameters, work orders)
+“Missing data” warning if applicable
+6. Recommendations Engine
+
+Generate actionable recommendations directly linked to the root/contributing causes
+Recommendations should be equipment/symptom-specific (e.g., “replace valve seat, install surge protector, revise lubrication schedule”)
+If root cause is inconclusive, recommend additional data collection or inspection
+7. Customizability & Continuous Learning
+
+Allow admin to add/edit equipment types, common symptoms, RCA logic rules, and parameter mappings (future-proofing)
+AI/engine should learn from corrected/manual RCAs and incorporate feedback over time (closed-loop improvement)
+8. Visualizations
+
+Show RCA reasoning path as a tree (root → cause → contributing factors → evidence)
+(e.g., Fishbone/Ishikawa, Apollo tree)
+Show parameter trends/time series supporting the conclusion
+Visual “missing data” indicators if critical info is unavailable
+9. Sample AI Reasoning Output (Template)
+
+Asset: Centrifugal Pump (ID: P123)
+Symptom: Seal Leak
+
+Stepwise Analysis:
+- Equipment type: Centrifugal pump
+- Main symptom: Fluid leak at seal area
+- Historical data: High vibration 2 weeks prior, temperature excursion, seal last replaced 30 months ago (PM frequency: 24 months)
+- Probable causes evaluated:
+   1. Seal wear due to extended service life (supported by overdue PM, wear evidence)
+   2. Cavitation due to process upsets (not supported, flow/pressure normal)
+   3. Installation error (no recent installation)
+
+Root Cause: Seal wear (confidence: 92%)
+Contributing Factor: Late PM
+
+Explanation: The combination of high vibration, over-extended seal life, and location of leak indicates seal wear as the root cause, with late preventive maintenance as a contributing factor.
+
+Recommendations: Replace seal, review and enforce PM schedule, monitor vibration monthly.
+10. Technical Integration Notes
+
+All AI analysis must be server-side; never expose RCA logic or sensitive data to frontend.
+Support for multi-language/nomenclature as needed (valve = “valve”, “valvula”, etc.).
+Log all AI prompts, user clarifications, and manual overrides for audit and continuous improvement.
+11. Testing & Validation
+
+Test cases should include:
+Complete and incomplete data
+Various equipment types and symptoms
+Contradictory evidence (AI must flag low confidence/inconclusive)
+Manual correction/feedback loop

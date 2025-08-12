@@ -1,0 +1,3 @@
+Keeping 6 working evidence files
+SQL UPDATE COMMAND:
+UPDATE incidents SET evidence_responses = '[{"id": "file-1753458005756-o67apx1fc", "name": "centrifugal_pump_vibration_waveform.txt", "size": 75, "type": "text/plain", "content": "VGltZSxWZWxvY2l0eSxB...

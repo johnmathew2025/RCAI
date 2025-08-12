@@ -1,0 +1,63 @@
+Universal Protocol Compliance Audit – Replit Agent Review
+Date: 2025-07-28
+Repository: konwarhouse/RCA
+Application: AI-driven RCA Diagnostic System
+
+Summary:
+This review was conducted to verify if the current Replit implementation adheres fully to the Universal Protocol Compliance Standard. While significant progress has been made (e.g., removal of legacy files, introduction of DynamicAIConfig, and integration of protocol_check.sh), there are still residual violations that need immediate attention.
+
+====================================================================
+✅ FIXES ALREADY IMPLEMENTED (GOOD PROGRESS)
+====================================================================
+• Direct `import openai` statements removed from major files like:
+  - clean-ai-evidence-parser.ts
+  - clean-ai-attachment-analyzer.ts
+  - dynamic-ai-client-factory.ts
+
+• Legacy AI files removed:
+  - ai-attachment-analyzer.ts
+  - ai-evidence-parser.ts
+  - ai-hypothesis-generator.ts
+
+• Most LSP errors cleaned up
+• Protocol header integration started in some files
+• `protocol_check.sh` is in place and being run periodically
+
+====================================================================
+❗REMAINING CRITICAL ISSUES (STILL VIOLATING PROTOCOL)
+====================================================================
+1. Hardcoded fallback model names still exist
+   • File: `universal-ai-evidence-analyzer.ts`
+     → Contains: `'gpt-3.5-turbo'` fallback values
+     → ❌ Violates: Zero hardcoding policy for model names
+
+2. Configuration comments and string patterns flagged
+   • `"openai"` string present in config or logic
+     → Even if dynamic, it triggers the protocol scanner
+     → Needs central provider routing
+
+3. Some files lack protocol compliance headers
+   • Example missing annotation:
+     ```
+     /**
+      * @compliance UniversalProtocol v1.0
+      * No hardcoded model, provider, or key values
+      * All AI operations routed via DynamicAIClientFactory
+      */
+     ```
+
+4. Partial usage of dynamic AI router
+   • Clean files use DynamicAIClientFactory
+   • But not all routes.ts calls or edge cases use it properly
+
+====================================================================
+🛠️ ACTION ITEMS TO COMPLETE COMPLIANCE
+====================================================================
+1. Remove or refactor all hardcoded model strings like `'gpt-3.5-turbo'`
+   → Replace with dynamic config logic:
+     const model = config.model || 'default-model';
+
+2. Remove all `"openai"` string literals unless part of user-defined config
+   → Use `config.provider` or `DynamicAIProvider` abstraction
+
+3. Add the following header block to **all AI-involved TS files**:

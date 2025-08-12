@@ -1,0 +1,53 @@
+Push EVERYTHING — absolutely everything — to GitHub from day one to now:
+📁 Code & Core Assets
+
+All backend & frontend source code
+TypeScript types (shared/interfaces)
+Prisma schema or equivalent DB models
+Python analysis tools (RMS, FFT, trend logic)
+LLM analysis logic or prompt modules
+React components, UI pages, stores, contexts
+⚙️ Configuration & Runtime
+
+.replit, replit.nix, requirements.txt, package.json, tsconfig.json
+.env.example with all required keys (and purpose)
+Dockerfile + docker-compose.yml (even if basic)
+Makefile or scripts/bootstrap.sh to install and run cleanly
+.devcontainer/devcontainer.json (for Codespaces/VSCode DevContainers)
+🧩 Schema & State
+
+All schema definitions and migrations (e.g., prisma/migrations/)
+Any seed scripts, DB reset commands, or mock/test datasets
+AI configuration files, JSON logic maps (e.g., for evidence categories)
+📄 Protocol & Enforcement
+
+docs/UNIVERSAL_PROTOCOL_STANDARD.md
+docs/PRE_DEVELOPMENT_COMPLIANCE_CHECK.md
+docs/UNIVERSAL_PROTOCOL_COMPLIANCE_AUDIT.md
+Compliance headers in every file (routing, storage, schema, etc.)
+Any additional documentation used for protocol governance
+🛠️ Automation & Enforcement
+
+.github/workflows/protocol-compliance.yml
+Pre-commit hooks or shell scripts that scan for:
+Deprecated fields (evidenceFiles, etc.)
+Hardcoded values (evidenceCategories, Math.random, Date.now)
+🧪 Testing & Validation
+
+Minimal test cases or Postman/Insomnia collections
+Any tests/ or cypress/ folders used for evidence upload/analysis
+📦 Final Requirement
+After committing everything:
+Confirm it is pushed to the main branch of https://github.com/konwarhouse/RCA
+Paste back the output of the following (from root of repo):
+git rev-parse --abbrev-ref HEAD
+git log -1 --oneline
+find . -iname "*protocol*.md"
+grep -r "UNIVERSAL PROTOCOL STANDARD COMPLIANCE HEADER" .
+grep -r "evidenceFiles" .
+grep -r "evidenceCategories" .
+grep -r -e "Date.now" -e "Math.random" .
+Confirm that I can start the full stack with either:
+docker compose up --build
+or
+make bootstrap && make dev

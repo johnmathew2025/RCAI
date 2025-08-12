@@ -1,0 +1,80 @@
+
+FINAL ENFORCEMENT — EVIDENCE VALIDATION BEFORE RCA ANALYSIS
+============================================================
+
+
+CONTEXT:
+--------
+During testing (Incident #66: “pump failed with casing damage”), the RCA system was provided with junk or non-relevant attachments as evidence.
+
+Despite this, the system:
+- Completed the RCA
+- Assigned high confidence scores (85%)
+- Generated recommendations
+- Claimed to have used “supporting evidence” that never existed
+
+This represents a critical flaw in RCA engine logic.
+
+MANDATORY FIX:
+--------------
+✓ The system must NOT proceed with RCA analysis unless evidence files are:
+  - Validated
+  - Parsed
+  - Matched to expected content
+
+✓ Uploading a file is NOT equivalent to providing valid evidence.
+
+REQUIRED EVIDENCE PARSING LOGIC:
+--------------------------------
+For each required_evidence entry (e.g., “IR Report”, “Torque Trend”, “Inspection Log”):
+
+Step 1: Parse uploaded file based on MIME type
+  - .pdf: extract text via OCR/NLP
+  - .xls/.csv: extract tables
+  - .jpg/.png: use OCR or reject if not visual data
+  - .doc/.txt: scan for keywords
+
+Step 2: Match required evidence markers
+  - For “IR Report”: must find temperature readings, pass/fail verdict, thermal imaging phrases
+  - For “Inspection”: must detect physical description, defect findings
+  - For “Torque Trend”: must detect numeric values over time, units like Nm, etc.
+
+Step 3: Score file as:
+  - ✅ Valid
+  - ⚠️ Inadequate (ask user to clarify)
+  - ❌ Invalid (junk/unreadable)
+
+Step 4: AI should prompt:
+  > “The uploaded file could not be validated as a required evidence type. Please upload a clear version or correct file.”
+
+Step 5: Only proceed with RCA analysis when minimum required evidence is validated.
+
+CRITICAL REQUIREMENT:
+---------------------
+RCA CONFIDENCE SCORE MUST BE DEGRADED OR DISABLED if required evidence is not validated.
+
+If AI cannot confirm that “IR Report” or “Inspection” data is provided:
+→ Root Cause should be deferred, and system must prompt for better evidence.
+
+MANDATORY UNIVERSAL DESIGN RULE:
+--------------------------------
+❌ DO NOT hardcode any logic tied to specific equipment (Pump, Motor, etc.)
+❌ DO NOT assume any file is valid based on filename or upload step
+❌ DO NOT assign confidence or generate root causes unless evidence is actually parsed and validated
+
+✅ ALL evidence adequacy logic must be:
+  - Universal
+  - Equipment-agnostic
+  - Triggered by required_evidence definitions in the evidence library
+  - Driven by real content extraction
+
+FAILURE TO ENFORCE THIS LOGIC RISKS:
+------------------------------------
+- False investigations
+- Wrong root causes
+- Legal/compliance risk in regulated environments
+- User distrust in the RCA tool’s credibility
+
+This must be corrected immediately to protect the integrity of the platform.
+
+END OF INSTRUCTION
