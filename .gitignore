@@ -1,4 +1,4 @@
-# Node / Next / build
+# Node / Next
 node_modules/
 .next/
 dist/
@@ -6,39 +6,17 @@ build/
 coverage/
 *.log
 *.cache/
+
 # Python
 __pycache__/
 *.pyc
 .venv/
 venv/
-# Misc
-.DS_Store
-.env*
 
-# temp & build
-/tmp/
-tmp/
-node_modules/
-.next/
-dist/
-*.log
-
-# temp & build
-/tmp/
-tmp/
-node_modules/
-.next/
-dist/
-*.log
+# Environment & OS
 .env*
 .DS_Store
 
-# temp & build
+# Temporary
 /tmp/
 tmp/
-node_modules/
-.next/
-dist/
-*.log
-.env*
-.DS_Store
