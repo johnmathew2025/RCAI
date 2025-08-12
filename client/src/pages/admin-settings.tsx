@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Eye, EyeOff, TestTube, Save, Shield, AlertTriangle, Database, Plus, Edit3, Download, Upload, Home, ArrowLeft, FileUp, FileDown, FileText, TrendingUp, Brain } from "lucide-react";
+import { Eye, EyeOff, TestTube, Save, Shield, AlertTriangle, Database, Plus, Edit3, Download, Upload, Home, ArrowLeft, FileUp, FileDown, FileText, TrendingUp, Brain, GitBranch } from "lucide-react";
 import { Link } from "wouter";
 import type { AiSettings, InsertAiSettings, EquipmentGroup, RiskRanking } from "@shared/schema";
 import AIStatusIndicator from "@/components/ai-status-indicator";
@@ -685,6 +685,12 @@ export default function AdminSettings() {
             <Button variant="ghost" size="sm" className="flex items-center space-x-2">
               <Brain className="w-4 h-4" />
               <span>AI-Powered RCA</span>
+            </Button>
+          </Link>
+          <Link href="/workflow-integration-demo">
+            <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+              <GitBranch className="w-4 h-4" />
+              <span>Workflow Integration</span>
             </Button>
           </Link>
         </div>

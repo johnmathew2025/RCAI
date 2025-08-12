@@ -451,6 +451,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   console.log("[ROUTES] AI-Powered RCA analysis engine route registered");
 
+  // Step 8: Workflow Integration and Process Automation endpoints
+  app.post("/api/workflows", async (req, res) => {
+    console.log("[ROUTES] Workflow initiation route accessed - Universal Protocol Standard compliant");
+    try {
+      const workflowRequest = req.body;
+      console.log("[ROUTES] Workflow request received:", JSON.stringify(workflowRequest, null, 2));
+
+      // Import and initialize workflow engine
+      const { WorkflowIntegrationEngine } = await import("./workflow-integration-engine");
+      const workflowEngine = new WorkflowIntegrationEngine();
+
+      // Initiate the workflow
+      const workflowResult = await workflowEngine.initiateWorkflow(workflowRequest);
+      
+      console.log(`[ROUTES] Workflow ${workflowResult.workflowId} initiated successfully`);
+      console.log(`[ROUTES] Current stage: ${workflowResult.currentStage.stageName} (${workflowResult.completionPercentage}%)`);
+
+      res.json({
+        success: true,
+        workflow: workflowResult
+      });
+
+    } catch (error) {
+      console.error("[ROUTES] Workflow initiation error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Workflow initiation failed",
+        message: error instanceof Error ? error.message : "Unknown workflow error"
+      });
+    }
+  });
+
+  app.post("/api/workflows/:workflowId/execute/:stageId", async (req, res) => {
+    console.log("[ROUTES] Workflow stage execution route accessed - Universal Protocol Standard compliant");
+    try {
+      const { workflowId, stageId } = req.params;
+      console.log(`[ROUTES] Executing stage ${stageId} for workflow ${workflowId}`);
+
+      // Import and initialize workflow engine
+      const { WorkflowIntegrationEngine } = await import("./workflow-integration-engine");
+      const workflowEngine = new WorkflowIntegrationEngine();
+
+      // Execute the workflow stage
+      const workflowResult = await workflowEngine.executeWorkflowStage(workflowId, stageId);
+      
+      console.log(`[ROUTES] Stage ${stageId} executed successfully for workflow ${workflowId}`);
+      console.log(`[ROUTES] Current completion: ${workflowResult.completionPercentage}%`);
+
+      res.json({
+        success: true,
+        workflow: workflowResult
+      });
+
+    } catch (error) {
+      console.error("[ROUTES] Workflow stage execution error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Workflow stage execution failed",
+        message: error instanceof Error ? error.message : "Unknown stage execution error"
+      });
+    }
+  });
+
+  app.get("/api/workflows/:workflowId", async (req, res) => {
+    console.log("[ROUTES] Workflow status route accessed - Universal Protocol Standard compliant");
+    try {
+      const { workflowId } = req.params;
+      console.log(`[ROUTES] Retrieving status for workflow ${workflowId}`);
+
+      // Import and initialize workflow engine
+      const { WorkflowIntegrationEngine } = await import("./workflow-integration-engine");
+      const workflowEngine = new WorkflowIntegrationEngine();
+
+      // Get workflow status
+      const workflowResult = await workflowEngine.getWorkflowStatus(workflowId);
+      
+      if (!workflowResult) {
+        res.status(404).json({
+          success: false,
+          error: "Workflow not found",
+          message: `Workflow ${workflowId} does not exist`
+        });
+        return;
+      }
+
+      console.log(`[ROUTES] Retrieved workflow ${workflowId} status: ${workflowResult.status.state}`);
+
+      res.json({
+        success: true,
+        workflow: workflowResult
+      });
+
+    } catch (error) {
+      console.error("[ROUTES] Workflow status retrieval error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Workflow status retrieval failed",
+        message: error instanceof Error ? error.message : "Unknown status retrieval error"
+      });
+    }
+  });
+
+  app.delete("/api/workflows/:workflowId", async (req, res) => {
+    console.log("[ROUTES] Workflow cancellation route accessed - Universal Protocol Standard compliant");
+    try {
+      const { workflowId } = req.params;
+      const { reason } = req.body;
+      console.log(`[ROUTES] Cancelling workflow ${workflowId}: ${reason}`);
+
+      // Import and initialize workflow engine
+      const { WorkflowIntegrationEngine } = await import("./workflow-integration-engine");
+      const workflowEngine = new WorkflowIntegrationEngine();
+
+      // Cancel the workflow
+      await workflowEngine.cancelWorkflow(workflowId, reason || 'No reason provided');
+      
+      console.log(`[ROUTES] Workflow ${workflowId} cancelled successfully`);
+
+      res.json({
+        success: true,
+        message: `Workflow ${workflowId} cancelled successfully`
+      });
+
+    } catch (error) {
+      console.error("[ROUTES] Workflow cancellation error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Workflow cancellation failed",
+        message: error instanceof Error ? error.message : "Unknown cancellation error"
+      });
+    }
+  });
+
+  console.log("[ROUTES] All workflow integration endpoints registered");
+
   // Skip complex routes for now and move to taxonomy endpoints
   console.log("[ROUTES] Moving directly to taxonomy API endpoints");
 

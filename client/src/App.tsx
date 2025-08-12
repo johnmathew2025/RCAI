@@ -32,6 +32,7 @@ import TaxonomyManagement from "@/pages/admin/taxonomy-management";
 import EvidenceLibraryIntegration from "@/pages/evidence-library-integration";
 import EvidenceAnalysisDemo from "@/pages/evidence-analysis-demo";
 import RCAAnalysisDemo from "@/pages/rca-analysis-demo";
+import WorkflowIntegrationDemo from "@/pages/workflow-integration-demo";
 
 
 function Router() {
@@ -54,6 +55,7 @@ function Router() {
       <Route path="/evidence-library-integration" component={EvidenceLibraryIntegration} />
       <Route path="/evidence-analysis-demo" component={EvidenceAnalysisDemo} />
       <Route path="/rca-analysis-demo" component={RCAAnalysisDemo} />
+      <Route path="/workflow-integration-demo" component={WorkflowIntegrationDemo} />
       <Route path="/evidence-library-management" component={EvidenceLibrarySimple} />
       <Route path="/evidence-library" component={EvidenceLibrarySimple} />
       <Route path="/incident-reporting" component={IncidentReporting} />
