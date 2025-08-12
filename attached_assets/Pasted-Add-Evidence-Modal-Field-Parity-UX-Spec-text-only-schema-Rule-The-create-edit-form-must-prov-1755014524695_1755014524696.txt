@@ -1,0 +1,80 @@
+Add Evidence Modal — Field Parity & UX Spec (text-only schema)
+Rule: The create/edit form must provide 1:1 coverage of every column in EvidenceItem (except timestamps). Subtype & Risk are optional; everything else is text inputs. Save exactly what the user types (no coercion).
+A. Include these fields (grouped UI):
+1.	Classification
+•	Equipment Group (select, from lookup)
+•	Equipment Type (select, cascades from Group)
+•	Subtype (Optional) (select, cascades from Type)
+2.	Identity & Codes
+•	Equipment Code (required, unique)
+•	Failure Code (text)
+•	Component / Failure Mode (text)
+3.	Risk
+•	Risk Ranking (select from risk_rankings)
+•	Risk Ranking Label (text, read-only shows the selected label; editable if no match—store text)
+4.	Evidence Requirements
+•	Required Trend Data / Evidence (multiline textarea)
+•	AI or Investigator Questions (multiline textarea)
+•	Attachments / Evidence Required (multiline textarea)
+5.	RCA Logic & Causes
+•	Root Cause Logic (multiline textarea)
+•	Primary Root Cause (text)
+•	Contributing Factor (text)
+•	Latent Cause (text)
+6.	Detection & Confidence
+•	Detection Gap (multiline textarea)
+•	Confidence Level (text, e.g., “80%” or “High”)
+7.	Patterns & Applicability
+•	Fault Signature Pattern (multiline textarea)
+•	Applicable to Other Equipment (multiline textarea)
+8.	Elimination Logic
+•	Eliminated If These Failures Confirmed (multiline textarea)
+•	Why It Gets Elimininated (multiline textarea)
+9.	Notes / Flags
+•	Evidence Gap Flag (text, freeform “Yes/No/Unknown”)
+B. UX details
+•	All long fields use auto-growing textareas with word-wrap.
+•	Keep horizontal scroll in the table; but in the modal, wrap text (no horizontal scrolling inside inputs).
+•	Disable Type until Group is selected; disable Subtype until Type is selected.
+•	Allow “None” for Subtype using a non-empty sentinel internally and convert to null server-side.
+•	Initial state for selects must be undefined (not "") to avoid Select errors.
+•	Show a “Show advanced fields” toggle that reveals sections 5–9; remember the user’s last choice.
+C. Validation
+•	Required: Equipment Group, Equipment Type, Equipment Code, Component/Failure Mode.
+•	Enforce FK hierarchy on submit (type→group, subtype→type). If invalid, block with clear message.
+•	Do not coerce to numbers/booleans; store text as entered. Empty fields may be saved as null.
+D. Edit parity
+•	The Edit Evidence dialog must load and allow editing of every field above (same UI), not a subset.
+E. API payload (example)
+{
+  "groupId": "grp_123",
+  "typeId": "typ_456",
+  "subtypeId": null,
+  "equipmentCode": "PUMP-001",
+  "failureCode": "BRG-OVHT-001",
+  "componentFailureMode": "Bearing Overheating",
+  "riskId": "risk_med",
+  "riskRankingLabel": "Medium",
+  "requiredTrendData": "vibration; IR; oil analysis",
+  "investigatorQuestions": "When did overheating start?\nAny recent alignment work?",
+  "attachmentsRequired": "Vibration spectrum, IR images",
+  "rootCauseLogic": "If IR > threshold and spectrum shows 2x line frequency...",
+  "primaryRootCause": "Lubrication failure",
+  "contributingFactor": "High ambient temperature",
+  "latentCause": "PM interval too long",
+  "detectionGap": "No online temp alarm at DE",
+  "confidenceLevel": "80%",
+  "faultSignaturePattern": "High 1× with sidebands; IR hotspot at DE cap",
+  "applicableToOtherEquipment": "P-102; all ANSI pump skids",
+  "eliminatedIfConfirmed": "Misalignment; Soft foot",
+  "whyItGetsEliminated": "If backlash within spec and temp normal, misalignment unlikely",
+  "evidenceGapFlag": "Yes"
+}
+F. CSV parity
+•	The modal fields must align exactly with the CSV headers you use for import/export. No hidden columns.
+G. QA checklist
+•	Creating an item from the modal → export CSV → re-import → edit modal shows identical values.
+•	No field can only be set via CSV/direct DB—everything is available in the UI.
+•	Optional fields can be left blank; saved as null (not empty string).
+•	Permissions: Viewer cannot see the Add button; Editor/Admin can.
+

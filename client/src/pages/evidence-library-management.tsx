@@ -18,14 +18,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus, Upload, Download, Edit, Edit2, Trash2, AlertTriangle, CheckCircle, Home, ArrowLeft, Library } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import EvidenceLibraryForm from "@/components/evidence-library-form";
+import ComprehensiveEvidenceForm from "@/components/comprehensive-evidence-form";
 import EnhancedEvidenceTable from "@/components/enhanced-evidence-table";
 // Note: AdminTopNav and AdminBreadcrumb temporarily removed for navigation restructuring
 
@@ -80,6 +80,7 @@ export default function EvidenceLibraryManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItem, setSelectedItem] = useState<EvidenceLibrary | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter states
@@ -90,6 +91,50 @@ export default function EvidenceLibraryManagement() {
   // Bulk delete states
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
+
+  // Handle form submission for create/edit
+  const handleSubmit = async (data: any) => {
+    setIsSubmitting(true);
+    try {
+      if (selectedItem) {
+        // Update existing evidence
+        await apiRequest(`/api/evidence-library/${selectedItem.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        });
+        toast({
+          title: "Success",
+          description: "Evidence item updated successfully",
+        });
+      } else {
+        // Create new evidence
+        await apiRequest('/api/evidence-library', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+        toast({
+          title: "Success", 
+          description: "Evidence item created successfully",
+        });
+      }
+      
+      // Refresh the data
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence-library'] });
+      
+      // Close dialog and reset form
+      setIsDialogOpen(false);
+      setSelectedItem(null);
+    } catch (error) {
+      console.error('Form submission error:', error);
+      toast({
+        title: "Error",
+        description: selectedItem ? "Failed to update evidence item" : "Failed to create evidence item",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Sorting states
   const [sortField, setSortField] = useState<'equipmentGroup' | 'equipmentType' | 'subtype' | null>(null);
@@ -483,20 +528,23 @@ export default function EvidenceLibraryManagement() {
                     Add Evidence
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>
                       {selectedItem ? 'Edit Evidence Item' : 'Add New Evidence Item'}
                     </DialogTitle>
+                    <DialogDescription>
+                      {selectedItem 
+                        ? "Update all evidence library fields below. All fields except timestamps are available for editing."
+                        : "Create a comprehensive evidence library entry. Required fields are marked with *."}
+                    </DialogDescription>
                   </DialogHeader>
-                  <EvidenceLibraryForm
-                    isOpen={isDialogOpen}
-                    onClose={() => setIsDialogOpen(false)}
-                    item={selectedItem}
-                    onSuccess={() => {
-                      setIsDialogOpen(false);
-                      setSelectedItem(null);
-                    }}
+                  <ComprehensiveEvidenceForm
+                    initialData={selectedItem}
+                    onSubmit={handleSubmit}
+                    onCancel={() => setIsDialogOpen(false)}
+                    isLoading={isSubmitting}
+                    isEdit={!!selectedItem}
                   />
                 </DialogContent>
               </Dialog>
