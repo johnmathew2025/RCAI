@@ -89,6 +89,7 @@ interface EnhancedEvidenceTableProps {
 }
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
+  // Core identification columns
   { key: 'equipmentCode', label: 'Equipment Code', width: 120, maxWidth: 180, sortable: true, type: 'text' },
   { key: 'equipmentGroup', label: 'Equipment Group', width: 130, maxWidth: 200, sortable: true, type: 'text' },
   { key: 'equipmentType', label: 'Equipment Type', width: 130, maxWidth: 200, sortable: true, type: 'text' },
@@ -96,27 +97,68 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { key: 'componentFailureMode', label: 'Component/Failure Mode', width: 180, maxWidth: 300, sortable: true, type: 'text' },
   { key: 'failureCode', label: 'Failure Code', width: 100, maxWidth: 150, sortable: true, type: 'text' },
   { key: 'riskRanking', label: 'Risk Ranking', width: 100, maxWidth: 150, sortable: true, type: 'badge' },
+  
+  // Evidence collection columns
   { key: 'requiredTrendDataEvidence', label: 'Required Trend Data', width: 200, maxWidth: 300, sortable: false, type: 'text' },
   { key: 'aiOrInvestigatorQuestions', label: 'AI/Investigator Questions', width: 200, maxWidth: 300, sortable: false, type: 'text' },
   { key: 'attachmentsEvidenceRequired', label: 'Attachments Required', width: 180, maxWidth: 250, sortable: false, type: 'text' },
   { key: 'rootCauseLogic', label: 'Root Cause Logic', width: 200, maxWidth: 300, sortable: false, type: 'text' },
+  
+  // RCA Analysis columns
+  { key: 'primaryRootCause', label: 'Primary Root Cause', width: 150, maxWidth: 250, sortable: false, type: 'text' },
+  { key: 'contributingFactor', label: 'Contributing Factor', width: 150, maxWidth: 250, sortable: false, type: 'text' },
+  { key: 'latentCause', label: 'Latent Cause', width: 150, maxWidth: 250, sortable: false, type: 'text' },
+  { key: 'detectionGap', label: 'Detection Gap', width: 150, maxWidth: 250, sortable: false, type: 'text' },
+  { key: 'faultSignaturePattern', label: 'Fault Signature Pattern', width: 150, maxWidth: 250, sortable: false, type: 'text' },
+  { key: 'applicableToOtherEquipment', label: 'Applicable to Other Equipment', width: 180, maxWidth: 250, sortable: false, type: 'text' },
+  { key: 'evidenceGapFlag', label: 'Evidence Gap Flag', width: 120, maxWidth: 200, sortable: false, type: 'text' },
+  { key: 'eliminatedIfTheseFailuresConfirmed', label: 'Eliminated If Failures Confirmed', width: 200, maxWidth: 300, sortable: false, type: 'text' },
+  { key: 'whyItGetsEliminated', label: 'Why It Gets Eliminated', width: 180, maxWidth: 280, sortable: false, type: 'text' },
+  
+  // Evaluation & Priority columns
+  { key: 'confidenceLevel', label: 'Confidence Level', width: 120, maxWidth: 180, sortable: false, type: 'text' },
+  { key: 'diagnosticValue', label: 'Diagnostic Value', width: 120, maxWidth: 180, sortable: false, type: 'text' },
+  { key: 'industryRelevance', label: 'Industry Relevance', width: 120, maxWidth: 180, sortable: false, type: 'text' },
+  { key: 'evidencePriority', label: 'Evidence Priority', width: 120, maxWidth: 180, sortable: false, type: 'text' },
+  { key: 'timeToCollect', label: 'Time to Collect', width: 110, maxWidth: 160, sortable: false, type: 'text' },
+  { key: 'collectionCost', label: 'Collection Cost', width: 110, maxWidth: 160, sortable: false, type: 'text' },
+  { key: 'analysisComplexity', label: 'Analysis Complexity', width: 130, maxWidth: 190, sortable: false, type: 'text' },
+  { key: 'seasonalFactor', label: 'Seasonal Factor', width: 120, maxWidth: 180, sortable: false, type: 'text' },
+  
+  // Related information columns
+  { key: 'relatedFailureModes', label: 'Related Failure Modes', width: 150, maxWidth: 250, sortable: false, type: 'text' },
+  { key: 'prerequisiteEvidence', label: 'Prerequisite Evidence', width: 150, maxWidth: 250, sortable: false, type: 'text' },
+  { key: 'followupActions', label: 'Followup Actions', width: 150, maxWidth: 250, sortable: false, type: 'text' },
+  { key: 'industryBenchmark', label: 'Industry Benchmark', width: 140, maxWidth: 220, sortable: false, type: 'text' },
+  
+  // System columns
   { key: 'isActive', label: 'Status', width: 80, maxWidth: 100, sortable: true, type: 'boolean' },
-  { key: 'lastUpdated', label: 'Last Updated', width: 120, maxWidth: 150, sortable: true, type: 'date' }
+  { key: 'lastUpdated', label: 'Last Updated', width: 120, maxWidth: 150, sortable: true, type: 'date' },
+  { key: 'updatedBy', label: 'Updated By', width: 100, maxWidth: 140, sortable: false, type: 'text' },
+  { key: 'createdAt', label: 'Created At', width: 120, maxWidth: 150, sortable: true, type: 'date' }
 ];
 
 // CSS for enhanced table styling
 const tableStyles = `
-.enhanced-evidence-table .break-words {
-  word-break: break-word;
-  overflow-wrap: break-word;
-  hyphens: auto;
+.enhanced-evidence-table {
+  --table-border: 1px solid hsl(var(--border));
+}
+
+.enhanced-evidence-table table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: var(--table-border);
 }
 
 .enhanced-evidence-table th,
 .enhanced-evidence-table td {
-  vertical-align: top;
+  vertical-align: top !important;
   padding: 8px 12px;
-  border: 1px solid hsl(var(--border));
+  border-bottom: var(--table-border);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  white-space: normal;
 }
 
 .enhanced-evidence-table th {
@@ -124,21 +166,44 @@ const tableStyles = `
   font-weight: 600;
   font-size: 0.75rem;
   line-height: 1.2;
-  min-height: 60px;
-  white-space: normal;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .enhanced-evidence-table td {
   font-size: 0.875rem;
   line-height: 1.4;
-  min-height: 60px;
+  background-color: hsl(var(--background));
 }
 
-.enhanced-evidence-table .text-cell {
-  max-width: 300px;
-  word-wrap: break-word;
+.enhanced-evidence-table .text-content {
+  word-break: break-word;
   overflow-wrap: break-word;
   white-space: normal;
+  hyphens: auto;
+}
+
+.enhanced-evidence-table .border-r {
+  border-right: var(--table-border);
+}
+
+/* Horizontal scroll styling */
+.enhanced-evidence-table > div::-webkit-scrollbar {
+  height: 8px;
+}
+
+.enhanced-evidence-table > div::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.3);
+}
+
+.enhanced-evidence-table > div::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.5);
+  border-radius: 4px;
+}
+
+.enhanced-evidence-table > div::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.8);
 }
 `;
 
@@ -272,12 +337,7 @@ export default function EnhancedEvidenceTable({
         const textValue = String(value || '');
         return (
           <div 
-            className="text-sm leading-tight break-words hyphens-auto"
-            style={{ 
-              wordWrap: 'break-word',
-              overflowWrap: 'break-word',
-              whiteSpace: 'normal'
-            }}
+            className="text-sm leading-tight text-content"
             title={textValue.length > 50 ? textValue : undefined}
           >
             {textValue}
@@ -358,13 +418,18 @@ export default function EnhancedEvidenceTable({
         </div>
       </div>
 
-      {/* Enhanced Table */}
+      {/* Enhanced Table with Horizontal Scroll */}
       <div 
         ref={tableRef}
-        className="rounded-md border bg-background overflow-auto"
-        style={{ maxHeight: '70vh' }}
+        className="rounded-md border bg-background"
+        style={{ 
+          maxHeight: '70vh',
+          overflowX: 'auto',
+          overflowY: 'auto',
+          width: '100%'
+        }}
       >
-        <Table className="relative">
+        <Table className="relative" style={{ minWidth: '4000px' }}>
           <TableHeader className="sticky top-0 bg-muted/50 z-10">
             <TableRow>
               <TableHead className="w-12 p-2">
@@ -379,21 +444,24 @@ export default function EnhancedEvidenceTable({
               {visibleColumns.map((column) => (
                 <TableHead
                   key={column.key}
-                  className={`p-2 min-h-[60px] vertical-align-top ${column.sortable ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                  className={`p-2 align-top border-r ${column.sortable ? 'cursor-pointer hover:bg-muted/50' : ''}`}
                   style={{ 
-                    width: columnWidths[column.key] || column.width,
+                    width: columnWidths[column.key] || 'auto',
                     maxWidth: column.maxWidth,
-                    minWidth: 80
+                    minWidth: 80,
+                    verticalAlign: 'top',
+                    whiteSpace: 'normal'
                   }}
                   onClick={() => column.sortable && handleSort(column.key)}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col items-start gap-1">
                     <div 
-                      className="font-medium text-xs leading-tight break-words hyphens-auto"
+                      className="font-medium text-xs leading-tight break-words"
                       style={{ 
                         wordWrap: 'break-word',
                         overflowWrap: 'break-word',
-                        whiteSpace: 'normal'
+                        whiteSpace: 'normal',
+                        hyphens: 'auto'
                       }}
                     >
                       {column.label}
@@ -448,11 +516,13 @@ export default function EnhancedEvidenceTable({
                   {visibleColumns.map((column) => (
                     <TableCell
                       key={column.key}
-                      className="p-2 align-top min-h-[60px]"
+                      className="p-2 align-top border-r"
                       style={{ 
-                        width: columnWidths[column.key] || column.width,
+                        width: columnWidths[column.key] || 'auto',
                         maxWidth: column.maxWidth,
-                        minWidth: 80
+                        minWidth: 80,
+                        verticalAlign: 'top',
+                        whiteSpace: 'normal'
                       }}
                     >
                       {renderCellContent(item, column)}
