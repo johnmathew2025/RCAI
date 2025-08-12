@@ -1,0 +1,112 @@
+Fix & Harden Taxonomy Managers (No Hardcoding)
+0) Non-negotiables
+•	No hardcoded vocab anywhere (groups/types/subtypes/risk).
+•	All dropdowns load from DB lookups.
+•	“Subtype” is intentionally optional. Keep a virtual “None” choice in the UI only (never stored as an empty string).
+ 
+1) Data integrity (DB & relations)
+Goal: Every Type must reference a Group; every Subtype must reference a Type (and by extension a Group).
+1.1 Add/confirm FKs (TEXT ids allowed)
+sql
+
+-- Types must belong to a Group
+ALTER TABLE equipment_types
+  ADD COLUMN IF NOT EXISTS group_id TEXT,
+  ADD CONSTRAINT fk_types_group
+    FOREIGN KEY (group_id) REFERENCES equipment_groups(id) ON DELETE RESTRICT;
+
+-- Subtypes must belong to a Type
+ALTER TABLE equipment_subtypes
+  ADD COLUMN IF NOT EXISTS type_id TEXT,
+  ADD CONSTRAINT fk_subtypes_type
+    FOREIGN KEY (type_id) REFERENCES equipment_types(id) ON DELETE RESTRICT;
+
+-- Optional denormalized names for listing (TEXT) — not source of truth
+ALTER TABLE equipment_types      ADD COLUMN IF NOT EXISTS group_name TEXT;
+ALTER TABLE equipment_subtypes   ADD COLUMN IF NOT EXISTS type_name  TEXT;
+ALTER TABLE equipment_subtypes   ADD COLUMN IF NOT EXISTS group_name TEXT;
+1.2 Backfill & repair script (no auto-guesses)
+•	Provide a temporary admin script to list all Types/Subtypes with missing FKs and let the admin set them explicitly (no auto-creation, no fuzzy matching).
+•	Do not create Groups/Types/Subtypes from this script—only link existing rows.
+Acceptance: After running, SELECT ... WHERE group_id IS NULL OR type_id IS NULL returns 0 rows (except intentionally unlinked demo data, if any).
+ 
+2) API: return hierarchy, never N/A
+Managers must render real parent names via joins, not "N/A".
+2.1 Endpoints
+•	GET /api/taxonomy/types?page=&q=&groupId?=...
+o	Returns: { id, name, groupId, groupName }[]
+o	Implementation: join equipment_types → equipment_groups.
+•	GET /api/taxonomy/subtypes?page=&q=&typeId?=...&groupId?=...
+o	Returns: { id, name, typeId, typeName, groupId, groupName }[]
+o	Implementation: join equipment_subtypes → equipment_types → equipment_groups.
+Never return “N/A”. If a parent is truly missing (shouldn’t be after repair), return null and label it in the UI as “Unlinked — Fix Required” with a pencil icon that opens an Assign Parent dialog.
+2.2 Assign/Change parent endpoints
+•	PATCH /api/taxonomy/types/:id/assign-group { groupId }
+•	PATCH /api/taxonomy/subtypes/:id/assign-type { typeId }
+Validate:
+•	typeId exists.
+•	For subtypes, derive and set both typeId and groupId (read group from the type).
+•	No hardcoding of names—IDs only.
+ 
+3) UI behavior (Managers)
+3.1 Types Manager list
+•	Columns: Name, Equipment Group, Status, Created, Actions.
+•	Group column value:
+o	If groupId: show groupName (from API).
+o	Else: show “Unlinked — Fix Required” (button “Assign Group”).
+3.2 Subtypes Manager list
+•	Columns: Name, Equipment Type, Equipment Group, Status, Created, Actions.
+•	Type & Group values from API joins (never “N/A”).
+•	If unlinked: “Unlinked — Fix Required” (button “Assign Type” launches modal: select Group → loads Types → pick Type).
+3.3 Create forms
+•	Create Type: Select Group (required) + Type Name (text). Save groupId.
+•	Create Subtype: Select Group → then Type (cascades)—both required— + Subtype Name (text). Save typeId(group inferred).
+No free-text parent names. No seed defaults. All parents from DB.
+ 
+4) Add Evidence modal (Subtype optional)
+•	Subtype must show (None) intentionally as a virtual option at top.
+•	Implement with a non-empty sentinel value in the UI (e.g., "__NONE__"); convert to null on submit.
+•	Do not render any <SelectItem value="">. Radix/shadcn uses "" for “clear” and will throw.
+Sample rendering logic:
+
+
+const subtypes = [{ id: "__NONE__", name: "None" }, ...apiSubtypes];
+
+<Select value={subtypeId} onValueChange={v => setSubtypeId(v === "__NONE__" ? undefined : v)}>
+  {subtypes.map(s => (
+    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+  ))}
+</Select>
+ 
+5) No-hardcoding enforcement
+•	Static scanner must fail CI if any component contains arrays of strings for groups/types/subtypes.
+•	Managers and modals must always call taxonomy APIs; unit tests verify network calls are made.
+ 
+6) Tests (must pass)
+•	API join correctness
+o	/types returns groupName for all linked types.
+o	/subtypes returns typeName and groupName for all linked subtypes.
+•	Assign parent flows
+o	Assigning a group to a type updates list immediately.
+o	Assigning a type to a subtype sets both typeId and (derived) groupId.
+•	Add Evidence modal
+o	Subtype dropdown contains “None” + linked subtypes only for the chosen type; never shows unlinked subtypes.
+o	Selecting “None” sends subtypeId: null to API.
+•	No hardcoding
+o	Tests fail if dropdowns import local constants or don’t call APIs.
+ 
+7) Acceptance checklist
+•	Types list shows correct Group names (no “N/A”).
+•	Subtypes list shows correct Type + Group (no “N/A”).
+•	Assign parent dialogs work and persist.
+•	Add Evidence shows None + exactly the subtypes linked to the chosen Type.
+•	CSV import: if a row references a Group/Type/Subtype name that doesn’t exist, the row errors (no auto-create).
+•	CI blocks any future attempt to inline business vocab.
+ 
+8) Proof to post
+1.	JSON samples from /api/taxonomy/types and /api/taxonomy/subtypes (showing joined names).
+2.	Screenshots of both managers with correct hierarchy names (no N/A).
+3.	Video of Assign-Type flow for a subtype and the list updating.
+4.	Unit test output showing join & assign tests passed.
+5.	Static scanner output: no hardcoded vocab found.
+

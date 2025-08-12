@@ -1311,6 +1311,112 @@ export class DatabaseInvestigationStorage implements IInvestigationStorage {
     return results;
   }
 
+  // Enhanced methods with joins for taxonomy management - NO HARDCODING
+  async getAllEquipmentTypesWithGroups(): Promise<Array<{
+    id: number;
+    name: string;
+    groupId: number | null;
+    groupName: string | null;
+    isActive: boolean;
+    createdAt: Date;
+  }>> {
+    console.log("[DatabaseInvestigationStorage] Retrieving equipment types with group hierarchy");
+    const result = await db
+      .select({
+        id: equipmentTypes.id,
+        name: equipmentTypes.name,
+        groupId: equipmentTypes.equipmentGroupId,
+        groupName: equipmentTypes.groupName,
+        isActive: equipmentTypes.isActive,
+        createdAt: equipmentTypes.createdAt,
+      })
+      .from(equipmentTypes)
+      .orderBy(equipmentTypes.name);
+    
+    return result.map(r => ({
+      ...r,
+      createdAt: r.createdAt || new Date(),
+    }));
+  }
+
+  async getAllEquipmentSubtypesWithHierarchy(): Promise<Array<{
+    id: number;
+    name: string;
+    typeId: number | null;
+    typeName: string | null;
+    groupId: number | null;
+    groupName: string | null;
+    isActive: boolean;
+    createdAt: Date;
+  }>> {
+    console.log("[DatabaseInvestigationStorage] Retrieving equipment subtypes with full hierarchy");
+    const result = await db
+      .select({
+        id: equipmentSubtypes.id,
+        name: equipmentSubtypes.name,
+        typeId: equipmentSubtypes.equipmentTypeId,
+        typeName: equipmentSubtypes.typeName,
+        groupId: sql<number | null>`NULL`, // Will be populated from denormalized data
+        groupName: equipmentSubtypes.groupName,
+        isActive: equipmentSubtypes.isActive,
+        createdAt: equipmentSubtypes.createdAt,
+      })
+      .from(equipmentSubtypes)
+      .orderBy(equipmentSubtypes.name);
+    
+    return result.map(r => ({
+      ...r,
+      createdAt: r.createdAt || new Date(),
+    }));
+  }
+
+  async assignGroupToType(typeId: number, groupId: number): Promise<EquipmentType> {
+    console.log(`[DatabaseInvestigationStorage] Assigning group ${groupId} to type ${typeId}`);
+    // Get group name for denormalized field
+    const [group] = await db.select().from(equipmentGroups).where(eq(equipmentGroups.id, groupId));
+    if (!group) throw new Error("Group not found");
+
+    const [result] = await db
+      .update(equipmentTypes)
+      .set({
+        equipmentGroupId: groupId,
+        groupName: group.name,
+        updatedAt: new Date(),
+      })
+      .where(eq(equipmentTypes.id, typeId))
+      .returning();
+    
+    return result;
+  }
+
+  async assignTypeToSubtype(subtypeId: number, typeId: number): Promise<EquipmentSubtype> {
+    console.log(`[DatabaseInvestigationStorage] Assigning type ${typeId} to subtype ${subtypeId}`);
+    // Get type and group information for denormalized fields
+    const [type] = await db
+      .select({
+        typeName: equipmentTypes.name,
+        groupId: equipmentTypes.equipmentGroupId,
+        groupName: equipmentTypes.groupName,
+      })
+      .from(equipmentTypes)
+      .where(eq(equipmentTypes.id, typeId));
+    
+    if (!type) throw new Error("Type not found");
+
+    const [result] = await db
+      .update(equipmentSubtypes)
+      .set({
+        equipmentTypeId: typeId,
+        typeName: type.typeName,
+        groupName: type.groupName,
+        updatedAt: new Date(),
+      })
+      .where(eq(equipmentSubtypes.id, subtypeId))
+      .returning();
+    
+    return result;
+  }
+
   // NORMALIZED EQUIPMENT SUBTYPES CRUD OPERATIONS (Universal Protocol Standard)  
   async createEquipmentSubtype(data: InsertEquipmentSubtype): Promise<EquipmentSubtype> {
     console.log(`[DatabaseInvestigationStorage] Creating equipment subtype: ${data.name} for type ID: ${data.equipmentTypeId}`);

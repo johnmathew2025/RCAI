@@ -357,6 +357,7 @@ export const equipmentTypes = pgTable("equipment_types", {
   id: serial("id").primaryKey(),
   name: varchar("name").notNull(),
   equipmentGroupId: integer("equipment_group_id").notNull(),
+  groupName: text("group_name"), // Denormalized group name for efficient listing
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -376,6 +377,8 @@ export const equipmentSubtypes = pgTable("equipment_subtypes", {
   id: serial("id").primaryKey(),
   name: varchar("name").notNull(),
   equipmentTypeId: integer("equipment_type_id").notNull(),
+  typeName: text("type_name"), // Denormalized type name for efficient listing
+  groupName: text("group_name"), // Denormalized group name for efficient listing
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
