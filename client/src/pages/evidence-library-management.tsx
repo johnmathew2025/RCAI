@@ -26,7 +26,8 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import EvidenceLibraryForm from "@/components/evidence-library-form";
-import { AdminTopNav, AdminBreadcrumb } from "@/components/admin-nav";
+import EnhancedEvidenceTable from "@/components/enhanced-evidence-table";
+// Note: AdminTopNav and AdminBreadcrumb temporarily removed for navigation restructuring
 
 interface EvidenceLibrary {
   id: number;
@@ -345,7 +346,7 @@ export default function EvidenceLibraryManagement() {
     },
   });
 
-  const handleBulkDelete = () => {
+  const handleBulkDeleteAction = () => {
     if (selectedItems.length === 0) return;
     if (confirm(`Are you sure you want to delete ${selectedItems.length} selected evidence items?`)) {
       bulkDeleteMutation.mutate(selectedItems);
@@ -399,7 +400,7 @@ export default function EvidenceLibraryManagement() {
               Back to Home
             </Button>
           </Link>
-          <AdminTopNav currentSection="evidence" />
+          {/* AdminTopNav removed for enhanced navigation */}
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
           Evidence Library Management
@@ -409,7 +410,7 @@ export default function EvidenceLibraryManagement() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <AdminBreadcrumb currentSection="evidence" />
+          {/* AdminBreadcrumb replaced with enhanced table features */}
           <h1 className="text-3xl font-bold tracking-tight flex items-center">
             <Library className="h-8 w-8 mr-3 text-primary" />
             Evidence Library Management
@@ -468,7 +469,7 @@ export default function EvidenceLibraryManagement() {
                 <Button 
                   variant="destructive" 
                   size="sm"
-                  onClick={handleBulkDelete}
+                  onClick={handleBulkDeleteAction}
                   disabled={bulkDeleteMutation.isPending}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -623,222 +624,21 @@ export default function EvidenceLibraryManagement() {
             )}
           </div>
 
-          {/* Evidence Library Table with Horizontal Scroll - STEP 2 COMPLIANCE */}
-          <div className="relative">
-            <div className="text-sm text-blue-600 mb-2 bg-blue-50 p-2 rounded border border-blue-200">
-              📋 <strong>STEP 2 COMPLIANCE:</strong> Complete Master Schema Display - All 42 headers with 7000px table width forcing horizontal scroll
-            </div>
-            <div className="text-xs text-green-600 mb-2 bg-green-50 p-2 rounded border border-green-200">
-              ✅ <strong>SCROLL VERIFICATION:</strong> Table has 46 TableHead elements (41 API columns + 4 ID columns + 1 checkbox). Width: 8000px forces horizontal scrollbar.
-            </div>
-            <div className="text-xs text-blue-600 mb-2 bg-blue-50 p-2 rounded border border-blue-200">
-              🔧 <strong>SIMPLIFIED TABLE APPROACH:</strong> Wide table (15000px) with explicit column widths. ALL 43 COLUMNS MUST BE VISIBLE WITH HORIZONTAL SCROLL.
-            </div>
-            <div 
-              className="evidence-table-container border rounded-lg shadow-lg"
-              style={{
-                width: '100%',
-                height: 'auto',
-                maxHeight: '80vh',
-                overflowX: 'auto',
-                overflowY: 'auto'
-              }}
-            >
-              <div className="evidence-grid" style={{ 
-                minWidth: '15000px', 
-                width: '15000px', 
-                display: 'grid',
-                gridTemplateColumns: 'repeat(43, 1fr)'
-              }}>
-                {/* GRID HEADER ROW - ALL 43 COLUMNS GUARANTEED VISIBLE */}
-                <div className="evidence-grid-cell evidence-grid-header">
-                  <input
-                    type="checkbox"
-                    checked={selectAll}
-                    onChange={handleSelectAll}
-                    className="rounded border-gray-300"
-                  />
-                </div>
-                <div 
-                  className="evidence-grid-cell evidence-grid-header cursor-pointer hover:bg-slate-200"
-                  onClick={() => handleSort('equipmentGroup')}
-                >
-                  Equipment Group {sortField === 'equipmentGroup' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </div>
-                <div 
-                  className="evidence-grid-cell evidence-grid-header cursor-pointer hover:bg-slate-200"
-                  onClick={() => handleSort('equipmentType')}
-                >
-                  Equipment Type {sortField === 'equipmentType' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </div>
-                <div 
-                  className="evidence-grid-cell evidence-grid-header cursor-pointer hover:bg-slate-200"
-                  onClick={() => handleSort('subtype')}
-                >
-                  Subtype {sortField === 'subtype' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </div>
-                <div className="evidence-grid-cell evidence-grid-header">Component / Failure Mode</div>
-                <div className="evidence-grid-cell evidence-grid-header">Equipment Code</div>
-                <div className="evidence-grid-cell evidence-grid-header">Failure Code</div>
-                <div className="evidence-grid-cell evidence-grid-header">Risk Ranking</div>
-                <div className="evidence-grid-cell evidence-grid-header">Required Trend Data Evidence</div>
-                <div className="evidence-grid-cell evidence-grid-header">AI/Investigator Questions</div>
-                <div className="evidence-grid-cell evidence-grid-header">Attachments Evidence Required</div>
-                <div className="evidence-grid-cell evidence-grid-header">Root Cause Logic</div>
-                <div className="evidence-grid-cell evidence-grid-header">Primary Root Cause</div>
-                <div className="evidence-grid-cell evidence-grid-header">Contributing Factor</div>
-                <div className="evidence-grid-cell evidence-grid-header">Latent Cause</div>
-                <div className="evidence-grid-cell evidence-grid-header">Detection Gap</div>
-                <div className="evidence-grid-cell evidence-grid-header">Confidence Level</div>
-                <div className="evidence-grid-cell evidence-grid-header">Fault Signature Pattern</div>
-                <div className="evidence-grid-cell evidence-grid-header">Applicable to Other Equipment</div>
-                <div className="evidence-grid-cell evidence-grid-header">Evidence Gap Flag</div>
-                <div className="evidence-grid-cell evidence-grid-header">Eliminated If These Failures Confirmed</div>
-                <div className="evidence-grid-cell evidence-grid-header">Why It Gets Eliminated</div>
-                <div className="evidence-grid-cell evidence-grid-header">Diagnostic Value</div>
-                <div className="evidence-grid-cell evidence-grid-header">Industry Relevance</div>
-                <div className="evidence-grid-cell evidence-grid-header">Evidence Priority</div>
-                <div className="evidence-grid-cell evidence-grid-header">Time to Collect</div>
-                <div className="evidence-grid-cell evidence-grid-header">Collection Cost</div>
-                <div className="evidence-grid-cell evidence-grid-header">Analysis Complexity</div>
-                <div className="evidence-grid-cell evidence-grid-header">Seasonal Factor</div>
-                <div className="evidence-grid-cell evidence-grid-header">Related Failure Modes</div>
-                <div className="evidence-grid-cell evidence-grid-header">Prerequisite Evidence</div>
-                <div className="evidence-grid-cell evidence-grid-header">Followup Actions</div>
-                <div className="evidence-grid-cell evidence-grid-header">Industry Benchmark</div>
-                <div className="evidence-grid-cell evidence-grid-header evidence-grid-system">System ID</div>
-                <div className="evidence-grid-cell evidence-grid-header evidence-grid-system">Equipment Group ID</div>
-                <div className="evidence-grid-cell evidence-grid-header evidence-grid-system">Equipment Type ID</div>
-                <div className="evidence-grid-cell evidence-grid-header evidence-grid-system">Equipment Subtype ID</div>
-                <div className="evidence-grid-cell evidence-grid-header evidence-grid-system">Risk Ranking ID</div>
-                <div className="evidence-grid-cell evidence-grid-header evidence-grid-system">Is Active</div>
-                <div className="evidence-grid-cell evidence-grid-header evidence-grid-system">Last Updated</div>
-                <div className="evidence-grid-cell evidence-grid-header evidence-grid-system">Updated By</div>
-                <div className="evidence-grid-cell evidence-grid-header evidence-grid-system">Created At</div>
-                <div className="evidence-grid-cell evidence-grid-header evidence-grid-system">Actions</div>
-                
-                {/* GRID DATA ROWS - ALL 43 COLUMNS GUARANTEED VISIBLE */}
-                {isLoading ? (
-                  <div className="evidence-grid-cell" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '32px' }}>
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                      <span>Loading evidence library...</span>
-                    </div>
-                  </div>
-                ) : sortedItems.length === 0 ? (
-                  <div className="evidence-grid-cell" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '32px' }}>
-                    <div className="flex flex-col items-center space-y-3">
-                      <AlertTriangle className="h-12 w-12 text-muted-foreground" />
-                      <div>
-                        <h3 className="font-medium">No evidence items found</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {searchTerm || selectedEquipmentGroups.length > 0 || selectedEquipmentTypes.length > 0 || selectedSubtypes.length > 0
-                            ? "Try adjusting your search or filters"
-                            : "Add evidence items to get started"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  sortedItems.map((item) => (
-                    <React.Fragment key={item.id}>
-                      <div className="evidence-grid-cell">
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.includes(item.id)}
-                          onChange={() => handleItemSelect(item.id)}
-                          className="rounded border-gray-300"
-                        />
-                      </div>
-                      <div className="evidence-grid-cell font-medium">{item.equipmentGroup === "DELETED" ? "Unknown" : item.equipmentGroup}</div>
-                      <div className="evidence-grid-cell">{item.equipmentType === "DELETED" ? "Unknown" : item.equipmentType}</div>
-                      <div className="evidence-grid-cell">{item.subtype || '-'}</div>
-                      <div className="evidence-grid-cell">{item.componentFailureMode}</div>
-                      <div className="evidence-grid-cell">{item.equipmentCode}</div>
-                      <div className="evidence-grid-cell">
-                        <code className="bg-muted px-2 py-1 rounded text-sm">
-                          {item.failureCode}
-                        </code>
-                      </div>
-                      <div className="evidence-grid-cell">
-                        <Badge 
-                          variant={
-                            item.riskRanking?.toLowerCase() === 'critical' ? 'destructive' :
-                            item.riskRanking?.toLowerCase() === 'high' ? 'destructive' :
-                            item.riskRanking?.toLowerCase() === 'medium' ? 'default' : 'secondary'
-                          }
-                        >
-                          {item.riskRanking}
-                        </Badge>
-                      </div>
-                      <div className="evidence-grid-cell">{item.requiredTrendDataEvidence || '-'}</div>
-                      <div className="evidence-grid-cell">{item.aiOrInvestigatorQuestions || '-'}</div>
-                      <div className="evidence-grid-cell">{item.attachmentsEvidenceRequired || '-'}</div>
-                      <div className="evidence-grid-cell">{item.rootCauseLogic || '-'}</div>
-                      <div className="evidence-grid-cell">{item.primaryRootCause || '-'}</div>
-                      <div className="evidence-grid-cell">{item.contributingFactor || '-'}</div>
-                      <div className="evidence-grid-cell">{item.latentCause || '-'}</div>
-                      <div className="evidence-grid-cell">{item.detectionGap || '-'}</div>
-                      <div className="evidence-grid-cell">{item.confidenceLevel || '-'}</div>
-                      <div className="evidence-grid-cell">{item.faultSignaturePattern || '-'}</div>
-                      <div className="evidence-grid-cell">{item.applicableToOtherEquipment || '-'}</div>
-                      <div className="evidence-grid-cell">{item.evidenceGapFlag || '-'}</div>
-                      <div className="evidence-grid-cell">{item.eliminatedIfTheseFailuresConfirmed || '-'}</div>
-                      <div className="evidence-grid-cell">{item.whyItGetsEliminated || '-'}</div>
-                      <div className="evidence-grid-cell">{item.diagnosticValue || '-'}</div>
-                      <div className="evidence-grid-cell">{item.industryRelevance || '-'}</div>
-                      <div className="evidence-grid-cell">{item.evidencePriority || '-'}</div>
-                      <div className="evidence-grid-cell">{item.timeToCollect || '-'}</div>
-                      <div className="evidence-grid-cell">{item.collectionCost || '-'}</div>
-                      <div className="evidence-grid-cell">{item.analysisComplexity || '-'}</div>
-                      <div className="evidence-grid-cell">{item.seasonalFactor || '-'}</div>
-                      <div className="evidence-grid-cell">{item.relatedFailureModes || '-'}</div>
-                      <div className="evidence-grid-cell">{item.prerequisiteEvidence || '-'}</div>
-                      <div className="evidence-grid-cell">{item.followupActions || '-'}</div>
-                      <div className="evidence-grid-cell">{item.industryBenchmark || '-'}</div>
-                      <div className="evidence-grid-cell evidence-grid-system text-xs text-gray-600">{item.id}</div>
-                      <div className="evidence-grid-cell evidence-grid-system text-xs text-gray-600">{item.equipmentGroupId || '-'}</div>
-                      <div className="evidence-grid-cell evidence-grid-system text-xs text-gray-600">{item.equipmentTypeId || '-'}</div>
-                      <div className="evidence-grid-cell evidence-grid-system text-xs text-gray-600">{item.equipmentSubtypeId || '-'}</div>
-                      <div className="evidence-grid-cell evidence-grid-system text-xs text-gray-600">{item.riskRankingId || '-'}</div>
-                      <div className="evidence-grid-cell evidence-grid-system text-xs text-gray-600">
-                        <Badge variant={item.isActive ? 'default' : 'secondary'}>
-                          {item.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </div>
-                      <div className="evidence-grid-cell evidence-grid-system text-xs text-gray-600">
-                        {item.updatedAt ? format(new Date(item.updatedAt), 'MMM dd, yyyy') : '-'}
-                      </div>
-                      <div className="evidence-grid-cell evidence-grid-system text-xs text-gray-600">{item.updatedBy || '-'}</div>
-                      <div className="evidence-grid-cell evidence-grid-system text-xs text-gray-600">
-                        {item.createdAt ? format(new Date(item.createdAt), 'MMM dd, yyyy') : '-'}
-                      </div>
-                      <div className="evidence-grid-cell evidence-grid-system">
-                        <div className="flex space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditItem(item)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeleteItem(item)}
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </React.Fragment>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
+          {/* Enhanced Evidence Library Table with Dynamic Column Sizing */}
+          <EnhancedEvidenceTable
+            data={filteredItems}
+            onEdit={(item) => {
+              setSelectedItem(item);
+              setIsDialogOpen(true);
+            }}
+            onDelete={(item) => setDeleteItem(item)}
+            onBulkDelete={handleBulkDeleteAction}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            selectedItems={selectedItems}
+            onSelectionChange={setSelectedItems}
+            isLoading={isLoading}
+          />
         </CardContent>
       </Card>
     </div>
