@@ -14,3 +14,11 @@ venv/
 # Misc
 .DS_Store
 .env*
+
+# temp & build
+/tmp/
+tmp/
+node_modules/
+.next/
+dist/
+*.log
