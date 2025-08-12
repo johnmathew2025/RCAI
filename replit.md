@@ -33,6 +33,16 @@ User Feedback: User frustrated with repetitive debugging - demands working solut
 - ✅ Server restart verification: 0 Evidence Library duplicates detected
 - ✅ Navigation structure 100% compliant with Universal Protocol Standards
 
+**CRITICAL ERROR RESOLUTION COMPLETED (August 12, 2025):**
+- ✅ FIXED "l.map is not a function" error in Add Evidence dialog
+- ✅ Implemented asArray() helper function for API response normalization
+- ✅ Added strict TypeScript types (Option, RiskOption) for compile-time safety
+- ✅ Protected all .map() calls with null-safety guards: (array ?? []).map()
+- ✅ Fixed server endpoints to guarantee array responses, never objects/null
+- ✅ Added runtime assertion helpers for debugging array issues
+- ✅ Created comprehensive test suite for array safety (client/src/test/array-safety.test.ts)
+- ✅ Fresh cache clear and rebuild completed for clean deployment
+
 ## Complete Implementation Summary
 
 **Information Architecture & Navigation Structure Completed:**
