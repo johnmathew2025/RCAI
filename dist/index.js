@@ -380,6 +380,8 @@ var init_schema = __esm({
       id: serial("id").primaryKey(),
       name: varchar("name").notNull(),
       equipmentGroupId: integer("equipment_group_id").notNull(),
+      groupName: text("group_name"),
+      // Denormalized group name for efficient listing
       isActive: boolean("is_active").default(true),
       createdAt: timestamp("created_at").defaultNow(),
       updatedAt: timestamp("updated_at").defaultNow()
@@ -393,6 +395,10 @@ var init_schema = __esm({
       id: serial("id").primaryKey(),
       name: varchar("name").notNull(),
       equipmentTypeId: integer("equipment_type_id").notNull(),
+      typeName: text("type_name"),
+      // Denormalized type name for efficient listing
+      groupName: text("group_name"),
+      // Denormalized group name for efficient listing
       isActive: boolean("is_active").default(true),
       createdAt: timestamp("created_at").defaultNow(),
       updatedAt: timestamp("updated_at").defaultNow()
@@ -10299,6 +10305,51 @@ async function registerRoutes(app3) {
       });
     }
   });
+  app3.get("/api/taxonomy/types-enhanced", async (req, res) => {
+    try {
+      console.log("[ROUTES] Enhanced taxonomy types route accessed - FK enforcement active");
+      const { groupId, q } = req.query;
+      const active = req.query.active === "true";
+      const typesWithGroups = await investigationStorage.getAllEquipmentTypesWithGroups();
+      let filteredTypes = groupId ? typesWithGroups.filter((t) => t.groupId === parseInt(String(groupId))) : typesWithGroups;
+      if (active) {
+        filteredTypes = filteredTypes.filter((t) => t.isActive);
+      }
+      if (q) {
+        const searchTerm = String(q).toLowerCase();
+        filteredTypes = filteredTypes.filter(
+          (t) => t.name.toLowerCase().includes(searchTerm) || t.groupName?.toLowerCase().includes(searchTerm)
+        );
+      }
+      const result = filteredTypes.map((t) => ({
+        id: t.id,
+        name: t.name,
+        groupId: t.groupId,
+        groupName: t.groupName || null,
+        isActive: t.isActive,
+        createdAt: t.createdAt,
+        status: t.groupId ? "linked" : "unlinked"
+      }));
+      res.json(result);
+    } catch (error) {
+      console.error("[ROUTES] Error fetching equipment types with groups:", error);
+      res.status(500).json({ error: "Failed to fetch equipment types" });
+    }
+  });
+  app3.patch("/api/taxonomy/types/:id/assign-group", async (req, res) => {
+    try {
+      const typeId = parseInt(req.params.id);
+      const { groupId } = req.body;
+      if (!groupId) {
+        return res.status(400).json({ error: "groupId is required" });
+      }
+      const result = await investigationStorage.assignGroupToType(typeId, parseInt(groupId));
+      res.json(result);
+    } catch (error) {
+      console.error("[ROUTES] Error assigning group to type:", error);
+      res.status(500).json({ error: "Failed to assign group to type" });
+    }
+  });
   console.log("[ROUTES] All deployment optimization endpoints registered");
   console.log("[ROUTES] Moving directly to taxonomy API endpoints");
   app3.get("/api/taxonomy/groups", async (req, res) => {
@@ -10871,14 +10922,59 @@ async function registerRoutes(app3) {
     }
   });
   app3.post("/api/equipment-types", async (req, res) => {
-    console.log("[ROUTES] Create equipment type route accessed - Universal Protocol Standard compliant");
+    console.log("[ROUTES] Create equipment type route accessed - STRICT FK VALIDATION ENFORCED");
     try {
-      const equipmentType = await investigationStorage.createEquipmentType(req.body);
+      const { name, equipmentGroupId } = req.body;
+      if (!name || typeof name !== "string" || name.trim() === "") {
+        return res.status(400).json({
+          error: "Validation failed",
+          message: "Equipment type name is required and must be non-empty string"
+        });
+      }
+      if (!equipmentGroupId || typeof equipmentGroupId !== "number") {
+        return res.status(400).json({
+          error: "Validation failed",
+          message: "equipmentGroupId is required and must be a valid number. Equipment types cannot exist without a group."
+        });
+      }
+      const groups = await investigationStorage.getAllEquipmentGroups();
+      const targetGroup = groups.find((g) => g.id === equipmentGroupId && g.isActive);
+      if (!targetGroup) {
+        return res.status(400).json({
+          error: "Invalid group",
+          message: `Equipment group with ID ${equipmentGroupId} does not exist or is inactive`
+        });
+      }
+      console.log(`[ROUTES] Creating equipment type with name: ${name} for group ID: ${equipmentGroupId} (${targetGroup.name})`);
+      const equipmentType = await investigationStorage.createEquipmentType({
+        name: name.trim(),
+        equipmentGroupId,
+        groupName: targetGroup.name
+        // Denormalized for efficiency
+      });
       console.log(`[ROUTES] Successfully created equipment type with ID: ${equipmentType.id}`);
       res.status(201).json(equipmentType);
     } catch (error) {
-      console.error("[ROUTES] Error creating equipment type:", error);
-      res.status(500).json({ error: "Failed to create equipment type" });
+      console.error("[ROUTES] Equipment Types create error:", error);
+      if (error instanceof Error) {
+        if (error.message.includes("foreign key") || error.message.includes("23503")) {
+          return res.status(400).json({
+            error: "Foreign key violation",
+            message: "The specified equipment group does not exist or is invalid"
+          });
+        }
+        if (error.message.includes("not-null constraint") || error.message.includes("23502")) {
+          return res.status(400).json({
+            error: "Validation failed",
+            message: "Equipment group ID is required (database constraint enforcement)"
+          });
+        }
+      }
+      res.status(500).json({
+        error: "Create failed",
+        message: "Unable to create equipment type",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
   app3.put("/api/equipment-types/:id", async (req, res) => {
