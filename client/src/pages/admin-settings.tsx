@@ -81,8 +81,7 @@ export default function AdminSettings() {
     refetchOnMount: true,
   });
 
-  // DEBUG LOGGING - REMOVE AFTER FIXING
-  console.log('AI Settings Query Result:', { aiSettings, aiSettingsLoading });
+
 
   // Fetch equipment groups using the default queryFn
   const { data: equipmentGroups, isLoading: equipmentGroupsLoading } = useQuery({
@@ -91,8 +90,7 @@ export default function AdminSettings() {
     refetchOnMount: true,
   });
   
-  // Debug logging
-  console.log('Equipment Groups:', equipmentGroups, 'Loading:', equipmentGroupsLoading);
+
 
   // Fetch risk rankings using the default queryFn
   const { data: riskRankings, isLoading: riskRankingsLoading } = useQuery({
@@ -102,8 +100,7 @@ export default function AdminSettings() {
     refetchOnWindowFocus: true,
   });
   
-  // Debug logging
-  console.log('Risk Rankings:', riskRankings, 'Loading:', riskRankingsLoading);
+
 
   // Fetch equipment types using the default queryFn
   const { data: equipmentTypes, isLoading: equipmentTypesLoading } = useQuery({
@@ -404,7 +401,15 @@ export default function AdminSettings() {
         description: "AI settings have been updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-settings"] });
-      setFormData(prev => ({ ...prev, apiKey: "" })); // Clear form
+      // Clear form and reset test status
+      setFormData({
+        provider: "", 
+        apiKey: "", 
+        model: "", 
+        isActive: false, 
+        createdBy: 1, 
+        testStatus: ""
+      });
     },
     onError: (error: any) => {
       toast({
@@ -626,7 +631,7 @@ export default function AdminSettings() {
 
     saveSettingsMutation.mutate({
       provider: formData.provider,
-      encryptedApiKey: formData.apiKey, // Backend expects raw apiKey and encrypts internally
+      apiKey: formData.apiKey, // Backend expects raw apiKey and encrypts internally
       model: formData.model,
       isActive: formData.isActive,
       createdBy: formData.createdBy
@@ -804,11 +809,7 @@ export default function AdminSettings() {
           <p className="text-sm text-muted-foreground">Manage existing AI provider configurations</p>
         </CardHeader>
         <CardContent>
-          {/* DEBUG INFO - REMOVE AFTER FIXING */}
-          <div className="mb-4 p-2 bg-gray-100 text-xs">
-            DEBUG: aiSettingsLoading={String(aiSettingsLoading)}, aiSettings length={aiSettings?.length || 0}
-            {aiSettings && <pre>{JSON.stringify(aiSettings, null, 2)}</pre>}
-          </div>
+
           
           {aiSettingsLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading settings...</div>
