@@ -22,3 +22,47 @@
 !public/logo.svg
 
 !public/logo.svg
+
+# Vendor env
+.pythonlibs/
+node_modules/
+
+# CSVs (everywhere)
+*.csv
+
+# Images (everywhere)
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.tif
+*.tiff
+*.bmp
+*.svg
+
+# EXCEPT: keep your logo(s) — edit paths if your logo is elsewhere
+!public/logo.svg
+!public/logo.png
+
+# Vendor env
+.pythonlibs/
+node_modules/
+
+# CSVs (everywhere)
+*.csv
+
+# Images (everywhere)
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.tif
+*.tiff
+*.bmp
+*.svg
+
+# EXCEPT: keep your logo(s) — edit paths if your logo is elsewhere
+!public/logo.svg
+!public/logo.png
