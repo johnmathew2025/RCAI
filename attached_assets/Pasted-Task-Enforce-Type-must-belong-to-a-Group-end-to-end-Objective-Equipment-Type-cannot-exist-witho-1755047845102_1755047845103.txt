@@ -1,0 +1,95 @@
+Task: Enforce “Type must belong to a Group” end-to-end
+Objective
+Equipment Type cannot exist without an Equipment Group. Remove all “N/A” cases and make this impossible going forward across DB, API, and UI.
+Hard requiremen (non-negotiable)
+1.	DB constraint
+o	equipment_types.group_id is NOT NULL and FK to equipment_groups(id) with ON UPDATE CASCADE ON DELETE RESTRICT.
+2.	Backfill
+o	Write a one-off script to list and fix current orphans (group_id IS NULL). The migration must fail if any orphans remain.
+3.	API validation
+o	POST/PUT /equipment-types require groupId (UUID). Missing/invalid → HTTP 400 with JSON error.
+4.	UI
+o	“Add Type” form must include a Group select (fetched from /equipment-groups). Save disabled until a group is chosen. If no groups exist, show CTA “Create an Equipment Group first”.
+o	In the Types table, show the Group name. If a row is somehow unassigned (should be impossible post-migration), show “Unassigned — Fix” linking to edit.
+5.	No hardcoding
+o	Group options must come from the API; no inline arrays.
+6.	Tes
+o	API: create without groupId → 400; with valid groupId → 201; delete a group with attached types → 409/422 (blocked).
+o	DB: FK/NOT NULL verified.
+o	UI: e2e check that Save is disabled until group selected.
+Implementation details
+Prisma (example)
+prisma
+
+model EquipmentGroup {
+  id    String @id @default(uuid())
+  name  String @unique
+  types EquipmentType[]
+}
+
+model EquipmentType {
+  id       String         @id @default(uuid())
+  name     String
+  groupId  String
+  group    EquipmentGroup @relation(fields: [groupId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@index([groupId])
+  @@unique([name, groupId]) // optional, if names are unique within group
+}
+SQL migration (if writing raw)
+sql
+
+ALTER TABLE equipment_types ADD COLUMN IF NOT EXIS group_id UUID;
+-- Backfill here (set proper group_id for existing rows) BEFORE constrain
+-- UPDATE equipment_types SET group_id = '<some-group-uuid>' WHERE id IN (...);
+
+ALTER TABLE equipment_types
+  ADD CONSTRAINT equipment_types_group_fk
+  FOREIGN KEY (group_id) REFERENCES equipment_groups(id)
+  ON UPDATE CASCADE ON DELETE RESTRICT;
+
+ALTER TABLE equipment_types ALTER COLUMN group_id SET NOT NULL;
+CREATE INDEX IF NOT EXIS idx_equipment_types_group ON equipment_types(group_id);
+Backfill script
+•	Query SELECT id,name FROM equipment_types WHERE group_id IS NULL;
+•	For each, resolve the intended group (via admin UI or a mapping CSV).
+•	If any remain null, exit non-zero so migration fails.
+API (TypeScript + Zod)
+
+
+const TypeCreate = z.object({
+  name: z.string().min(1),
+  groupId: z.string().uuid(),
+  status: z.enum(['Active','Inactive']).default('Active')
+});
+
+app.post('/equipment-types', async (req,res) => {
+  const body = TypeCreate.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: body.error.format() });
+  const data = await prisma.equipmentType.create({ data: body.data });
+  res.status(201).json(data);
+});
+UI
+•	Form: { name, groupId }. Group select is populated from /equipment-groups?status=Active.
+•	Disable Save until both fields valid.
+•	List view: show type.group.name.
+Verification (paste into shell after deploy)
+
+
+# 400 without groupId
+curl -s -X POST http://localhost:3000/equipment-types \
+  -H 'content-type: application/json' -d '{"name":"Pump"}' | jq .
+
+# 201 with groupId
+curl -s -X POST http://localhost:3000/equipment-types \
+  -H 'content-type: application/json' -d '{"name":"Pump","groupId":"<uuid>"}' | jq .
+
+# DB check: should be zero
+psql -c "SELECT count(*) FROM equipment_types WHERE group_id IS NULL;"
+Done when
+•	No rows in equipment_types have group_id IS NULL.
+•	Creating/updating via API without groupId returns 400.
+•	UI cannot save a Type without a selected Group.
+•	Deleting a Group with attached Types is blocked.
+•	All tes green.
+
