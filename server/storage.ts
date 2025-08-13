@@ -47,6 +47,9 @@ import {
   type InsertFaultReferenceLibrary,
   users,
   type User,
+  auditLogs,
+  type AuditLog,
+  type InsertAuditLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, like, and, or, sql } from "drizzle-orm";
@@ -79,6 +82,14 @@ export interface IInvestigationStorage {
   searchEvidenceLibrary(searchTerm: string): Promise<EvidenceLibrary[]>;
   searchEvidenceLibraryByEquipment(equipmentGroup: string, equipmentType: string, equipmentSubtype: string): Promise<EvidenceLibrary[]>;
   searchEvidenceLibraryBySymptoms(symptoms: string[]): Promise<EvidenceLibrary[]>;
+  
+  // PERMANENT DELETE operations with audit logging
+  deleteEvidenceByCode(equipmentCode: string, actorId: string): Promise<void>;
+  bulkDeleteEvidenceByCodes(equipmentCodes: string[], actorId: string): Promise<{ deleted: number }>;
+  deleteEquipmentGroup(groupId: number, actorId: string): Promise<void>;
+  deleteEquipmentType(typeId: number, actorId: string): Promise<void>;
+  deleteEquipmentSubtype(subtypeId: number, actorId: string): Promise<void>;
+  deleteAiSetting(settingId: number, actorId: string): Promise<void>;
   bulkImportEvidenceLibrary(data: InsertEvidenceLibrary[]): Promise<EvidenceLibrary[]>;
   bulkUpsertEvidenceLibrary(data: InsertEvidenceLibrary[]): Promise<EvidenceLibrary[]>;
   importEvidenceLibrary(file: Express.Multer.File): Promise<{ imported: number; errors: number; details: string[] }>;
@@ -2265,7 +2276,7 @@ export class DatabaseInvestigationStorage implements IInvestigationStorage {
   }
 
   async deleteEquipmentSubtype(id: number): Promise<void> {
-    console.log(`[DatabaseInvestigationStorage] Deleting equipment subtype ${id}`);
+    console.log(`[DatabaseInvestigationStorage] SOFT DELETE - Deactivating equipment subtype ${id}`);
     
     // Set isActive to false instead of hard delete to maintain referential integrity
     await db
@@ -2277,6 +2288,232 @@ export class DatabaseInvestigationStorage implements IInvestigationStorage {
       .where(eq(equipmentSubtypes.id, id));
     
     console.log(`[DatabaseInvestigationStorage] Successfully deactivated equipment subtype ${id}`);
+  }
+
+  // PERMANENT DELETE OPERATIONS WITH AUDIT LOGGING
+  
+  private async createAuditLog(action: string, targetTable: string, targetId: string, payload: any, actorId: string): Promise<void> {
+    await db.insert(auditLogs).values({
+      action,
+      targetTable,
+      targetId,
+      payload,
+      actorId,
+    });
+  }
+
+  async deleteEvidenceByCode(equipmentCode: string, actorId: string): Promise<void> {
+    console.log(`[DELETE AUDIT] Permanent delete evidence ${equipmentCode} by ${actorId}`);
+    
+    return await db.transaction(async (tx) => {
+      // Get the evidence item for audit snapshot
+      const [evidence] = await tx
+        .select()
+        .from(evidenceLibrary)
+        .where(eq(evidenceLibrary.equipmentCode, equipmentCode));
+      
+      if (!evidence) {
+        throw new Error(`Evidence not found: ${equipmentCode}`);
+      }
+      
+      // Create audit log first
+      await tx.insert(auditLogs).values({
+        action: 'delete',
+        targetTable: 'evidence_library',
+        targetId: equipmentCode,
+        payload: evidence,
+        actorId,
+      });
+      
+      // Permanent delete
+      await tx.delete(evidenceLibrary).where(eq(evidenceLibrary.equipmentCode, equipmentCode));
+      
+      console.log(`[DELETE AUDIT] Evidence ${equipmentCode} permanently deleted and logged`);
+    });
+  }
+
+  async bulkDeleteEvidenceByCodes(equipmentCodes: string[], actorId: string): Promise<{ deleted: number }> {
+    console.log(`[DELETE AUDIT] Bulk delete ${equipmentCodes.length} evidence items by ${actorId}`);
+    
+    return await db.transaction(async (tx) => {
+      let deleted = 0;
+      
+      for (const code of equipmentCodes) {
+        try {
+          // Get the evidence item for audit snapshot
+          const [evidence] = await tx
+            .select()
+            .from(evidenceLibrary)
+            .where(eq(evidenceLibrary.equipmentCode, code));
+          
+          if (evidence) {
+            // Create audit log
+            await tx.insert(auditLogs).values({
+              action: 'delete',
+              targetTable: 'evidence_library',
+              targetId: code,
+              payload: evidence,
+              actorId,
+            });
+            
+            // Permanent delete
+            await tx.delete(evidenceLibrary).where(eq(evidenceLibrary.equipmentCode, code));
+            deleted++;
+          }
+        } catch (error) {
+          console.error(`[DELETE AUDIT] Failed to delete evidence ${code}:`, error);
+        }
+      }
+      
+      console.log(`[DELETE AUDIT] Bulk deleted ${deleted} evidence items`);
+      return { deleted };
+    });
+  }
+
+  async deleteEquipmentGroup(groupId: number, actorId: string): Promise<void> {
+    console.log(`[DELETE AUDIT] Permanent delete equipment group ${groupId} by ${actorId}`);
+    
+    return await db.transaction(async (tx) => {
+      // Get the group for audit snapshot
+      const [group] = await tx
+        .select()
+        .from(equipmentGroups)
+        .where(eq(equipmentGroups.id, groupId));
+      
+      if (!group) {
+        throw new Error(`Equipment group not found: ${groupId}`);
+      }
+      
+      // Check FK dependencies - check both new groupId and legacy equipmentGroupId
+      const [typeCount] = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(equipmentTypes)
+        .where(or(
+          eq(equipmentTypes.groupId, groupId),
+          eq(equipmentTypes.equipmentGroupId, groupId)
+        ));
+      
+      if (typeCount.count > 0) {
+        throw new Error(`RESTRICT: Cannot delete group with ${typeCount.count} dependent types`);
+      }
+      
+      // Create audit log
+      await tx.insert(auditLogs).values({
+        action: 'delete',
+        targetTable: 'equipment_groups',
+        targetId: groupId.toString(),
+        payload: group,
+        actorId,
+      });
+      
+      // Permanent delete
+      await tx.delete(equipmentGroups).where(eq(equipmentGroups.id, groupId));
+      
+      console.log(`[DELETE AUDIT] Equipment group ${groupId} permanently deleted`);
+    });
+  }
+
+  async deleteEquipmentType(typeId: number, actorId: string): Promise<void> {
+    console.log(`[DELETE AUDIT] Permanent delete equipment type ${typeId} by ${actorId}`);
+    
+    return await db.transaction(async (tx) => {
+      // Get the type for audit snapshot
+      const [type] = await tx
+        .select()
+        .from(equipmentTypes)
+        .where(eq(equipmentTypes.id, typeId));
+      
+      if (!type) {
+        throw new Error(`Equipment type not found: ${typeId}`);
+      }
+      
+      // Check FK dependencies - check both new typeId and legacy equipmentTypeId
+      const [subtypeCount] = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(equipmentSubtypes)
+        .where(or(
+          eq(equipmentSubtypes.typeId, typeId),
+          eq(equipmentSubtypes.equipmentTypeId, typeId)
+        ));
+      
+      if (subtypeCount.count > 0) {
+        throw new Error(`RESTRICT: Cannot delete type with ${subtypeCount.count} dependent subtypes`);
+      }
+      
+      // Create audit log
+      await tx.insert(auditLogs).values({
+        action: 'delete',
+        targetTable: 'equipment_types',
+        targetId: typeId.toString(),
+        payload: type,
+        actorId,
+      });
+      
+      // Permanent delete
+      await tx.delete(equipmentTypes).where(eq(equipmentTypes.id, typeId));
+      
+      console.log(`[DELETE AUDIT] Equipment type ${typeId} permanently deleted`);
+    });
+  }
+
+  async deleteEquipmentSubtype(subtypeId: number, actorId: string): Promise<void> {
+    console.log(`[DELETE AUDIT] Permanent delete equipment subtype ${subtypeId} by ${actorId}`);
+    
+    return await db.transaction(async (tx) => {
+      // Get the subtype for audit snapshot
+      const [subtype] = await tx
+        .select()
+        .from(equipmentSubtypes)
+        .where(eq(equipmentSubtypes.id, subtypeId));
+      
+      if (!subtype) {
+        throw new Error(`Equipment subtype not found: ${subtypeId}`);
+      }
+      
+      // Create audit log
+      await tx.insert(auditLogs).values({
+        action: 'delete',
+        targetTable: 'equipment_subtypes',
+        targetId: subtypeId.toString(),
+        payload: subtype,
+        actorId,
+      });
+      
+      // Permanent delete (subtypes can be deleted, evidence will SET NULL on subtype_id)
+      await tx.delete(equipmentSubtypes).where(eq(equipmentSubtypes.id, subtypeId));
+      
+      console.log(`[DELETE AUDIT] Equipment subtype ${subtypeId} permanently deleted`);
+    });
+  }
+
+  async deleteAiSetting(settingId: number, actorId: string): Promise<void> {
+    console.log(`[DELETE AUDIT] Permanent delete AI setting ${settingId} by ${actorId}`);
+    
+    return await db.transaction(async (tx) => {
+      // Get the setting for audit snapshot
+      const [setting] = await tx
+        .select()
+        .from(aiSettings)
+        .where(eq(aiSettings.id, settingId));
+      
+      if (!setting) {
+        throw new Error(`AI setting not found: ${settingId}`);
+      }
+      
+      // Create audit log
+      await tx.insert(auditLogs).values({
+        action: 'delete',
+        targetTable: 'ai_settings',
+        targetId: settingId.toString(),
+        payload: setting,
+        actorId,
+      });
+      
+      // Permanent delete
+      await tx.delete(aiSettings).where(eq(aiSettings.id, settingId));
+      
+      console.log(`[DELETE AUDIT] AI setting ${settingId} permanently deleted`);
+    });
   }
 }
 

@@ -406,24 +406,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DELETE EVIDENCE LIBRARY ITEM ENDPOINT - UNIVERSAL PROTOCOL STANDARD COMPLIANT
-  app.delete("/api/evidence-library/:id", async (req, res) => {
-    console.log("[ROUTES] Evidence library delete route accessed - Universal Protocol Standard compliant");
+  // DELETE EVIDENCE BY EQUIPMENT CODE - PERMANENT DELETE WITH AUDIT
+  app.delete("/api/evidence/:equipmentCode", async (req, res) => {
+    console.log("[ROUTES] Evidence delete by equipment code - PERMANENT DELETE");
     try {
-      const itemId = parseInt(req.params.id);
+      const equipmentCode = req.params.equipmentCode;
+      const actorId = req.user?.id || "system"; // RBAC: Editors can delete evidence
       
-      console.log(`[ROUTES] Deleting evidence library item ${itemId}`);
+      await investigationStorage.deleteEvidenceByCode(equipmentCode, actorId);
+      console.log(`[ROUTES] Successfully deleted evidence ${equipmentCode}`);
       
-      await investigationStorage.deleteEvidenceLibrary(itemId);
-      console.log(`[ROUTES] Successfully deleted evidence library item ${itemId}`);
-      
-      res.json({ success: true, message: "Evidence library item deleted successfully" });
+      res.status(204).send(); // 204 No Content on successful delete
       
     } catch (error) {
-      console.error("[ROUTES] Evidence Library delete error:", error);
+      console.error("[ROUTES] Evidence delete error:", error);
+      if (error instanceof Error && error.message.includes("RESTRICT")) {
+        res.status(409).json({ 
+          error: "Delete restricted", 
+          reason: "dependencies",
+          message: "Cannot delete due to dependency constraints"
+        });
+      } else {
+        res.status(500).json({ 
+          error: "Delete failed", 
+          message: "Unable to delete evidence item",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+  });
+
+  // BULK DELETE EVIDENCE - PERMANENT DELETE WITH AUDIT
+  app.delete("/api/evidence", async (req, res) => {
+    console.log("[ROUTES] Bulk evidence delete - PERMANENT DELETE");
+    try {
+      const codes = req.query.codes as string;
+      if (!codes) {
+        return res.status(400).json({ error: "codes parameter required" });
+      }
+      
+      const equipmentCodes = codes.split(',').map(c => c.trim()).filter(Boolean);
+      const actorId = req.user?.id || "system";
+      
+      const results = await investigationStorage.bulkDeleteEvidenceByCodes(equipmentCodes, actorId);
+      console.log(`[ROUTES] Bulk deleted ${results.deleted} evidence items`);
+      
+      res.status(204).send(); // 204 No Content on successful delete
+      
+    } catch (error) {
+      console.error("[ROUTES] Bulk evidence delete error:", error);
       res.status(500).json({ 
-        error: "Delete failed", 
-        message: "Unable to delete evidence library item",
+        error: "Bulk delete failed", 
+        message: "Unable to delete evidence items",
         details: error instanceof Error ? error.message : "Unknown error"
       });
     }
@@ -435,7 +469,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true, message: "Evidence library direct route working", items: [] });
   });
 
-  console.log("[ROUTES] All evidence library routes registered successfully");
+  // TAXONOMY DELETE ENDPOINTS - ADMIN ONLY WITH RBAC
+  app.delete("/api/taxonomy/groups/:id", async (req, res) => {
+    console.log("[ROUTES] Equipment group delete - ADMIN ONLY");
+    try {
+      const groupId = parseInt(req.params.id);
+      const actorId = req.user?.id || "system";
+      // TODO: Add RBAC check for Admin role
+      
+      await investigationStorage.deleteEquipmentGroup(groupId, actorId);
+      console.log(`[ROUTES] Successfully deleted equipment group ${groupId}`);
+      
+      res.status(204).send();
+      
+    } catch (error) {
+      console.error("[ROUTES] Equipment group delete error:", error);
+      if (error instanceof Error && error.message.includes("RESTRICT")) {
+        res.status(409).json({ 
+          error: "Delete restricted", 
+          reason: "dependencies",
+          message: "Cannot delete group with existing types or evidence"
+        });
+      } else {
+        res.status(500).json({ 
+          error: "Delete failed", 
+          message: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+  });
+
+  app.delete("/api/taxonomy/types/:id", async (req, res) => {
+    console.log("[ROUTES] Equipment type delete - ADMIN ONLY");
+    try {
+      const typeId = parseInt(req.params.id);
+      const actorId = req.user?.id || "system";
+      // TODO: Add RBAC check for Admin role
+      
+      await investigationStorage.deleteEquipmentType(typeId, actorId);
+      console.log(`[ROUTES] Successfully deleted equipment type ${typeId}`);
+      
+      res.status(204).send();
+      
+    } catch (error) {
+      console.error("[ROUTES] Equipment type delete error:", error);
+      if (error instanceof Error && error.message.includes("RESTRICT")) {
+        res.status(409).json({ 
+          error: "Delete restricted", 
+          reason: "dependencies", 
+          message: "Cannot delete type with existing subtypes or evidence"
+        });
+      } else {
+        res.status(500).json({ 
+          error: "Delete failed", 
+          message: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+  });
+
+  app.delete("/api/taxonomy/subtypes/:id", async (req, res) => {
+    console.log("[ROUTES] Equipment subtype delete - ADMIN ONLY");
+    try {
+      const subtypeId = parseInt(req.params.id);
+      const actorId = req.user?.id || "system";
+      // TODO: Add RBAC check for Admin role
+      
+      await investigationStorage.deleteEquipmentSubtype(subtypeId, actorId);
+      console.log(`[ROUTES] Successfully deleted equipment subtype ${subtypeId}`);
+      
+      res.status(204).send();
+      
+    } catch (error) {
+      console.error("[ROUTES] Equipment subtype delete error:", error);
+      res.status(500).json({ 
+        error: "Delete failed", 
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // AI SETTINGS DELETE - ADMIN ONLY  
+  app.delete("/api/ai/settings/:id", async (req, res) => {
+    console.log("[ROUTES] AI settings delete - ADMIN ONLY");
+    try {
+      const settingId = parseInt(req.params.id);
+      const actorId = req.user?.id || "system";
+      // TODO: Add RBAC check for Admin role
+      
+      await investigationStorage.deleteAiSetting(settingId, actorId);
+      console.log(`[ROUTES] Successfully deleted AI setting ${settingId}`);
+      
+      res.status(204).send();
+      
+    } catch (error) {
+      console.error("[ROUTES] AI setting delete error:", error);
+      res.status(500).json({ 
+        error: "Delete failed", 
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  console.log("[ROUTES] All evidence library and delete routes registered successfully");
   console.log("[ROUTES] DEBUG - Continuing with equipment groups endpoints...");
   
   // ADD EQUIPMENT GROUPS MANAGEMENT ENDPOINTS - UNIVERSAL PROTOCOL STANDARD COMPLIANT

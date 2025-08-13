@@ -142,10 +142,10 @@ export const evidenceLibrary = pgTable("evidence_library", {
   equipmentTypeId: integer("equipment_type_id"), // FK to equipmentTypes (nullable during migration)
   equipmentSubtypeId: integer("equipment_subtype_id"), // FK to equipmentSubtypes (optional)
   
-  // NEW FK COLUMNS (correct names at DB level)
-  groupId: text("group_id"), // FK to equipment_groups.id (TEXT)
-  typeId: text("type_id"), // FK to equipment_types.id (TEXT)  
-  subtypeId: text("subtype_id"), // FK to equipment_subtypes.id (TEXT, nullable)
+  // FK COLUMNS (referencing INTEGER IDs)
+  groupId: integer("group_id"), // FK to equipment_groups.id (INTEGER)
+  typeId: integer("type_id"), // FK to equipment_types.id (INTEGER)  
+  subtypeId: integer("subtype_id"), // FK to equipment_subtypes.id (INTEGER, nullable)
   
   // LEGACY FIELDS - maintained for import compatibility during transition
   equipmentGroup: varchar("equipment_group"), // Legacy field for CSV import mapping
@@ -362,6 +362,7 @@ export const equipmentTypes = pgTable("equipment_types", {
   id: serial("id").primaryKey(),
   name: varchar("name").notNull(),
   equipmentGroupId: integer("equipment_group_id").notNull(),
+  groupId: integer("group_id"), // FK to equipment_groups.id (new normalized FK)
   groupName: text("group_name"), // Denormalized group name for efficient listing
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -382,6 +383,7 @@ export const equipmentSubtypes = pgTable("equipment_subtypes", {
   id: serial("id").primaryKey(),
   name: varchar("name").notNull(),
   equipmentTypeId: integer("equipment_type_id").notNull(),
+  typeId: integer("type_id"), // FK to equipment_types.id (new normalized FK)
   typeName: text("type_name"), // Denormalized type name for efficient listing
   groupName: text("group_name"), // Denormalized group name for efficient listing
   isActive: boolean("is_active").default(true),
@@ -416,25 +418,24 @@ export const insertRiskRankingSchema = createInsertSchema(riskRankings).omit({
 export type InsertRiskRanking = z.infer<typeof insertRiskRankingSchema>;
 export type RiskRanking = typeof riskRankings.$inferSelect;
 
-// Audit Log table - Track all mutations as required by specification
-export const auditLog = pgTable("audit_log", {
+// Audit Log table - Track all deletes as required by specification  
+export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
-  action: varchar("action").notNull(), // 'create', 'update', 'delete', 'import'
-  targetId: text("target_id").notNull(), // equipmentCode for evidence items
-  tableName: varchar("table_name").notNull(), // 'evidence_items', 'equipment_groups', etc.
-  metadata: jsonb("metadata"), // Contains the diff/changes made
-  userId: varchar("user_id"), // User who made the change
-  userRole: varchar("user_role"), // 'Viewer', 'Editor', 'Admin'
+  action: varchar("action", { length: 50 }).notNull(), // 'delete', 'create', 'update'
+  actorId: varchar("actor_id", { length: 100 }), // User ID who performed the action
+  targetTable: varchar("target_table", { length: 100 }).notNull(), // 'evidence_library', 'equipment_groups', etc.
+  targetId: varchar("target_id", { length: 100 }).notNull(), // ID or code of deleted item
+  payload: jsonb("payload"), // Snapshot of deleted item
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertAuditLogSchema = createInsertSchema(auditLog).omit({
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   id: true,
   createdAt: true,
 });
 
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
-export type AuditLog = typeof auditLog.$inferSelect;
+export type AuditLog = typeof auditLogs.$inferSelect;
 
 // Incidents table - New RCA workflow starting point
 export const incidents = pgTable("incidents", {
