@@ -17,3 +17,6 @@
 !src/assets/logo.svg
 
 !<RELATIVE/PATH/TO/LOGO>
+
+!public/logo.png
+!public/logo.svg
