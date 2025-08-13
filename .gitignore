@@ -1,70 +1,30 @@
-# Ignore CSVs everywhere
-*.csv
+# Ignore screenshot images (common names + extensions)
+**/Screenshots/**
+**/screenshots/**
+*Screenshot*.png
+*Screenshot*.jpg
+*Screenshot*.jpeg
+*Screenshot*.webp
+*Screenshot*.gif
+*Screenshot*.tif
+*Screenshot*.tiff
+*Screenshot*.bmp
+*Screenshot*.svg
+*Screen Shot*.png
+*Screen Shot*.jpg
+*Screen Shot*.jpeg
+*screenshot*.png
+*screenshot*.jpg
+*screenshot*.jpeg
+*screenshot*.webp
+*screenshot*.gif
+*screenshot*.tif
+*screenshot*.tiff
+*screenshot*.bmp
+*screenshot*.svg
 
-# Ignore images everywhere
-*.png
-*.jpg
-*.jpeg
-*.webp
-*.gif
-*.tif
-*.tiff
-*.bmp
-*.svg
-
-# EXCEPT: keep your logo(s). Edit these paths to match your repo.
-!public/logo.png
-!src/assets/logo.svg
-
-!<RELATIVE/PATH/TO/LOGO>
-
-!public/logo.png
-!public/logo.svg
-
-!public/logo.svg
-
-# Vendor env
-.pythonlibs/
-node_modules/
-
-# CSVs (everywhere)
-*.csv
-
-# Images (everywhere)
-*.png
-*.jpg
-*.jpeg
-*.webp
-*.gif
-*.tif
-*.tiff
-*.bmp
-*.svg
-
-# EXCEPT: keep your logo(s) — edit paths if your logo is elsewhere
-!public/logo.svg
-!public/logo.png
-
-# Vendor env
-.pythonlibs/
-node_modules/
-
-# CSVs (everywhere)
-*.csv
-
-# Images (everywhere)
-*.png
-*.jpg
-*.jpeg
-*.webp
-*.gif
-*.tif
-*.tiff
-*.bmp
-*.svg
-
-# EXCEPT: keep your logo(s) — edit paths if your logo is elsewhere
-!public/logo.svg
-!public/logo.png
-
-.env*
+# Ignore instruction text files
+**/*instruction*.txt
+**/*instructions*.txt
+attached_assets/*.txt
+attached_assets/**/*.txt
