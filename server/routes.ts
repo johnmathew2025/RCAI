@@ -45,6 +45,7 @@ import { EvidenceLibraryOperations } from "./evidence-library-operations";
 import { UniversalAIConfig } from "./universal-ai-config";
 import { DynamicAIConfig } from "./dynamic-ai-config";
 import { AIService } from "./ai-service";
+import { requireAdmin, requireInvestigatorOrAdmin, createTestAdminUser, type AuthenticatedRequest } from "./rbac-middleware";
 import * as os from "os";
 import * as crypto from "crypto";
 
@@ -549,13 +550,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI SETTINGS DELETE - ADMIN ONLY  
-  app.delete("/api/ai/settings/:id", async (req, res) => {
+  // AI SETTINGS DELETE - ADMIN ONLY WITH RBAC  
+  app.delete("/api/ai/settings/:id", requireAdmin, async (req: AuthenticatedRequest, res) => {
     console.log("[ROUTES] AI settings delete - ADMIN ONLY");
     try {
       const settingId = parseInt(req.params.id);
-      const actorId = req.user?.id || "system";
-      // TODO: Add RBAC check for Admin role
+      const actorId = req.user!.id; // Guaranteed by requireAdmin middleware
       
       await investigationStorage.deleteAiSetting(settingId, actorId);
       console.log(`[ROUTES] Successfully deleted AI setting ${settingId}`);
@@ -564,8 +564,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
     } catch (error) {
       console.error("[ROUTES] AI setting delete error:", error);
+      
+      // Return 404 for "not found" instead of 500
+      if (error instanceof Error && error.message.includes("not found")) {
+        return res.status(404).json({ 
+          error: "AI setting not found", 
+          message: error.message 
+        });
+      }
+      
       res.status(500).json({ 
         error: "Delete failed", 
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // NEW MISSING ENDPOINTS FOR AI SETTINGS PROFESSIONAL CONFORMANCE
+  
+  // POST /api/ai/providers/:id/activate - Atomic activation with transaction
+  app.post("/api/ai/providers/:id/activate", requireAdmin, async (req: AuthenticatedRequest, res) => {
+    console.log("[ROUTES] AI provider activation - ADMIN ONLY");
+    try {
+      const providerId = parseInt(req.params.id);
+      const actorId = req.user!.id;
+      
+      await investigationStorage.activateAiProvider(providerId, actorId);
+      console.log(`[ROUTES] Successfully activated AI provider ${providerId}`);
+      
+      res.status(200).json({ ok: true, message: "Provider activated successfully" });
+      
+    } catch (error) {
+      console.error("[ROUTES] AI provider activation error:", error);
+      
+      if (error instanceof Error && error.message.includes("not found")) {
+        return res.status(404).json({ 
+          error: "AI provider not found", 
+          message: error.message 
+        });
+      }
+      
+      res.status(500).json({ 
+        error: "Activation failed", 
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // POST /api/ai/providers/:id/rotate-key - Key rotation with encryption
+  app.post("/api/ai/providers/:id/rotate-key", requireAdmin, async (req: AuthenticatedRequest, res) => {
+    console.log("[ROUTES] AI provider key rotation - ADMIN ONLY");
+    try {
+      const providerId = parseInt(req.params.id);
+      const { newApiKey } = req.body;
+      const actorId = req.user!.id;
+      
+      if (!newApiKey) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          message: "newApiKey is required" 
+        });
+      }
+      
+      await investigationStorage.rotateAiProviderKey(providerId, newApiKey, actorId);
+      console.log(`[ROUTES] Successfully rotated key for AI provider ${providerId}`);
+      
+      res.status(200).json({ ok: true, message: "API key rotated successfully" });
+      
+    } catch (error) {
+      console.error("[ROUTES] AI provider key rotation error:", error);
+      
+      if (error instanceof Error && error.message.includes("not found")) {
+        return res.status(404).json({ 
+          error: "AI provider not found", 
+          message: error.message 
+        });
+      }
+      
+      res.status(500).json({ 
+        error: "Key rotation failed", 
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // POST /api/ai/test - Test AI configuration without storing
+  app.post("/api/ai/test", requireAdmin, async (req: AuthenticatedRequest, res) => {
+    console.log("[ROUTES] AI configuration test - ADMIN ONLY");
+    try {
+      const { provider, model, apiKey } = req.body;
+      
+      if (!provider || !model || !apiKey) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          message: "provider, model, and apiKey are required" 
+        });
+      }
+      
+      // Test the configuration using AIService
+      const testResult = await AIService.testApiKey(provider, apiKey);
+      
+      if (testResult.success) {
+        res.status(200).json({ 
+          success: true, 
+          message: "API key test successful",
+          provider,
+          model
+        });
+      } else {
+        res.status(400).json({ 
+          success: false, 
+          message: "API key test failed",
+          error: testResult.error,
+          provider,
+          model
+        });
+      }
+      
+    } catch (error) {
+      console.error("[ROUTES] AI configuration test error:", error);
+      res.status(500).json({ 
+        error: "Test failed", 
         message: error instanceof Error ? error.message : "Unknown error"
       });
     }
@@ -1212,6 +1331,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   console.log("[ROUTES] All taxonomy routes registered successfully");
+
+  // Test user creation endpoint for RBAC testing
+  app.post("/api/users", async (req, res) => {
+    console.log("[ROUTES] Test user creation");
+    try {
+      const userData = req.body;
+      const user = await investigationStorage.upsertUser(userData);
+      res.json(user);
+    } catch (error) {
+      console.error("[ROUTES] User creation error:", error);
+      res.status(500).json({ 
+        error: "User creation failed", 
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
 
   app.post("/api/equipment-groups", async (req, res) => {
     console.log("[ROUTES] Equipment groups create route accessed - Universal Protocol Standard compliant");

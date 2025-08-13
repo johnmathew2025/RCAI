@@ -102,6 +102,10 @@ export interface IInvestigationStorage {
   updateAiSettingsTestStatus(id: number, success: boolean): Promise<void>;
   deleteAiSettings(id: number): Promise<void>;
   
+  // New AI Settings Professional Conformance endpoints
+  activateAiProvider(providerId: number, actorId: string): Promise<void>;
+  rotateAiProviderKey(providerId: number, newApiKey: string, actorId: string): Promise<void>;
+  
   // Fault Reference Library operations (Admin Only)
   getAllFaultReferenceLibrary(): Promise<FaultReferenceLibrary[]>;
   getFaultReferenceLibraryById(id: string): Promise<FaultReferenceLibrary | undefined>;
@@ -494,6 +498,82 @@ export class DatabaseInvestigationStorage implements IInvestigationStorage {
       console.error("[DatabaseInvestigationStorage] Error deleting AI settings:", error);
       throw error;
     }
+  }
+
+  // AI Settings Professional Conformance - Atomic activation with audit logging
+  async activateAiProvider(providerId: number, actorId: string): Promise<void> {
+    console.log(`[ACTIVATE AI PROVIDER] Starting activation for provider ${providerId} by ${actorId}`);
+    
+    return await db.transaction(async (tx) => {
+      // Check if provider exists first
+      const [provider] = await tx.select().from(aiSettings).where(eq(aiSettings.id, providerId));
+      if (!provider) {
+        throw new Error(`AI provider not found: ${providerId}`);
+      }
+
+      // STEP 1: Deactivate all providers first (atomic transaction)
+      await tx.update(aiSettings).set({ isActive: false });
+      console.log(`[ACTIVATE AI PROVIDER] Deactivated all providers`);
+
+      // STEP 2: Activate target provider
+      await tx.update(aiSettings)
+        .set({ isActive: true })
+        .where(eq(aiSettings.id, providerId));
+      console.log(`[ACTIVATE AI PROVIDER] Activated provider ${providerId}`);
+
+      // STEP 3: Write audit log within same transaction
+      await tx.insert(auditLogs).values({
+        actorId,
+        action: 'ai_provider.activate',
+        resourceType: 'ai_settings',
+        resourceId: providerId.toString(),
+        metadata: {
+          provider: provider.provider,
+          model: provider.model
+        }
+      });
+      console.log(`[ACTIVATE AI PROVIDER] Audit log written for provider ${providerId}`);
+    });
+  }
+
+  // AI Settings Professional Conformance - Key rotation with encryption and audit
+  async rotateAiProviderKey(providerId: number, newApiKey: string, actorId: string): Promise<void> {
+    console.log(`[ROTATE AI KEY] Starting key rotation for provider ${providerId} by ${actorId}`);
+    
+    return await db.transaction(async (tx) => {
+      // Check if provider exists first
+      const [provider] = await tx.select().from(aiSettings).where(eq(aiSettings.id, providerId));
+      if (!provider) {
+        throw new Error(`AI provider not found: ${providerId}`);
+      }
+
+      // Encrypt the new API key
+      const { AIService } = await import("./ai-service");
+      const encryptedKey = AIService.encrypt(newApiKey);
+      console.log(`[ROTATE AI KEY] New key encrypted for provider ${providerId}`);
+
+      // Update with new encrypted key and reset test status
+      await tx.update(aiSettings)
+        .set({ 
+          encryptedApiKey: encryptedKey,
+          testStatus: 'not_tested',
+          lastTestedAt: null
+        })
+        .where(eq(aiSettings.id, providerId));
+
+      // Write audit log within same transaction (no secrets)
+      await tx.insert(auditLogs).values({
+        actorId,
+        action: 'ai_provider.rotate_key',
+        resourceType: 'ai_settings',
+        resourceId: providerId.toString(),
+        metadata: {
+          provider: provider.provider,
+          keyRotated: true
+        }
+      });
+      console.log(`[ROTATE AI KEY] Key rotation completed for provider ${providerId}`);
+    });
   }
 
   // Evidence Library operations
