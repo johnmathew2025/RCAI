@@ -15,3 +15,5 @@
 # EXCEPT: keep your logo(s). Edit these paths to match your repo.
 !public/logo.png
 !src/assets/logo.svg
+
+!<RELATIVE/PATH/TO/LOGO>
