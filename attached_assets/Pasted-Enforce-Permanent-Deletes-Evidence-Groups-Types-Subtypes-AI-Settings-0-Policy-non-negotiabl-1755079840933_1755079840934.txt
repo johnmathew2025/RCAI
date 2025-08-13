@@ -1,0 +1,128 @@
+Enforce Permanent Deletes (Evidence, Groups, Types, Subtypes, AI Settings)
+0) Policy (non-negotiable)
+•	No soft delete anywhere.
+o	No deleted_at, no is_deleted, no “Archive”.
+o	All delete actions execute SQL DELETE.
+•	Audit first, then delete: write an AuditLog entry, then perform the hard delete.
+•	No hardcoding of anything (names, IDs, etc.).
+ 
+1) Database constraints (protect integrity)
+1.1 Evidence → Taxonomy FKs
+•	Evidence must always reference valid taxonomy or be null (for optional subtype).
+sql
+
+-- Evidence foreign keys (TEXT ids are fine)
+ALTER TABLE evidence_library
+  ADD COLUMN IF NOT EXISTS group_id   TEXT,
+  ADD COLUMN IF NOT EXISTS type_id    TEXT,
+  ADD COLUMN IF NOT EXISTS subtype_id TEXT;
+
+-- Required parents: Group & Type (prevent orphaning evidence)
+ALTER TABLE evidence_library
+  ADD CONSTRAINT fk_ev_group FOREIGN KEY (group_id)
+  REFERENCES equipment_groups(id) ON DELETE RESTRICT;
+
+ALTER TABLE evidence_library
+  ADD CONSTRAINT fk_ev_type FOREIGN KEY (type_id)
+  REFERENCES equipment_types(id) ON DELETE RESTRICT;
+
+-- Optional parent: Subtype may be removed; evidence keeps working
+ALTER TABLE evidence_library
+  ADD CONSTRAINT fk_ev_subtype FOREIGN KEY (subtype_id)
+  REFERENCES equipment_subtypes(id) ON DELETE SET NULL;
+Why:
+•	Deleting a Group or Type that’s still in use should fail (RESTRICT).
+•	Deleting a Subtype should clear subtype_id on evidence (SET NULL), since it’s optional.
+1.2 Taxonomy hierarchy FKs
+sql
+
+ALTER TABLE equipment_types
+  ADD COLUMN IF NOT EXISTS group_id TEXT,
+  ADD CONSTRAINT fk_types_group FOREIGN KEY (group_id)
+  REFERENCES equipment_groups(id) ON DELETE RESTRICT;
+
+ALTER TABLE equipment_subtypes
+  ADD COLUMN IF NOT EXISTS type_id TEXT,
+  ADD CONSTRAINT fk_subtypes_type FOREIGN KEY (type_id)
+  REFERENCES equipment_types(id) ON DELETE RESTRICT;
+This prevents deleting a Group while Types still exist, or deleting a Type while Subtypes still exist.
+1.3 Remove soft-delete columns (if present)
+sql
+
+ALTER TABLE evidence_library      DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE equipment_groups      DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE equipment_types       DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE equipment_subtypes    DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE ai_settings           DROP COLUMN IF EXISTS deleted_at;
+ 
+2) Server endpoints — hard delete only
+2.1 Evidence
+http
+
+DELETE /api/evidence/:equipmentCode
+→ 200 on success
+→ 409 { reason: "restricted" } only if other constraints prevent delete (shouldn’t)
+Implementation: DELETE FROM evidence_library WHERE equipment_code = $1;
+2.2 Taxonomy
+http
+
+DELETE /api/taxonomy/groups/:id
+→ 409 if RESTRICT triggers (existing types/evidence)
+
+DELETE /api/taxonomy/types/:id
+→ 409 if RESTRICT triggers (existing subtypes/evidence)
+
+DELETE /api/taxonomy/subtypes/:id
+→ 200; evidence.subtype_id will be set NULL via FK
+
+DELETE /api/ai/settings/:id
+→ 200
+Important: Do not “deactivate”; actually delete the row.
+ 
+3) UI confirmation & UX
+•	Before any delete, show a destructive confirmation:
+o	“This will permanently delete. This action cannot be undone.”
+o	Type-to-confirm: require entering the exact name/code.
+•	For Group/Type delete attempts, if server returns 409 (restricted), show:
+o	“Cannot delete because dependent items exist.”
+o	Provide a link to view dependents (Types/Subtypes/Evidence filtered by that ID).
+ 
+4) Audit logging (still required)
+Log every delete before executing it:
+css
+
+AuditLog { action: "delete", actorId, targetTable, targetId, payload: {snapshotIfFetched:true}, ts }
+You may fetch a minimal snapshot (id, name/code) for the payload; don’t block delete if snapshot fails.
+ 
+5) Tests (must pass)
+•	Evidence DELETE removes row; export shows it gone.
+•	Subtype DELETE sets evidence_library.subtype_id to NULL (no failure).
+•	Type DELETE fails with 409 when subtypes or evidence exist.
+•	Group DELETE fails with 409 when types or evidence exist.
+•	AI settings DELETE removes row.
+•	No code path writes deleted_at or is_deleted.
+•	Attempt to soft-delete via PATCH is rejected (404/405).
+ 
+6) Proof to provide
+1.	Schema (\d outputs) showing the FK actions:
+o	ON DELETE RESTRICT for group/type; ON DELETE SET NULL for subtype → evidence.
+2.	Delete demos:
+o	Create an evidence row with subtype → delete the subtype → evidence remains and subtype_id becomes NULL.
+o	Try to delete a type with subtypes → receive 409 with dependency count.
+o	Delete an evidence item by equipmentCode → gone from list.
+3.	Audit logs showing the deletes recorded.
+4.	Code grep showing no deleted_at or soft-delete flags remain:
+bash
+
+rg -n "deleted_at|is_deleted|soft[- ]?delete" src server db -S
+ 
+7) Optional helper endpoints (read-only)
+•	GET /api/taxonomy/types?groupId=:id → to show blockers before deleting the group.
+•	GET /api/taxonomy/subtypes?typeId=:id → to show blockers before deleting the type.
+•	GET /api/evidence?groupId|typeId|subtypeId=:id → to list evidence dependents.
+ 
+8) Cache hygiene after deploying this change
+•	Stop server; clear .next/cache, dist, node_modules/.cache.
+•	npm ci && npm run build && npm start.
+•	Validate in Incognito.
+
