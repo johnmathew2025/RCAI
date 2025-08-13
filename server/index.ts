@@ -10,12 +10,17 @@ dotenv.config();
 
 // UNIVERSAL PROTOCOL STANDARD: Validate encryption secret at startup
 const encryptionKey = process.env.AI_KEY_ENCRYPTION_SECRET;
-if (!encryptionKey || encryptionKey.length < 32) {
-  console.error("🚨 PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET missing or too short (must be 32+ characters)");
-  console.error("Create .env file with: AI_KEY_ENCRYPTION_SECRET=your-32-character-aes-secret-here");
+if (!encryptionKey) {
+  console.error("🚨 PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET not found");
+  console.error("Please set AI_KEY_ENCRYPTION_SECRET to exactly 32 characters using Replit secrets manager");
   process.exit(1);
 }
-console.log("✅ AI_KEY_ENCRYPTION_SECRET loaded successfully");
+if (encryptionKey.length !== 32) {
+  console.error(`🚨 PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET must be exactly 32 characters, got ${encryptionKey.length}`);
+  console.error("AES-256-CBC encryption requires exactly 32 bytes (256 bits)");
+  process.exit(1);
+}
+console.log(`✅ AI_KEY_ENCRYPTION_SECRET loaded successfully (length: ${encryptionKey.length})`);
 
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
