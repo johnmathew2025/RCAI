@@ -324,14 +324,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/evidence-library", async (req, res) => {
     console.log("[ROUTES] Evidence library create route accessed - Universal Protocol Standard compliant");
     try {
-      const createData = req.body;
+      const body = req.body;
       
-      console.log(`[ROUTES] Creating new evidence library item with data:`, createData);
+      // Field mapping: API contract -> Database schema
+      const createData = {
+        // NEW FK COLUMNS (correct DB names)
+        groupId: body.groupId || null,
+        typeId: body.typeId || null,
+        subtypeId: body.subtypeId === "__NONE__" ? null : (body.subtypeId || null),
+        
+        // COMPATIBILITY SHIM for old field names
+        equipmentGroupId: body.equipmentGroupId || null,
+        equipmentTypeId: body.equipmentTypeId || null,
+        equipmentSubtypeId: body.equipmentSubtypeId || body.subtypeId === "__NONE__" ? null : (body.subtypeId || null),
+        
+        // Required fields
+        equipmentCode: body.equipmentCode,
+        componentFailureMode: body.componentFailureMode,
+        
+        // Optional fields (nullable)
+        failureCode: body.failureCode && body.failureCode.trim() !== "" ? body.failureCode.trim() : null,
+        
+        // Other text fields
+        requiredTrendDataEvidence: body.requiredTrendDataEvidence || null,
+        aiOrInvestigatorQuestions: body.aiOrInvestigatorQuestions || null,
+        attachmentsEvidenceRequired: body.attachmentsEvidenceRequired || null,
+        rootCauseLogic: body.rootCauseLogic || null,
+        primaryRootCause: body.primaryRootCause || null,
+        contributingFactor: body.contributingFactor || null,
+        latentCause: body.latentCause || null,
+        detectionGap: body.detectionGap || null,
+        confidenceLevel: body.confidenceLevel || null,
+        faultSignaturePattern: body.faultSignaturePattern || null,
+        applicableToOtherEquipment: body.applicableToOtherEquipment || null,
+        evidenceGapFlag: body.evidenceGapFlag || null,
+        diagnosticValue: body.diagnosticValue || null,
+        industryRelevance: body.industryRelevance || null,
+        evidencePriority: body.evidencePriority || null,
+        timeToCollect: body.timeToCollect || null,
+        collectionCost: body.collectionCost || null,
+        analysisComplexity: body.analysisComplexity || null,
+        seasonalFactor: body.seasonalFactor || null,
+        relatedFailureModes: body.relatedFailureModes || null,
+        prerequisiteEvidence: body.prerequisiteEvidence || null,
+        followupActions: body.followupActions || null,
+        industryBenchmark: body.industryBenchmark || null,
+        
+        // Risk ranking
+        riskRankingId: body.riskRankingId || null,
+        riskRanking: body.riskRankingLabel || null
+      };
+      
+      // Validation
+      if (!createData.equipmentCode) {
+        return res.status(400).json({ error: "equipmentCode is required" });
+      }
+      if (!createData.componentFailureMode) {
+        return res.status(400).json({ error: "componentFailureMode is required" });
+      }
+      if (!createData.groupId && !createData.equipmentGroupId) {
+        return res.status(400).json({ error: "groupId is required" });
+      }
+      if (!createData.typeId && !createData.equipmentTypeId) {
+        return res.status(400).json({ error: "typeId is required" });
+      }
+      
+      console.log(`[ROUTES] Creating new evidence library item with mapped data:`, createData);
       
       const newItem = await investigationStorage.createEvidenceLibrary(createData);
       console.log(`[ROUTES] Successfully created evidence library item with ID ${newItem.id}`);
       
-      res.json(newItem);
+      res.status(201).json(newItem);
       
     } catch (error) {
       console.error("[ROUTES] Evidence Library create error:", error);

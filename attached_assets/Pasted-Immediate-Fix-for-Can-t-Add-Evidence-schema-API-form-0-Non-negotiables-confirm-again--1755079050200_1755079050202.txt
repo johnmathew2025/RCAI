@@ -1,0 +1,116 @@
+Immediate Fix for “Can’t Add Evidence” (schema + API + form)
+0) Non-negotiables (confirm again)
+•	equipmentCode = only unique identifier (required, unique).
+•	failureCode = TEXT, nullable, NOT unique.
+•	FK fields: group_id, type_id, subtype_id (nullable) — these exact names at DB level. API accepts groupId, typeId, subtypeId.
+•	Subtype is optional; UI uses a virtual “None” → sends subtypeId: null.
+•	No hardcoded vocab.
+ 
+1) Database migration (Postgres)
+A. Make failure_code nullable & drop uniqueness
+sql
+
+-- 1) Drop NOT NULL
+ALTER TABLE evidence_library
+  ALTER COLUMN failure_code DROP NOT NULL;
+
+-- 2) Drop UNIQUE constraint on failure_code (name may vary):
+-- Find the actual constraint/index name:
+DO $$
+DECLARE
+  c text;
+BEGIN
+  SELECT conname INTO c
+  FROM pg_constraint
+  WHERE conrelid = 'evidence_library'::regclass
+    AND contype = 'u'
+    AND conname ILIKE '%failure%';
+  IF c IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE evidence_library DROP CONSTRAINT %I', c);
+  END IF;
+END$$;
+
+-- 3) Ensure equipment_code is the only unique column
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'evidence_library'::regclass
+      AND contype = 'u'
+      AND conname ILIKE '%equipment_code%'
+  ) THEN
+    ALTER TABLE evidence_library
+      ADD CONSTRAINT evidence_library_equipment_code_key UNIQUE (equipment_code);
+  END IF;
+END$$;
+B. Ensure FK columns exist with the right names
+sql
+
+ALTER TABLE evidence_library
+  ADD COLUMN IF NOT EXISTS group_id   TEXT,
+  ADD COLUMN IF NOT EXISTS type_id    TEXT,
+  ADD COLUMN IF NOT EXISTS subtype_id TEXT;
+
+-- (FKs optional if you’re using TEXT ids; if you do enforce:)
+-- ALTER TABLE evidence_library ADD CONSTRAINT fk_ev_group   FOREIGN KEY (group_id)   REFERENCES equipment_groups(id) ON DELETE RESTRICT;
+-- ALTER TABLE evidence_library ADD CONSTRAINT fk_ev_type    FOREIGN KEY (type_id)    REFERENCES equipment_types(id)  ON DELETE RESTRICT;
+-- ALTER TABLE evidence_library ADD CONSTRAINT fk_ev_subtype FOREIGN KEY (subtype_id) REFERENCES equipment_subtypes(id) ON DELETE RESTRICT;
+⚠️ Do not add any NOT NULL or UNIQUE on failure_code.
+ 
+2) API contract (create/update)
+•	Accept payload:
+json
+
+{
+  "groupId": "grp_x",
+  "typeId": "typ_y",
+  "subtypeId": null,
+  "equipmentCode": "Moto001",
+  "failureCode": null,
+  "componentFailureMode": "bearing overheating",
+  "...": "other text fields"
+}
+•	Map to DB: group_id, type_id, subtype_id, equipment_code, failure_code, etc.
+•	Validation:
+o	Required: groupId, typeId, equipmentCode, componentFailureMode.
+o	Optional: subtypeId (if present, must belong to typeId).
+o	Do not reject when failureCode is missing; pass NULL.
+ 
+3) UI form (Add / Edit Evidence)
+•	Keep Failure Code as optional text input (visible). Do not make it required.
+•	Ensure the form state sends null (not "") when field is empty:
+ts
+
+const normalize = (v?: string) => (v && v.trim() !== "" ? v.trim() : null);
+payload.failureCode = normalize(form.failureCode);
+payload.subtypeId   = form.subtypeId === "__NONE__" ? null : form.subtypeId;
+•	Ensure Subtype select never renders an empty value="". Use sentinel "__NONE__" for “None”.
+ 
+4) Fix naming mismatch
+•	Server must expect subtypeId in the JSON and map it to subtype_id at DB layer.
+•	If any code still expects equipmentSubtypeId, add a compat shim in the controller:
+
+const subtypeId = body.subtypeId ?? body.equipmentSubtypeId ?? null;
+ 
+5) Proof you’re done (post outputs)
+1.	Schema check
+
+\d evidence_library   -- show columns; confirm failure_code is nullable, only equipment_code is unique
+2.	Create success
+Post the request/response for creating an item without failureCode:
+
+{ "equipmentCode":"Moto001","groupId":"...","typeId":"...","subtypeId":null,"componentFailureMode":"bearing overheating" }
+Response should be 201 and row visible in Evidence Library (Subtype column blank if null, or name if chosen).
+3.	No hardcoding
+Show the code path where dropdowns call /api/taxonomy/* (no arrays/constants).
+4.	Regression test results
+o	API test: creation without failureCode succeeds.
+o	Schema test: failure_code is nullable.
+o	Validation test: subtypeId must belong to typeId.
+o	UI test: selecting “None” for Subtype saves null.
+5.	Cache hygiene (every change)
+o	Stop server, clear caches (.next/cache, dist, node_modules/.cache), npm ci && npm run build && npm start, test in Incognito.
+ 
+6) Optional (only if you want auto codes later)
+If we ever auto-generate failureCode, it must be deterministic and text (e.g., BRG-OVHT-001), but still not unique or required. For now, do not auto-generate; leave it optional and user-editable.
+

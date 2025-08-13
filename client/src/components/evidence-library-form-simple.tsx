@@ -163,11 +163,44 @@ export default function EvidenceLibraryFormSimple({ isOpen, onClose, item, onSuc
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...data,
+          // Field mapping: Form -> API contract
+          groupId: data.equipmentGroupId,
+          typeId: data.equipmentTypeId,
+          subtypeId: data.equipmentSubtypeId === "__NONE__" ? null : data.equipmentSubtypeId,
+          equipmentCode: data.equipmentCode,
+          componentFailureMode: data.componentFailureMode,
+          failureCode: data.failureCode && data.failureCode.trim() !== "" ? data.failureCode.trim() : null,
+          
+          // Compatibility for legacy fields
           equipmentGroupId: parseInt(data.equipmentGroupId),
           equipmentTypeId: parseInt(data.equipmentTypeId),
-          equipmentSubtypeId: data.equipmentSubtypeId ? parseInt(data.equipmentSubtypeId) : null,
-          riskRankingId: parseInt(data.riskRankingId),
+          equipmentSubtypeId: data.equipmentSubtypeId === "__NONE__" ? null : (data.equipmentSubtypeId ? parseInt(data.equipmentSubtypeId) : null),
+          riskRankingId: data.riskRankingId ? parseInt(data.riskRankingId) : null,
+          
+          // All other fields
+          requiredTrendDataEvidence: data.requiredTrendDataEvidence,
+          aiOrInvestigatorQuestions: data.aiOrInvestigatorQuestions,
+          attachmentsEvidenceRequired: data.attachmentsEvidenceRequired,
+          rootCauseLogic: data.rootCauseLogic,
+          primaryRootCause: data.primaryRootCause,
+          contributingFactor: data.contributingFactor,
+          latentCause: data.latentCause,
+          detectionGap: data.detectionGap,
+          confidenceLevel: data.confidenceLevel,
+          faultSignaturePattern: data.faultSignaturePattern,
+          applicableToOtherEquipment: data.applicableToOtherEquipment,
+          evidenceGapFlag: data.evidenceGapFlag,
+          diagnosticValue: data.diagnosticValue,
+          industryRelevance: data.industryRelevance,
+          evidencePriority: data.evidencePriority,
+          timeToCollect: data.timeToCollect,
+          collectionCost: data.collectionCost,
+          analysisComplexity: data.analysisComplexity,
+          seasonalFactor: data.seasonalFactor,
+          relatedFailureModes: data.relatedFailureModes,
+          prerequisiteEvidence: data.prerequisiteEvidence,
+          followupActions: data.followupActions,
+          industryBenchmark: data.industryBenchmark,
         }),
       });
     },
@@ -191,12 +224,12 @@ export default function EvidenceLibraryFormSimple({ isOpen, onClose, item, onSuc
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Basic validation
+    // Basic validation - failureCode is now optional
     if (!formData.equipmentGroupId || !formData.equipmentTypeId || !formData.componentFailureMode || 
-        !formData.equipmentCode || !formData.failureCode || !formData.riskRankingId) {
+        !formData.equipmentCode) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields (Group, Type, Component/Failure Mode, Equipment Code)",
         variant: "destructive",
       });
       return;
@@ -251,6 +284,21 @@ export default function EvidenceLibraryFormSimple({ isOpen, onClose, item, onSuc
             </div>
 
             <div>
+              <label className="text-sm font-medium">Equipment Subtype (Optional)</label>
+              <Select value={formData.equipmentSubtypeId || "__NONE__"} onValueChange={(value) => handleInputChange('equipmentSubtypeId', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select equipment subtype" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__NONE__">None</SelectItem>
+                  {equipmentSubtypes.map((subtype: any) => (
+                    <SelectItem key={subtype.id} value={subtype.id.toString()}>{subtype.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
               <label className="text-sm font-medium">Component/Failure Mode *</label>
               <Input
                 value={formData.componentFailureMode}
@@ -269,11 +317,11 @@ export default function EvidenceLibraryFormSimple({ isOpen, onClose, item, onSuc
             </div>
 
             <div>
-              <label className="text-sm font-medium">Failure Code *</label>
+              <label className="text-sm font-medium">Failure Code (Optional)</label>
               <Input
                 value={formData.failureCode}
                 onChange={(e) => handleInputChange('failureCode', e.target.value)}
-                placeholder="Enter failure code"
+                placeholder="Enter failure code (optional)"
               />
             </div>
 

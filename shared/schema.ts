@@ -142,14 +142,19 @@ export const evidenceLibrary = pgTable("evidence_library", {
   equipmentTypeId: integer("equipment_type_id"), // FK to equipmentTypes (nullable during migration)
   equipmentSubtypeId: integer("equipment_subtype_id"), // FK to equipmentSubtypes (optional)
   
+  // NEW FK COLUMNS (correct names at DB level)
+  groupId: text("group_id"), // FK to equipment_groups.id (TEXT)
+  typeId: text("type_id"), // FK to equipment_types.id (TEXT)  
+  subtypeId: text("subtype_id"), // FK to equipment_subtypes.id (TEXT, nullable)
+  
   // LEGACY FIELDS - maintained for import compatibility during transition
   equipmentGroup: varchar("equipment_group"), // Legacy field for CSV import mapping
   equipmentType: varchar("equipment_type"), // Legacy field for CSV import mapping
   subtype: varchar("subtype"), // Legacy field for CSV import mapping
   
   componentFailureMode: varchar("component_failure_mode").notNull(), // Component / Failure Mode
-  equipmentCode: varchar("equipment_code").notNull(), // Equipment Code (not unique per specification)
-  failureCode: varchar("failure_code").notNull().unique(), // Failure Code - UNIQUE IDENTIFIER for all user operations (Step 3)
+  equipmentCode: varchar("equipment_code").notNull().unique(), // Equipment Code - UNIQUE IDENTIFIER for all user operations
+  failureCode: varchar("failure_code"), // Failure Code - Optional text field (nullable, not unique)
   riskRankingId: integer("risk_ranking_id"), // FK to riskRankings (normalized)
   riskRanking: varchar("risk_ranking"), // Legacy field for import compatibility
   requiredTrendDataEvidence: text("required_trend_data_evidence"), // Required Trend Data / Evidence
