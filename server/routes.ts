@@ -943,7 +943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   console.log("[ROUTES] All taxonomy routes registered successfully");
 
-  app.post("/api/equipment-groups-commented-out", async (req, res) => {
+  app.post("/api/equipment-groups", async (req, res) => {
     console.log("[ROUTES] Equipment groups create route accessed - Universal Protocol Standard compliant");
     try {
       const { name } = req.body;
