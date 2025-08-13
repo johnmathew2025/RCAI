@@ -66,3 +66,5 @@ node_modules/
 # EXCEPT: keep your logo(s) — edit paths if your logo is elsewhere
 !public/logo.svg
 !public/logo.png
+
+.env*
