@@ -1,0 +1,130 @@
+Evidence Subtype not showing — structured fix (no hardcoding)
+0) Non-negotiables
+•	No hardcoded vocab (groups/types/subtypes). All selects load from the lookup APIs.
+•	Subtype is optional in Evidence, but when selected it must save subtypeId and display its name via a join.
+•	Never store empty string for optional selects; use null/undefined.
+ 
+1) Repair taxonomy links (root cause of “N/A”)
+1.1 Ensure FKs exist
+
+
+-- Types → Groups
+ALTER TABLE equipment_types
+  ADD COLUMN IF NOT EXISTS group_id TEXT,
+  ADD CONSTRAINT fk_types_group
+    FOREIGN KEY (group_id) REFERENCES equipment_groups(id) ON DELETE RESTRICT;
+
+-- Subtypes → Types
+ALTER TABLE equipment_subtypes
+  ADD COLUMN IF NOT EXISTS type_id TEXT,
+  ADD CONSTRAINT fk_subtypes_type
+    FOREIGN KEY (type_id) REFERENCES equipment_types(id) ON DELETE RESTRICT;
+1.2 Backfill missing links (manual, no guessing)
+•	Add an Assign Group action in Types Manager (PATCH /api/taxonomy/types/:id/assign-group).
+•	Add an Assign Type action in Subtypes Manager (PATCH /api/taxonomy/subtypes/:id/assign-type).
+•	After linking, no row in equipment_types should have group_id IS NULL, and no row in equipment_subtypesshould have type_id IS NULL.
+Quick checks to run & paste
+
+
+SELECT id,name FROM equipment_types     WHERE group_id IS NULL;
+SELECT id,name FROM equipment_subtypes  WHERE type_id  IS NULL;
+ 
+2) Evidence schema & saving
+Your Evidence items must actually store the chosen subtype:
+•	Backend model must include:
+o	group_id TEXT, type_id TEXT, subtype_id TEXT NULL
+•	Add/Edit Evidence modal:
+o	Subtype select shows “None” (virtual) + the types’ real subtypes.
+o	On submit:
+	If “None” → send "subtypeId": null
+	Else → send "subtypeId": "<subtype_id>"
+Client guard
+ts
+
+const onSubtypeChange = (v: string) => setSubtypeId(v === "__NONE__" ? undefined : v);
+Server validation
+•	If subtypeId is provided, verify it belongs to typeId (and that typeId belongs to groupId). Reject otherwise.
+ 
+3) Evidence list endpoint must join names
+The list API that drives the Evidence Library table must denormalize names from IDs (never guess from text fields).
+/Prisma shape
+
+
+SELECT
+  e.equipment_code,
+  e.group_id,   g.name AS group_name,
+  e.type_id,    t.name AS type_name,
+  e.subtype_id, s.name AS subtype_name,
+  -- ... other text fields ...
+FROM evidence_items e
+LEFT JOIN equipment_types      t ON t.id = e.type_id
+LEFT JOIN equipment_groups     g ON g.id = e.group_id
+LEFT JOIN equipment_subtypes   s ON s.id = e.subtype_id
+WHERE ...;
+Return to UI as:
+json
+
+{
+  "equipmentCode": "PMP-CEN-001",
+  "groupId": "grp_rot",
+  "groupName": "Rotating",
+  "typeId": "typ_pump",
+  "typeName": "Pump",
+  "subtypeId": "sub_centrifugal",
+  "subtypeName": "Centrifugal",
+  ...
+}
+ 
+4) Backfill existing Evidence rows (so current blanks fill in)
+If older rows only stored subtype text (or nothing), provide a one-off script:
+
+
+-- 4a) See evidence items that have a type but no subtype id
+SELECT equipment_code, type_id, subtype_id
+FROM evidence_items
+WHERE type_id IS NOT NULL AND (subtype_id IS NULL OR subtype_id = '');
+
+-- 4b) If you have a text column with subtype name (e.g. equipment_subtype), map it deterministically:
+-- (Only do this when there is an exact, single match for that type.)
+UPDATE evidence_items e
+SET subtype_id = s.id
+FROM equipment_subtypes s
+WHERE e.type_id = s.type_id
+  AND TRIM(LOWER(e.equipment_subtype)) = TRIM(LOWER(s.name))
+  AND (e.subtype_id IS NULL OR e.subtype_id = '');
+If multiple matches or no match → leave it null; fix via Edit Evidence.
+ 
+5) UI managers should never show “N/A”
+•	Types Manager list must show the Group name by joining on group_id. If missing, label as “Unlinked — Fix Required” with an action to assign.
+•	Subtypes Manager list must show Type and Group names by joining on type_id → group_id. Same “Unlinked” behavior if missing.
+•	No hardcoded “N/A”.
+ 
+6) Tests (add and paste results)
+•	API list test: evidence list returns subtypeName when subtype_id set; null when not.
+•	Hierarchy test: server rejects subtypeId that doesn’t belong to typeId.
+•	UI test: Add Evidence — choose Group=Rotating, Type=Pump, Subtype=Centrifugal ⇒ create ⇒ list shows Subtype “Centrifugal”.
+•	No-hardcoding test: dropdowns call taxonomy APIs; no local arrays of subtype names.
+ 
+7) Quick debug checklist for this specific row
+1.	In DB, check the evidence row:
+
+
+SELECT equipment_code, group_id, type_id, subtype_id FROM evidence_items WHERE equipment_code='PMP-CEN-001';
+o	If subtype_id is NULL → that’s why the table column is blank.
+2.	Check that subtype is correctly linked:
+
+
+SELECT s.id,s.name,t.id AS type_id,t.name AS type_name,g.id AS group_id,g.name AS group_name
+FROM equipment_subtypes s
+JOIN equipment_types t  ON t.id=s.type_id
+JOIN equipment_groups g ON g.id=t.group_id
+WHERE LOWER(s.name)='centrifugal';
+3.	If both are correct, hit the list endpoint response payload and confirm subtypeName is included; if not, the API isn’t joining.
+ 
+8) Acceptance criteria
+•	Managers show real parent names (no N/A), with working “Assign” actions.
+•	Add/Edit Evidence saves subtypeId properly; selecting “None” saves null.
+•	Evidence list shows Subtype name when set; blank only when truly null.
+•	Backfilled rows now display Subtype where resolvable.
+•	CI proves no hardcoded vocab; tests above pass.
+
