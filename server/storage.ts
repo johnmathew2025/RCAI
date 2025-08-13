@@ -1704,7 +1704,7 @@ export class DatabaseInvestigationStorage implements IInvestigationStorage {
     }
   }
 
-  // Equipment Taxonomy operations for Evidence Analysis Engine
+  // Equipment Taxonomy operations for Evidence Analysis Engine  
   async getAllEquipmentTypes(): Promise<EquipmentType[]> {
     try {
       const types = await db.select().from(equipmentTypes).orderBy(equipmentTypes.name);
@@ -1712,6 +1712,104 @@ export class DatabaseInvestigationStorage implements IInvestigationStorage {
     } catch (error) {
       console.error("[DatabaseInvestigationStorage] Error getting all equipment types:", error);
       return [];
+    }
+  }
+
+  // Enhanced hierarchy methods for FK compliance and subtype fix
+  async getAllEquipmentTypesWithGroups(): Promise<Array<EquipmentType & { groupName?: string; groupId?: number }>> {
+    try {
+      console.log("[DatabaseInvestigationStorage] Retrieving equipment types with group hierarchy");
+      const typesWithGroups = await db
+        .select({
+          id: equipmentTypes.id,
+          name: equipmentTypes.name,
+          equipmentGroupId: equipmentTypes.equipmentGroupId,
+          groupName: equipmentTypes.groupName,
+          isActive: equipmentTypes.isActive,
+          createdAt: equipmentTypes.createdAt,
+          updatedAt: equipmentTypes.updatedAt,
+          groupId: equipmentTypes.equipmentGroupId // Alias for consistency
+        })
+        .from(equipmentTypes)
+        .leftJoin(equipmentGroups, eq(equipmentTypes.equipmentGroupId, equipmentGroups.id))
+        .orderBy(equipmentTypes.name);
+      
+      return typesWithGroups;
+    } catch (error) {
+      console.error("[DatabaseInvestigationStorage] Error getting equipment types with groups:", error);
+      return [];
+    }
+  }
+
+  async getAllEquipmentSubtypesWithGroups(): Promise<Array<EquipmentSubtype & { 
+    typeName?: string; 
+    typeId?: number; 
+    groupName?: string; 
+    groupId?: number 
+  }>> {
+    try {
+      console.log("[DatabaseInvestigationStorage] Retrieving equipment subtypes with complete hierarchy");
+      const subtypesWithHierarchy = await db
+        .select({
+          id: equipmentSubtypes.id,
+          name: equipmentSubtypes.name,
+          equipmentTypeId: equipmentSubtypes.equipmentTypeId,
+          typeName: equipmentTypes.name,
+          groupName: equipmentGroups.name,
+          isActive: equipmentSubtypes.isActive,
+          createdAt: equipmentSubtypes.createdAt,
+          updatedAt: equipmentSubtypes.updatedAt,
+          typeId: equipmentSubtypes.equipmentTypeId, // Alias for consistency
+          groupId: equipmentTypes.equipmentGroupId // From joined type
+        })
+        .from(equipmentSubtypes)
+        .leftJoin(equipmentTypes, eq(equipmentSubtypes.equipmentTypeId, equipmentTypes.id))
+        .leftJoin(equipmentGroups, eq(equipmentTypes.equipmentGroupId, equipmentGroups.id))
+        .orderBy(equipmentSubtypes.name);
+      
+      return subtypesWithHierarchy;
+    } catch (error) {
+      console.error("[DatabaseInvestigationStorage] Error getting equipment subtypes with hierarchy:", error);
+      return [];
+    }
+  }
+
+  // Assignment methods for fixing orphaned records
+  async assignGroupToType(typeId: number, groupId: number): Promise<EquipmentType> {
+    try {
+      console.log(`[DatabaseInvestigationStorage] Assigning group ${groupId} to type ${typeId}`);
+      const [updatedType] = await db
+        .update(equipmentTypes)
+        .set({ 
+          equipmentGroupId: groupId,
+          updatedAt: new Date()
+        })
+        .where(eq(equipmentTypes.id, typeId))
+        .returning();
+      
+      return updatedType;
+    } catch (error) {
+      console.error("[DatabaseInvestigationStorage] Error assigning group to type:", error);
+      throw error;
+    }
+  }
+
+  async assignTypeToSubtype(subtypeId: number, typeId: number): Promise<EquipmentSubtype> {
+    try {
+      console.log(`[DatabaseInvestigationStorage] Assigning type ${typeId} to subtype ${subtypeId}`);
+      const [updatedSubtype] = await db
+        .update(equipmentSubtypes)
+        .set({ 
+          equipmentTypeId: typeId,
+          updatedAt: new Date()
+        })
+        .where(eq(equipmentSubtypes.id, subtypeId))
+        .returning();
+      
+      return updatedSubtype;
+    } catch (error) {
+      console.error("[DatabaseInvestigationStorage] Error assigning type to subtype:", error);
+      throw error;
     }
   }
 

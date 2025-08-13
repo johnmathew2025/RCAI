@@ -821,6 +821,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced subtypes endpoint with complete hierarchy joins
+  app.get("/api/taxonomy/subtypes-enhanced", async (req, res) => {
+    try {
+      console.log("[ROUTES] Enhanced taxonomy subtypes route accessed - Full hierarchy joins");
+      const { typeId, groupId, q } = req.query;
+      const active = req.query.active === 'true';
+      
+      const subtypesWithHierarchy = await investigationStorage.getAllEquipmentSubtypesWithGroups();
+      
+      // Filter by type ID if provided
+      let filteredSubtypes = typeId 
+        ? subtypesWithHierarchy.filter(s => s.typeId === parseInt(String(typeId)))
+        : subtypesWithHierarchy;
+      
+      // Filter by group ID if provided (through type)
+      if (groupId) {
+        filteredSubtypes = filteredSubtypes.filter(s => s.groupId === parseInt(String(groupId)));
+      }
+      
+      // Filter by active status
+      if (active) {
+        filteredSubtypes = filteredSubtypes.filter(s => s.isActive);
+      }
+      
+      // Filter by search query if provided
+      if (q) {
+        const searchTerm = String(q).toLowerCase();
+        filteredSubtypes = filteredSubtypes.filter(s => 
+          s.name.toLowerCase().includes(searchTerm) ||
+          s.typeName?.toLowerCase().includes(searchTerm) ||
+          s.groupName?.toLowerCase().includes(searchTerm)
+        );
+      }
+      
+      // Return with complete hierarchy information - NO N/A values
+      const result = filteredSubtypes.map(s => ({
+        id: s.id,
+        name: s.name,
+        typeId: s.typeId,
+        typeName: s.typeName || null,
+        groupId: s.groupId,
+        groupName: s.groupName || null,
+        isActive: s.isActive,
+        createdAt: s.createdAt,
+        status: s.typeId ? 'linked' : 'unlinked'
+      }));
+      
+      res.json(result);
+    } catch (error) {
+      console.error("[ROUTES] Error fetching equipment subtypes with hierarchy:", error);
+      res.status(500).json({ error: "Failed to fetch equipment subtypes" });
+    }
+  });
+
   // Assign parent endpoints for fixing orphaned records
   app.patch("/api/taxonomy/types/:id/assign-group", async (req, res) => {
     try {
@@ -836,6 +890,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[ROUTES] Error assigning group to type:", error);
       res.status(500).json({ error: "Failed to assign group to type" });
+    }
+  });
+
+  app.patch("/api/taxonomy/subtypes/:id/assign-type", async (req, res) => {
+    try {
+      const subtypeId = parseInt(req.params.id);
+      const { typeId } = req.body;
+      
+      if (!typeId) {
+        return res.status(400).json({ error: "typeId is required" });
+      }
+      
+      const result = await investigationStorage.assignTypeToSubtype(subtypeId, parseInt(typeId));
+      res.json(result);
+    } catch (error) {
+      console.error("[ROUTES] Error assigning type to subtype:", error);
+      res.status(500).json({ error: "Failed to assign type to subtype" });
     }
   });
 

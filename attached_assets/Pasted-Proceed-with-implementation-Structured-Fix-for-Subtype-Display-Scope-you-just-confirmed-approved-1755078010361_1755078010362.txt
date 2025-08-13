@@ -1,0 +1,50 @@
+Proceed with implementation — Structured Fix for Subtype Display
+Scope you just confirmed (approved):
+1.	DB FKs & repair
+o	equipment_types.group_id -> equipment_groups.id
+o	equipment_subtypes.type_id -> equipment_types.id
+o	Add “Assign Group/Type” endpoints & UI to fix orphans (no auto-create, no guessing).
+2.	Evidence schema & validation
+o	Evidence stores group_id, type_id, subtype_id (nullable).
+o	Server validation: subtypeId must belong to typeId; typeId must belong to groupId.
+o	Client: “None” maps to null (never empty string).
+3.	Evidence list API
+o	LEFT JOIN groups/types/subtypes.
+o	Return {groupId, groupName, typeId, typeName, subtypeId, subtypeName}.
+o	No “N/A” fallbacks; use real names or null.
+4.	UI managers
+o	All dropdowns load from taxonomy APIs (zero hardcoding).
+o	For orphans show “Unlinked — Fix Required” + Assign actions.
+o	Subtype select = “None” (virtual) + actual subtypes for the selected type.
+5.	Backfill + tests
+o	One-off backfill for legacy evidence rows (deterministic only).
+o	Tests for FKs, validation, joins, and “no hardcoding”.
+Non-negotiables:
+•	Zero hardcoded vocab (scanner + tests enforce).
+•	IDs only in storage; text only for display.
+•	Null for optional; never "".
+ 
+Deliverables & Proof (please post all of these):
+1.	SQL orphan checks (before/after)
+
+SELECT id,name FROM equipment_types    WHERE group_id IS NULL;
+SELECT id,name FROM equipment_subtypes WHERE type_id  IS NULL;
+SELECT equipment_code, group_id, type_id, subtype_id FROM evidence_items
+  WHERE type_id IS NOT NULL AND (subtype_id IS NULL OR subtype_id = '');
+2.	Sample JSON from APIs
+o	/api/taxonomy/types?groupId=... → show {id,name,groupId,groupName}
+o	/api/taxonomy/subtypes?typeId=... → show {id,name,typeId,typeName,groupId,groupName}
+o	/api/evidence?... → show subtypeName populated
+3.	Screenshots / short clip
+o	Types & Subtypes managers showing proper parent names (no “N/A”) and working Assign dialogs
+o	Add Evidence flow: Group=Rotating → Type=Pump → Subtype=Centrifugal → create → list shows Subtype=Centrifugal
+4.	Tests passing
+o	FK + validation tests
+o	Evidence list join test (subtypeName present when subtype set)
+o	UI test: subtype “None” saves null
+o	Anti-hardcoding test (dropdowns call APIs)
+5.	Cache hygiene (every deploy)
+o	Stop server, clear .next/cache / dist / node_modules/.cache
+o	npm ci && npm run build && npm start
+o	Verify in incognito (hard reload)
+
