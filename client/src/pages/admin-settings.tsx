@@ -422,30 +422,57 @@ export default function AdminSettings() {
     },
   });
 
-  // Test specific AI provider mutation - FIXED RESPONSE HANDLING
+  // Test specific AI provider mutation - STABLE TYPED ENVELOPE
   const testProviderMutation = useMutation({
-    mutationFn: async (id: number) => {
-      return await apiRequest(`/api/admin/ai-settings/${id}/test`, {
-        method: "POST",
-      });
+    mutationFn: async (id: number): Promise<import("@/lib/api").AITestResp> => {
+      const { postJSON } = await import("@/lib/api");
+      return postJSON<import("@/lib/api").AITestResp>(`/api/admin/ai-settings/${id}/test`);
     },
-    onSuccess: (data: any) => {
-      toast({
-        title: data.success ? "Test Successful" : "Test Failed",
-        description: data.message || "API test completed",
-        variant: data.success ? "default" : "destructive",
-      });
-      // Refresh the providers list
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-settings"] });
+    
+    onMutate: () => {
+      // Clear any previous error state optimistically
+      console.log('[UI] Starting provider test...');
     },
-    onError: (error) => {
+
+    onSuccess: async (data) => {
+      if (data.ok) {
+        toast({
+          title: "Test Successful",
+          description: data.message ?? `Test passed (${data.providerId} / ${data.modelId})`,
+        });
+        // Refresh the table to show updated lastTestedAt/testStatus
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-settings"] });
+      } else {
+        await handleAITestError(data);
+      }
+    },
+
+    onError: (err: unknown) => {
+      // Network/parse errors
       toast({
         title: "Test Failed",
-        description: "Failed to test AI provider",
+        description: "Request error. Please try again.",
         variant: "destructive",
       });
     },
   });
+
+  // Handle AI test errors with friendly messages (NO PROVIDER HARDCODING)
+  const handleAITestError = async (data: import("@/lib/api").AITestResp) => {
+    if (!("ok" in data) || data.ok) return;
+
+    const { getErrorMessage } = await import("@/lib/api");
+    const message = getErrorMessage(data as import("@/lib/api").AITestErr);
+
+    toast({
+      title: "Test Failed",
+      description: message,
+      variant: "destructive",
+    });
+    
+    // Refresh table to clear any stale state
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-settings"] });
+  };
 
   // Delete AI provider mutation - FIXED RESPONSE HANDLING  
   const deleteProviderMutation = useMutation({

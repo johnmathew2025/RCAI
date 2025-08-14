@@ -1,0 +1,138 @@
+Make the “Test” button show the correct result using a stable, typed response envelope, with no provider/model hardcoding. Both current and future providers should work unchanged.
+1) Server response contract (single envelope for all tests)
+•	Ensure both endpoints return the same JSON envelope:
+o	POST /api/admin/ai-settings/:id/test (row button)
+o	POST /api/admin/ai-status/test (card button)
+Response (2xx on success, 4xx/5xx on failure):
+{
+  "ok": true,
+  "status": 200,
+  "providerId": "openai",
+  "modelId": "gpt-4o-mini",
+  "message": "API test successful",
+  "meta": { "latencyMs": 123 }
+}
+Error (4xx/5xx):
+{
+  "ok": false,
+  "status": 401,
+  "providerId": "openai",
+  "modelId": "gpt-4o-mini",
+  "error": {
+    "code": "invalid_api_key",            // do not hardcode provider strings
+    "type": "auth",
+    "detail": "The API key is invalid or revoked"
+  }
+}
+No provider/model vocab hardcoded anywhere; providerId and modelId are just echo fields from the adapter.
+Server should always set HTTP status to match status in the envelope.
+2) Client: validate with a schema (no stringly-typed checks)
+•	Add a single schema (Zod or light manual) and a small fetch helper:
+// client/src/lib/api.ts
+export type AITestOk = {
+  ok: true;
+  status: number;
+  providerId: string;
+  modelId: string;
+  message?: string;
+  meta?: Record<string, unknown>;
+};
+export type AITestErr = {
+  ok: false;
+  status: number;
+  providerId?: string;
+  modelId?: string;
+  error: { code: string; type?: string; detail?: string };
+};
+export type AITestResp = AITestOk | AITestErr;
+
+export async function postJSON<T>(url: string, body?: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = (await res.json()) as T;
+  // If server somehow returned 2xx but ok=false, still treat as error at the caller
+  return data;
+}
+3) Client: unify the mutation logic (no provider/model hardcoding)
+•	In client/src/pages/admin-settings.tsx (or wherever the table lives):
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { postJSON, type AITestResp } from "@/lib/api";
+
+const queryClient = useQueryClient();
+
+const testProviderMutation = useMutation({
+  mutationFn: async (id: number): Promise<AITestResp> =>
+    postJSON<AITestResp>(`/api/admin/ai-settings/${id}/test`),
+
+  onMutate: () => {
+    // Clear any previous error toasts/badges optimistically
+    // e.g., set local row testStatus = 'testing'
+  },
+
+  onSuccess: (data) => {
+    if (data.ok) {
+      toast.success(
+        data.message ??
+          `Test passed (${data.providerId} / ${data.modelId})`
+      );
+      // refresh the table row to show lastTestedAt/testStatus from server
+      queryClient.invalidateQueries({ queryKey: ["ai-settings"] });
+    } else {
+      handleAIErr(data);
+    }
+  },
+
+  onError: (err: unknown) => {
+    // network/parse errors
+    toast.error("Test failed — request error");
+  },
+});
+
+function handleAIErr(data: AITestResp) {
+  if (!("ok" in data) || data.ok) return;
+
+  // Map common codes to friendly messages (no provider-specific text)
+  const map: Record<string, string> = {
+    invalid_api_key: "The API key is invalid or revoked.",
+    model_not_found:
+      `Model not available. Change the model or request access.`,
+    insufficient_quota:
+      "Quota or billing limit reached for this provider.",
+    rate_limit_exceeded:
+      "Rate limit exceeded. Try again shortly.",
+  };
+  const msg =
+    (data as any)?.error?.detail ??
+    map[(data as any)?.error?.code] ??
+    "AI test failed. See server logs for details.";
+
+  toast.error(msg);
+  // Leave the row in a clear failed state
+  queryClient.invalidateQueries({ queryKey: ["ai-settings"] });
+}
+No checks against provider names, only the generic code from the response envelope.
+4) Reset stale UI state
+•	When opening the Admin page, clear any local testFailed flags.
+•	Before each test, set a transient “Testing…” state so a prior failure doesn’t stick visually.
+5) Do not hardcode model lists in the UI
+•	If the form shows a Model field, populate it from:
+o	GET /api/ai/models?provider=<id> (server adapter proxies the provider catalog), not from a constant list in React.
+•	Validate on the server when saving or testing (the adapter decides).
+6) Contract tests (lightweight)
+•	Add two client tests (or run manual):
+1.	Simulate ok:true response → toast success, table refetch (query invalidation fired).
+2.	Simulate ok:false with error.code="model_not_found" → user sees the mapped friendly message.
+7) Safety checks (no hardcoding)
+•	Grep the codebase to ensure no provider/model strings are embedded in UI or server:
+o	No if (provider === 'openai') in React/TS.
+o	No arrays of model names in client.
+•	The only place provider vocabulary may appear is the env (AVAILABLE_AI_PROVIDERS) and DB rows.
+Acceptance criteria
+•	Pressing the row Test button shows a green success toast when backend returns ok:true, and the table updates with the new “Last Tested” time.
+•	Pressing Test AI Configuration shows the same behavior (uses the same envelope).
+•	Errors display friendly messages via error.code mapping (no provider hardcoding).
+•	Adding a new adapter/provider requires no change to this UI code.
+

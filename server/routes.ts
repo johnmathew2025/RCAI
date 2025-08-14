@@ -2983,32 +2983,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test specific AI provider - ADAPTER-BASED UNIFIED TESTING
+  // Test specific AI provider - STABLE RESPONSE ENVELOPE
   app.post("/api/admin/ai-settings/:id/test", async (req, res) => {
     try {
       const { id } = req.params;
-      console.log(`[ADMIN] Testing AI provider ${id} using adapter system`);
+      console.log(`[ADMIN] Testing AI provider ${id} using stable envelope`);
       
       // Get provider configuration using single source of truth
       const { getProviderConfigById } = await import("./ai-config");
       const providerConfig = await getProviderConfigById(parseInt(id));
       
       if (!providerConfig) {
-        return res.status(404).json({ 
-          success: false,
-          message: "AI provider not found" 
-        });
+        const envelope = {
+          ok: false,
+          status: 404,
+          error: {
+            code: "provider_not_found",
+            type: "config",
+            detail: "AI provider configuration not found"
+          }
+        };
+        return res.status(404).json(envelope);
       }
       
       // Use provider adapter for testing - NO HARDCODING
-      const { ProviderRegistry, mapErrorToUserMessage } = await import("./ai-provider-adapters");
+      const { ProviderRegistry } = await import("./ai-provider-adapters");
       const adapter = ProviderRegistry.getAdapter(providerConfig.provider);
       
       if (!adapter) {
-        return res.status(400).json({
-          success: false,
-          message: `Unsupported provider: ${providerConfig.provider}`
-        });
+        const envelope = {
+          ok: false,
+          status: 400,
+          providerId: providerConfig.provider,
+          modelId: providerConfig.modelId,
+          error: {
+            code: "unsupported_provider",
+            type: "config",
+            detail: `Provider not supported: ${providerConfig.provider}`
+          }
+        };
+        return res.status(400).json(envelope);
       }
       
       // Test using provider adapter
@@ -3019,35 +3033,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await investigationStorage.updateAiSettingsTestStatus(
         parseInt(id), 
         testStatus, 
-        testResult.ok ? undefined : mapErrorToUserMessage(testResult.body)
+        testResult.ok ? undefined : testResult.body?.error?.message || 'Test failed'
       );
       
-      // User-friendly response
-      const userMessage = testResult.ok 
-        ? `API test successful with model ${testResult.model}` 
-        : mapErrorToUserMessage(testResult.body);
-      
-      res.json({
-        success: testResult.ok,
-        message: userMessage,
-        testStatus,
-        timestamp: testResult.timestamp,
-        provider: testResult.provider,
-        model: testResult.model,
-        statusCode: testResult.status
-      });
-    } catch (error) {
+      // STABLE RESPONSE ENVELOPE - NO HARDCODING
+      if (testResult.ok) {
+        const envelope = {
+          ok: true,
+          status: 200,
+          providerId: providerConfig.provider,
+          modelId: providerConfig.modelId,
+          message: "API test successful",
+          meta: { 
+            latencyMs: Date.now() - new Date(testResult.timestamp).getTime(),
+            timestamp: testResult.timestamp
+          }
+        };
+        res.status(200).json(envelope);
+      } else {
+        // Map HTTP status codes to error codes
+        let errorCode = "unknown_error";
+        let errorType = "unknown";
+        
+        if (testResult.status === 401 || testResult.body?.error?.message?.includes('API key')) {
+          errorCode = "invalid_api_key";
+          errorType = "auth";
+        } else if (testResult.status === 404 || testResult.body?.error?.message?.includes('model')) {
+          errorCode = "model_not_found";
+          errorType = "config";
+        } else if (testResult.status === 429) {
+          errorCode = "rate_limit_exceeded";
+          errorType = "quota";
+        } else if (testResult.body?.error?.message?.includes('quota') || testResult.body?.error?.message?.includes('billing')) {
+          errorCode = "insufficient_quota";
+          errorType = "billing";
+        }
+        
+        const envelope = {
+          ok: false,
+          status: testResult.status,
+          providerId: providerConfig.provider,
+          modelId: providerConfig.modelId,
+          error: {
+            code: errorCode,
+            type: errorType,
+            detail: testResult.body?.error?.message || 'API test failed'
+          }
+        };
+        res.status(testResult.status).json(envelope);
+      }
+    } catch (error: any) {
       console.error('[ADMIN] Error testing AI provider:', error);
       
-      let userMessage = 'Failed to test AI provider configuration';
+      let errorCode = "server_error";
+      let detail = "Internal server error during test";
+      
       if (error.message && error.message.includes('Model is required')) {
-        userMessage = error.message;
+        errorCode = "invalid_config";
+        detail = error.message;
       }
       
-      res.status(400).json({ 
-        success: false,
-        message: userMessage
-      });
+      const envelope = {
+        ok: false,
+        status: 500,
+        error: {
+          code: errorCode,
+          type: "server",
+          detail
+        }
+      };
+      res.status(500).json(envelope);
     }
   });
 
@@ -3069,35 +3124,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Enhanced AI Configuration Test - ADAPTER-BASED UNIFIED TESTING
+  // Enhanced AI Configuration Test - STABLE RESPONSE ENVELOPE  
   app.post("/api/admin/ai-settings/test", async (req, res) => {
     try {
-      console.log(`[ADMIN] Testing active AI configuration using adapter system (NO HARDCODING)`);
+      console.log(`[ADMIN] Testing active AI configuration using stable envelope (NO HARDCODING)`);
       
       // Get active provider configuration using single source of truth
       const { getActiveProviderConfig } = await import("./ai-config");
       const activeConfig = await getActiveProviderConfig();
       
       if (!activeConfig) {
-        return res.json({
-          success: false,
-          message: 'No active AI provider configured',
-          configurationSource: 'admin-database',
-          testTimestamp: new Date().toISOString()
-        });
+        const envelope = {
+          ok: false,
+          status: 404,
+          error: {
+            code: "no_active_provider",
+            type: "config",
+            detail: "No active AI provider configured"
+          }
+        };
+        return res.status(404).json(envelope);
       }
       
       // Use provider adapter for testing - NO HARDCODING
-      const { ProviderRegistry, mapErrorToUserMessage } = await import("./ai-provider-adapters");
+      const { ProviderRegistry } = await import("./ai-provider-adapters");
       const adapter = ProviderRegistry.getAdapter(activeConfig.provider);
       
       if (!adapter) {
-        return res.status(400).json({
-          success: false,
-          message: `Unsupported provider: ${activeConfig.provider}`,
-          configurationSource: 'admin-database',
-          testTimestamp: new Date().toISOString()
-        });
+        const envelope = {
+          ok: false,
+          status: 400,
+          providerId: activeConfig.provider,
+          modelId: activeConfig.modelId,
+          error: {
+            code: "unsupported_provider",
+            type: "config",
+            detail: `Provider not supported: ${activeConfig.provider}`
+          }
+        };
+        return res.status(400).json(envelope);
       }
       
       // Test using provider adapter
@@ -3110,7 +3175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await investigationStorage.updateAiSettingsTestStatus(
         activeConfig.providerId, 
         testStatus, 
-        testResult.ok ? undefined : mapErrorToUserMessage(testResult.body)
+        testResult.ok ? undefined : testResult.body?.error?.message || 'Test failed'
       );
       
       // Log the test operation for compliance tracking
@@ -3121,40 +3186,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
         provider: activeConfig.provider
       });
       
-      // User-friendly error messages
-      const userMessage = testResult.ok 
-        ? `AI configuration tested successfully with ${activeConfig.provider} ${activeConfig.modelId}` 
-        : mapErrorToUserMessage(testResult.body);
-      
-      res.json({
-        success: testResult.ok,
-        message: userMessage,
-        configurationSource: 'admin-database',
-        testTimestamp: testResult.timestamp,
-        providerId: activeConfig.providerId,
-        provider: activeConfig.provider,
-        model: activeConfig.modelId,
-        statusCode: testResult.status
-      });
-    } catch (error) {
+      // STABLE RESPONSE ENVELOPE - NO HARDCODING
+      if (testResult.ok) {
+        const envelope = {
+          ok: true,
+          status: 200,
+          providerId: activeConfig.provider,
+          modelId: activeConfig.modelId,
+          message: "AI configuration test successful",
+          meta: { 
+            latencyMs: Date.now() - new Date(testResult.timestamp).getTime(),
+            timestamp: testResult.timestamp,
+            configurationSource: 'admin-database'
+          }
+        };
+        res.status(200).json(envelope);
+      } else {
+        // Map HTTP status codes to error codes
+        let errorCode = "unknown_error";
+        let errorType = "unknown";
+        
+        if (testResult.status === 401 || testResult.body?.error?.message?.includes('API key')) {
+          errorCode = "invalid_api_key";
+          errorType = "auth";
+        } else if (testResult.status === 404 || testResult.body?.error?.message?.includes('model')) {
+          errorCode = "model_not_found";
+          errorType = "config";
+        } else if (testResult.status === 429) {
+          errorCode = "rate_limit_exceeded";
+          errorType = "quota";
+        } else if (testResult.body?.error?.message?.includes('quota') || testResult.body?.error?.message?.includes('billing')) {
+          errorCode = "insufficient_quota";
+          errorType = "billing";
+        }
+        
+        const envelope = {
+          ok: false,
+          status: testResult.status,
+          providerId: activeConfig.provider,
+          modelId: activeConfig.modelId,
+          error: {
+            code: errorCode,
+            type: errorType,
+            detail: testResult.body?.error?.message || 'AI configuration test failed'
+          }
+        };
+        res.status(testResult.status).json(envelope);
+      }
+    } catch (error: any) {
       console.error('[ADMIN] Enhanced AI test failed:', error);
       
-      // Handle model validation errors (Requirement 1)
+      let errorCode = "server_error";
+      let detail = "Internal server error during configuration test";
+      
       if (error instanceof Error && error.message.includes('Model is required')) {
-        return res.status(400).json({ 
-          success: false,
-          message: error.message,
-          configurationSource: 'admin-database',
-          testTimestamp: new Date().toISOString()
-        });
+        errorCode = "invalid_config";
+        detail = error.message;
       }
       
-      res.status(500).json({ 
-        success: false, 
-        message: "Failed to test AI configuration",
-        configurationSource: 'admin-database',
-        testTimestamp: new Date().toISOString()
-      });
+      const envelope = {
+        ok: false,
+        status: 500,
+        error: {
+          code: errorCode,
+          type: "server",
+          detail
+        }
+      };
+      res.status(500).json(envelope);
     }
   });
 
