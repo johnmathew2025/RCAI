@@ -17,7 +17,7 @@ async function fetchVersion(): Promise<string | null> {
   }
 }
 
-export async function startVersionWatcher(intervalMs = 30_000) {
+export async function startVersionWatcher(intervalMs = 60_000) {
   // Initialize current version
   currentVersion = await fetchVersion();
   

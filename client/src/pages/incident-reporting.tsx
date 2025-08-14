@@ -90,9 +90,20 @@ export default function IncidentReporting() {
   const [timelineQuestions, setTimelineQuestions] = useState<any[]>([]);
   const [showTimeline, setShowTimeline] = useState(false);
   
+  // Form persistence - load saved draft from localStorage
+  const loadSavedDraft = () => {
+    try {
+      const saved = localStorage.getItem('incident-draft');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  };
+  
   const form = useForm<IncidentForm>({
     resolver: zodResolver(incidentSchema),
     defaultValues: {
+      ...{
       title: "",
       description: "",
       equipmentGroup: "",
