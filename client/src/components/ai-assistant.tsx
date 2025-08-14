@@ -111,7 +111,7 @@ export default function AIAssistant({
           suggestions.push({
             type: 'example',
             message: 'Examples: "P-101", "PUMP-A", "WTR-PMP-001". Check the equipment nameplate or P&ID drawings.',
-            value: equipmentType.includes('Pump') ? 'P-101' : 'EQ-001'
+            value: equipmentType.toLowerCase().includes('pump') ? 'P-101' : 'EQ-001'
           });
         }
         break;
@@ -125,7 +125,7 @@ export default function AIAssistant({
           suggestions.push({
             type: 'example',
             message: `For ${equipmentType || 'equipment'} failures, describe: What you saw, heard, or measured. When it started. How it progressed.`,
-            value: equipmentType.includes('Pump') ? 'Pump began making grinding noise, then seized completely. Water leaking from mechanical seal.' : 'Equipment stopped operating normally. Unusual noise detected.'
+            value: equipmentType.toLowerCase().includes('pump') ? 'Equipment began making grinding noise, then seized completely. Fluid leaking from seal.' : 'Equipment stopped operating normally. Unusual noise detected.'
           });
         }
         break;
@@ -144,7 +144,7 @@ export default function AIAssistant({
         break;
         
       case 'operating_mode':
-        if (equipmentType.includes('Pump')) {
+        if (equipmentType.toLowerCase().includes('pump')) {
           suggestions.push({
             type: 'context',
             message: 'Pump failure modes vary significantly based on operating state. Starting failures often indicate electrical issues, while running failures suggest mechanical problems.',
@@ -171,7 +171,7 @@ export default function AIAssistant({
     const equipmentType = evidenceData.equipment_type || '';
     const problemDescription = evidenceData.observed_problem || '';
     
-    if (equipmentType.includes('Centrifugal Pump')) {
+    if (equipmentType.toLowerCase().includes('pump')) {
       if (problemDescription.toLowerCase().includes('vibration')) {
         suggestions.push({
           type: 'next_step',

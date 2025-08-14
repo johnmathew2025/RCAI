@@ -35,7 +35,7 @@ describe('Options Safety', () => {
   });
 
   it('renders Add Evidence selects without empty values', () => {
-    const opts = [{ id: "abc", name: "Rotating" }, { id: " ", name: " " }]; // bad one will be filtered
+    const opts = [{ id: "abc", name: "ValidEquipment" }, { id: " ", name: " " }]; // bad one will be filtered
     const sanitized = sanitizeOptions(opts);
     expect(sanitized.every(o => o.id && o.name)).toBe(true);
   });

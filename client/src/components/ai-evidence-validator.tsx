@@ -168,7 +168,7 @@ export default function AIEvidenceValidator({
   const performEquipmentValidation = (data: any, prompts: AIPrompt[]) => {
     const equipmentType = data.equipment_type;
     
-    if (equipmentType === 'Centrifugal Pump') {
+    if (equipmentType.toLowerCase().includes('pump')) {
       // Pump-specific validation
       if (!data.operating_mode) {
         prompts.push({

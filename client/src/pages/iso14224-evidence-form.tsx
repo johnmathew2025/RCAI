@@ -70,27 +70,12 @@ const SUBCATEGORIES = {
   ]
 };
 
-const EQUIPMENT_TYPES = {
-  pumps: [
-    "centrifugal_single_stage",
-    "centrifugal_multi_stage", 
-    "reciprocating_simplex",
-    "reciprocating_duplex",
-    "rotary_screw",
-    "rotary_gear",
-    "diaphragm",
-    "submersible"
-  ],
-  valves: [
-    "gate_valve",
-    "globe_valve",
-    "ball_valve", 
-    "butterfly_valve",
-    "check_valve",
-    "control_valve",
-    "safety_relief_valve",
-    "plug_valve"
-  ]
+// DEPRECATED - USE DATABASE INSTEAD
+// This constant violates the anti-hardcoding policy
+// TODO: Replace with dynamic API calls to /api/equipment-subtypes
+const EQUIPMENT_TYPES_DEPRECATED = {
+  // Equipment subtypes should be loaded dynamically from database
+  // See /api/equipment-subtypes endpoint
 };
 
 // Evidence Collection Phases
@@ -406,7 +391,7 @@ export default function ISO14224EvidenceForm() {
           text: "Specific Equipment Type",
           type: "select",
           required: true,
-          options: answers.equipment_subcategory ? EQUIPMENT_TYPES[answers.equipment_subcategory as keyof typeof EQUIPMENT_TYPES] || [] : []
+          options: [] // TODO: Load dynamically from /api/equipment-subtypes
         },
         { id: "manufacturer", text: "Manufacturer", type: "text", required: false },
         { id: "installation_year", text: "Year of Installation", type: "number", required: false },

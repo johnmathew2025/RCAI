@@ -1,12 +1,16 @@
 /**
  * UNIVERSAL PROTOCOL STANDARD COMPLIANCE HEADER
  * Evidence Library Database Export - Real Records from PostgreSQL
- * Generated: 2025-07-27T03:37:33.086Z
- * Records: 100 active evidence library items
- * NO HARDCODING: All data from database schema
+ * DEPRECATED: This file contains hardcoded vocabulary and violates the anti-hardcoding policy
+ * USE INSTEAD: Dynamic database queries via API endpoints
+ * 
+ * @deprecated Use database-driven evidence library instead
  */
 
-export const EVIDENCE_LIBRARY_DATA = [
+// DEPRECATED - DO NOT USE - VIOLATES ANTI-HARDCODING POLICY
+// This array contains hardcoded equipment vocabulary and should not be used
+// Use database-driven evidence library API instead: /api/evidence-library
+export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   {
     "id": 1,
     "equipmentGroup": "Rotating",

@@ -271,7 +271,7 @@ export default function NLPAnalysisPage() {
                   <Label htmlFor="equipment-type">Equipment Type</Label>
                   <Input 
                     id="equipment-type"
-                    placeholder="e.g., Pumps, Motors, Valves"
+                    placeholder="e.g., equipment type from database"
                     value={questionParams.equipmentType}
                     onChange={(e) => setQuestionParams(prev => ({...prev, equipmentType: e.target.value}))}
                   />
