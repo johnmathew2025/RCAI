@@ -1,0 +1,250 @@
+Phase 1 — Database (Drizzle) & Constraints
+1.1 Drizzle table schemas (relationships, no hardcoding)
+// server/db/schema/equipment.ts
+import { pgTable, serial, varchar, boolean, timestamp, integer, uniqueIndex } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+
+export const equipmentGroups = pgTable("equipment_groups", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 64 }).notNull(),
+  name: varchar("name", { length: 128 }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  uqCode: uniqueIndex("uq_equipment_groups_code").on(t.code),
+}));
+
+export const equipmentTypes = pgTable("equipment_types", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => equipmentGroups.id, { onDelete: "restrict" }),
+  code: varchar("code", { length: 64 }).notNull(),
+  name: varchar("name", { length: 128 }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  uqCode: uniqueIndex("uq_equipment_types_code").on(t.code),
+}));
+
+export const equipmentSubtypes = pgTable("equipment_subtypes", {
+  id: serial("id").primaryKey(),
+  typeId: integer("type_id").notNull().references(() => equipmentTypes.id, { onDelete: "restrict" }),
+  code: varchar("code", { length: 64 }).notNull(),
+  name: varchar("name", { length: 128 }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  uqCode: uniqueIndex("uq_equipment_subtypes_code").on(t.code),
+}));
+
+export const equipmentRelations = relations(equipmentGroups, ({ many }) => ({
+  types: many(equipmentTypes),
+}));
+1.2 Migration: add FKs, backfill, enforce NOT NULL
+•	Make group_id on types and type_id on subtypes nullable, backfill with the real parent IDs, then SET NOT NULL.
+•	Replit must confirm zero NULLs remain before locking.
+SQL outline (adjust names):
+ALTER TABLE equipment_types ADD COLUMN IF NOT EXISTS group_id INT;
+ALTER TABLE equipment_subtypes ADD COLUMN IF NOT EXISTS type_id INT;
+
+-- Backfill examples (replace with your real mapping)
+UPDATE equipment_types t SET group_id = g.id
+FROM equipment_groups g
+WHERE t.group_id IS NULL AND t.name='Pumps' AND g.name='Rotating';
+
+UPDATE equipment_subtypes s SET type_id = t.id
+FROM equipment_types t
+WHERE s.type_id IS NULL AND s.name='Centrifugal' AND t.name='Pumps';
+
+ALTER TABLE equipment_types
+  ADD CONSTRAINT fk_types_group FOREIGN KEY (group_id) REFERENCES equipment_groups(id) ON DELETE RESTRICT;
+ALTER TABLE equipment_subtypes
+  ADD CONSTRAINT fk_subtypes_type FOREIGN KEY (type_id) REFERENCES equipment_types(id) ON DELETE RESTRICT;
+
+-- Lock after verifying no NULLs:
+ALTER TABLE equipment_types ALTER COLUMN group_id SET NOT NULL;
+ALTER TABLE equipment_subtypes ALTER COLUMN type_id SET NOT NULL;
+Acceptance (DB):
+SELECT COUNT(*) FROM equipment_types WHERE group_id IS NULL;   -- expect 0
+SELECT COUNT(*) FROM equipment_subtypes WHERE type_id IS NULL; -- expect 0
+________________________________________
+🌐 Phase 2 — Backend API (normalized, ID-based)
+2.1 Routes (Drizzle queries; single source of truth)
+// server/routes/equipment.ts
+import { Router } from "express";
+import { db } from "../db"; // drizzle db
+import { equipmentGroups, equipmentTypes, equipmentSubtypes } from "../db/schema/equipment";
+import { eq, and } from "drizzle-orm";
+
+const r = Router();
+
+r.get("/groups", async (req, res) => {
+  const active = req.query.active === "1";
+  const data = await db.select({
+    id: equipmentGroups.id, code: equipmentGroups.code, name: equipmentGroups.name,
+  }).from(equipmentGroups)
+    .where(active ? eq(equipmentGroups.isActive, true) : undefined)
+    .orderBy(equipmentGroups.name);
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, data });
+});
+
+r.get("/types", async (req, res) => {
+  const groupId = Number(req.query.groupId || 0);
+  if (!groupId) return res.status(400).json({ ok: false, error: { code: "bad_request", detail: "groupId required" } });
+  const active = req.query.active === "1";
+  const w = [eq(equipmentTypes.groupId, groupId)];
+  if (active) w.push(eq(equipmentTypes.isActive, true));
+  const data = await db.select({
+    id: equipmentTypes.id, code: equipmentTypes.code, name: equipmentTypes.name,
+  }).from(equipmentTypes).where(and(...w)).orderBy(equipmentTypes.name);
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, data });
+});
+
+r.get("/subtypes", async (req, res) => {
+  const typeId = Number(req.query.typeId || 0);
+  if (!typeId) return res.status(400).json({ ok: false, error: { code: "bad_request", detail: "typeId required" } });
+  const active = req.query.active === "1";
+  const w = [eq(equipmentSubtypes.typeId, typeId)];
+  if (active) w.push(eq(equipmentSubtypes.isActive, true));
+  const data = await db.select({
+    id: equipmentSubtypes.id, code: equipmentSubtypes.code, name: equipmentSubtypes.name,
+  }).from(equipmentSubtypes).where(and(...w)).orderBy(equipmentSubtypes.name);
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, data });
+});
+
+export default r;
+Wire it:
+// server/routes.ts
+import equipmentRouter from "./routes/equipment";
+app.use("/api/equipment", equipmentRouter);
+2.2 Validate chain on incident save
+async function validateEquipmentChain(groupId: number, typeId: number, subtypeId: number) {
+  const type = await db.query.equipmentTypes.findFirst({ where: eq(equipmentTypes.id, typeId), columns: { groupId: true }});
+  if (!type || type.groupId !== groupId) throw new Error("type_not_in_group");
+
+  const subtype = await db.query.equipmentSubtypes.findFirst({ where: eq(equipmentSubtypes.id, subtypeId), columns: { typeId: true }});
+  if (!subtype || subtype.typeId !== typeId) throw new Error("subtype_not_in_type");
+}
+2.3 Deprecate old endpoints cleanly
+•	Keep /api/cascading/equipment-* but return 410 Gone with:
+{ "ok": false, "error": { "code": "endpoint_deprecated", "detail": "Use /api/equipment/{groups|types|subtypes}" } }
+•	Add Location header to the new endpoint.
+________________________________________
+🧩 Phase 3 — Frontend (remove hardcoding, dependent queries)
+3.1 Kill all hardcoded vocab
+# Replit shell
+grep -RIn --exclude-dir=node_modules -E "Rotating|Pumps|Centrifugal|Reciprocating|Rotary|GROUP_OPTIONS|TYPE_OPTIONS|SUBTYPE_OPTIONS|EQUIPMENT_TYPES" client/src || true
+# Every hit must be deleted or converted to dynamic fetches
+3.2 Hooks
+// client/src/api/equipment.ts
+import { useQuery } from "@tanstack/react-query";
+type Opt = { id: number; code: string; name: string };
+
+export const useGroups = () => useQuery({
+  queryKey: ["equip","groups"],
+  queryFn: async (): Promise<Opt[]> => {
+    const r = await fetch("/api/equipment/groups?active=1", { cache: "no-store" });
+    const j = await r.json(); if (!j?.ok) throw new Error(j?.error?.detail || "load groups");
+    return j.data;
+  }
+});
+
+export const useTypes = (groupId?: number) => useQuery({
+  enabled: !!groupId,
+  queryKey: ["equip","types",groupId],
+  queryFn: async (): Promise<Opt[]> => {
+    const r = await fetch(`/api/equipment/types?groupId=${groupId}&active=1`, { cache: "no-store" });
+    const j = await r.json(); if (!j?.ok) throw new Error(j?.error?.detail || "load types");
+    return j.data;
+  }
+});
+
+export const useSubtypes = (typeId?: number) => useQuery({
+  enabled: !!typeId,
+  queryKey: ["equip","subtypes",typeId],
+  queryFn: async (): Promise<Opt[]> => {
+    const r = await fetch(`/api/equipment/subtypes?typeId=${typeId}&active=1`, { cache: "no-store" });
+    const j = await r.json(); if (!j?.ok) throw new Error(j?.error?.detail || "load subtypes");
+    return j.data;
+  }
+});
+3.3 Incident form wiring (IDs only)
+•	Store fields as equipment_group_id, equipment_type_id, equipment_subtype_id (numbers).
+•	Reset child when parent changes.
+Excerpt:
+const groupId = watch("equipment_group_id") || undefined;
+const typeId  = watch("equipment_type_id")  || undefined;
+
+const groups   = useGroups();
+const types    = useTypes(groupId);
+const subtypes = useSubtypes(typeId);
+
+// on parent change, reset child
+useEffect(() => { setValue("equipment_type_id", null); setValue("equipment_subtype_id", null); }, [groupId]);
+useEffect(() => { setValue("equipment_subtype_id", null); }, [typeId]);
+
+<Select
+  label="Equipment Group (Level 1)"
+  value={groupId}
+  onValueChange={(v) => setValue("equipment_group_id", Number(v))}
+  options={(groups.data ?? []).map(g => ({ value: g.id, label: g.name }))}
+/>
+
+<Select
+  label="Equipment Type (Level 2)"
+  disabled={!groupId}
+  value={typeId}
+  onValueChange={(v) => setValue("equipment_type_id", Number(v))}
+  options={(types.data ?? []).map(t => ({ value: t.id, label: t.name }))}
+/>
+
+<Select
+  label="Equipment Subtype (Level 3)"
+  disabled={!typeId}
+  value={watch("equipment_subtype_id") || undefined}
+  onValueChange={(v) => setValue("equipment_subtype_id", Number(v))}
+  options={(subtypes.data ?? []).map(s => ({ value: s.id, label: s.name }))}
+/>
+Form schema (zod) must use IDs:
+const IncidentSchema = z.object({
+  equipment_group_id: z.number().int().positive(),
+  equipment_type_id: z.number().int().positive(),
+  equipment_subtype_id: z.number().int().positive(),
+  // ...
+});
+ 
+✅ Phase 4 — Acceptance Checklist (what to verify)
+1.	Network panel (open incident form):
+o	See GET /api/equipment/groups?active=1
+o	After selecting a group: GET /api/equipment/types?groupId=...&active=1
+o	After selecting a type: GET /api/equipment/subtypes?typeId=...&active=1
+2.	UI options reflect Admin:
+o	If Admin → Subtypes only has Centrifugal and Induction under Type=Pumps / Group=Rotating:
+	Selecting Rotating shows Pumps.
+	Selecting Pumps shows Centrifugal and Induction only.
+3.	Hardcode scan returns no hits:
+4.	grep -RIn --exclude-dir=node_modules -E "Rotating|Pumps|Centrifugal|Reciprocating|Rotary|GROUP_OPTIONS|TYPE_OPTIONS|SUBTYPE_OPTIONS" client/src || true
+5.	DB integrity: counts of NULLs are zero (see SQL above).
+6.	Server guard: If you try to POST an incident with mismatched IDs, server returns:
+7.	{ "ok": false, "error": { "code": "type_not_in_group" } }
+or
+{ "ok": false, "error": { "code": "subtype_not_in_type" } }
+8.	Admin edit live-refresh: After deactivating a subtype, re-open incident form → it no longer shows (no redeploy).
+ 
+🛡️ Rollback & Safety
+•	Feature flag:
+o	EQUIPMENT_TAXONOMY_MODE=normalized|legacy
+o	Router chooses /api/equipment/* vs the old cascading provider. Default to normalized.
+•	Keep legacy endpoints returning 410 for 1–2 weeks, then remove.
+ 
+🧪 Tiny E2E test (Cypress-style idea)
+•	Seed: Group=Rotating, Type=Pumps(groupId=X), Subtypes=Centrifugal/Induction(typeId=Y)
+•	Visit incident form → select Rotating → Types list length === 1 (Pumps)
+•	Select Pumps → Subtypes length === 2 (Centrifugal, Induction)
+•	Submit with IDs → 200 {ok:true}
+
