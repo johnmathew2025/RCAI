@@ -58,6 +58,15 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   console.log("[ROUTES] Starting registerRoutes function - CRITICAL DEBUG");
   
+  // Version endpoint for cache-busting system - NO HARDCODING
+  app.get("/version.json", (_req, res) => {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.json({
+      version: Date.now(),
+      created: new Date().toISOString()
+    });
+  });
+  
   // MISSING ROUTE: Evidence Library Search with Elimination Logic
   app.get("/api/evidence-library/search-with-elimination", async (req, res) => {
     console.log("[ROUTES] Evidence library search with elimination route accessed - Universal Protocol Standard compliant");

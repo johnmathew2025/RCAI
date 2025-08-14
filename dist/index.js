@@ -1151,9 +1151,26 @@ var init_storage = __esm({
         try {
           const [setting] = await db.select().from(aiSettings).where(eq(aiSettings.id, id));
           if (!setting) return null;
+          let AIService2 = null;
+          let decryptedApiKey = null;
+          try {
+            const aiServiceModule = await Promise.resolve().then(() => (init_ai_service(), ai_service_exports));
+            AIService2 = aiServiceModule.AIService;
+            if (setting.encryptedApiKey) {
+              console.log(`[DatabaseInvestigationStorage] Attempting to decrypt API key for setting ${setting.id}`);
+              decryptedApiKey = AIService2.decrypt(setting.encryptedApiKey);
+              console.log(`[DatabaseInvestigationStorage] Successfully decrypted API key for setting ${setting.id}: YES (last 4 chars: ${decryptedApiKey.slice(-4)})`);
+            }
+          } catch (error) {
+            console.error(`[DatabaseInvestigationStorage] Failed to decrypt API key for setting ${setting.id}:`, error);
+          }
           return {
             id: setting.id,
             provider: setting.provider,
+            model: setting.model || setting.provider,
+            // Include model field - CRITICAL FOR UNIFIED TESTING
+            apiKey: decryptedApiKey,
+            // CRITICAL: Decrypted API key for unified test service
             encryptedApiKey: setting.encryptedApiKey,
             isActive: setting.isActive,
             createdBy: setting.createdBy,
@@ -7126,255 +7143,184 @@ var init_ai_status_monitor = __esm({
   }
 });
 
-// server/enhanced-ai-test-service.ts
-var enhanced_ai_test_service_exports = {};
-__export(enhanced_ai_test_service_exports, {
-  EnhancedAITestService: () => EnhancedAITestService
+// server/ai-config.ts
+var ai_config_exports = {};
+__export(ai_config_exports, {
+  getActiveProviderConfig: () => getActiveProviderConfig,
+  getProviderConfigById: () => getProviderConfigById
 });
-var EnhancedAITestService;
-var init_enhanced_ai_test_service = __esm({
-  "server/enhanced-ai-test-service.ts"() {
+async function getActiveProviderConfig() {
+  try {
+    const aiSettings2 = await investigationStorage.getAllAiSettings();
+    const activeProvider = aiSettings2.find((setting) => setting.isActive);
+    if (!activeProvider) {
+      console.log("[AI-CONFIG] No active provider found");
+      return null;
+    }
+    if (!activeProvider.model || activeProvider.model === activeProvider.provider) {
+      throw new Error(`Model is required for provider test. Please set a valid model id (e.g., gpt-4o-mini).`);
+    }
+    return {
+      providerId: activeProvider.id,
+      provider: activeProvider.provider,
+      modelId: activeProvider.model,
+      apiKeyDecrypted: activeProvider.apiKey
+    };
+  } catch (error) {
+    console.error("[AI-CONFIG] Error getting active provider config:", error);
+    throw error;
+  }
+}
+async function getProviderConfigById(providerId) {
+  try {
+    const setting = await investigationStorage.getAiSettingsById(providerId);
+    if (!setting) {
+      return null;
+    }
+    if (!setting.model || setting.model === setting.provider) {
+      throw new Error(`Model is required for provider test. Please set a valid model id (e.g., gpt-4o-mini).`);
+    }
+    return {
+      providerId: setting.id,
+      provider: setting.provider,
+      modelId: setting.model,
+      apiKeyDecrypted: setting.apiKey
+    };
+  } catch (error) {
+    console.error("[AI-CONFIG] Error getting provider config by ID:", error);
+    throw error;
+  }
+}
+var init_ai_config = __esm({
+  "server/ai-config.ts"() {
     "use strict";
     init_storage();
-    init_dynamic_ai_config();
-    init_ai_status_monitor();
-    init_universal_ai_config();
-    init_llm_security_validator();
-    EnhancedAITestService = class {
-      /**
-       * Test AI provider with comprehensive error handling and retry logic
-       */
-      static async testAIProvider(providerId, maxRetries = 3) {
-        const startTime = UniversalAIConfig.getPerformanceTime();
-        const timestamp2 = UniversalAIConfig.generateTimestamp();
-        console.log(`[Enhanced AI Test] Starting test for provider ID ${providerId} with ${maxRetries} max retries`);
+  }
+});
+
+// server/ai-provider-adapters.ts
+var ai_provider_adapters_exports = {};
+__export(ai_provider_adapters_exports, {
+  OpenAIAdapter: () => OpenAIAdapter,
+  ProviderRegistry: () => ProviderRegistry,
+  mapErrorToUserMessage: () => mapErrorToUserMessage
+});
+function mapErrorToUserMessage(errorBody) {
+  if (!errorBody || !errorBody.error) {
+    return "Unknown error occurred during API test";
+  }
+  const errorMessage = errorBody.error.message || errorBody.error.code || "";
+  if (errorMessage.includes("Invalid API key") || errorMessage.includes("Incorrect API key")) {
+    return "Invalid API key. Please check your API key and try again.";
+  }
+  if (errorMessage.includes("model") && errorMessage.includes("does not exist")) {
+    return "Invalid model specified. Please select a valid model for your provider.";
+  }
+  if (errorMessage.includes("quota") || errorMessage.includes("billing")) {
+    return "API quota exceeded or billing issue. Please check your provider account.";
+  }
+  if (errorMessage.includes("rate limit")) {
+    return "Rate limit exceeded. Please wait a moment and try again.";
+  }
+  return `API Error: ${errorMessage}`;
+}
+var OpenAIAdapter, ProviderRegistry;
+var init_ai_provider_adapters = __esm({
+  "server/ai-provider-adapters.ts"() {
+    "use strict";
+    OpenAIAdapter = class {
+      id = "openai";
+      async listModels(apiKey) {
         try {
-          const aiSettings2 = await investigationStorage.getAllAiSettings();
-          const provider = aiSettings2.find((setting) => setting.id === providerId);
-          if (!provider) {
-            return {
-              success: false,
-              message: "Provider not found",
-              error: `AI provider with ID ${providerId} not found in database`,
-              errorType: "unknown",
-              attempts: 0,
-              duration: UniversalAIConfig.getPerformanceTime() - startTime,
-              timestamp: timestamp2,
-              providerDetails: { id: providerId, provider: "unknown", model: "unknown" }
-            };
-          }
-          const providerDetails = {
-            id: provider.id,
-            provider: provider.provider,
-            model: provider.model
-          };
-          let lastError = null;
-          let attempts = 0;
-          for (attempts = 1; attempts <= maxRetries; attempts++) {
-            console.log(`[Enhanced AI Test] Attempt ${attempts}/${maxRetries} for provider ${provider.provider}`);
-            try {
-              const result = await this.performSingleTest(provider);
-              if (result.success) {
-                await this.updateTestResult(providerId, true, null);
-                AIStatusMonitor.logAIOperation({
-                  source: "admin-test",
-                  success: true,
-                  provider: provider.provider,
-                  model: provider.model
-                });
-                console.log(`[Enhanced AI Test] SUCCESS on attempt ${attempts}`);
-                return {
-                  success: true,
-                  message: `AI configuration test successful using ${provider.provider} ${provider.model}`,
-                  attempts,
-                  duration: UniversalAIConfig.getPerformanceTime() - startTime,
-                  timestamp: timestamp2,
-                  providerDetails
-                };
-              }
-              lastError = result.error;
-            } catch (error) {
-              console.log(`[Enhanced AI Test] Attempt ${attempts} failed:`, error.message);
-              lastError = error;
-              if (attempts < maxRetries) {
-                const waitTime = Math.pow(2, attempts - 1) * 1e3;
-                console.log(`[Enhanced AI Test] Waiting ${waitTime}ms before retry...`);
-                await new Promise((resolve) => setTimeout(resolve, waitTime));
-              }
+          const response = await fetch("https://api.openai.com/v1/models", {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
             }
-          }
-          const errorAnalysis = this.analyzeError(lastError);
-          await this.updateTestResult(providerId, false, errorAnalysis.error);
-          AIStatusMonitor.logAIOperation({
-            source: "admin-test",
-            success: false,
-            provider: provider.provider,
-            model: provider.model
           });
-          console.log(`[Enhanced AI Test] FAILED after ${attempts - 1} attempts: ${errorAnalysis.error}`);
-          return {
-            success: false,
-            message: `AI test failed after ${attempts - 1} attempts`,
-            error: errorAnalysis.error,
-            errorType: errorAnalysis.errorType,
-            attempts: attempts - 1,
-            duration: UniversalAIConfig.getPerformanceTime() - startTime,
-            timestamp: timestamp2,
-            providerDetails
-          };
-        } catch (error) {
-          console.error("[Enhanced AI Test] Test service error:", error);
-          return {
-            success: false,
-            message: "Test service error",
-            error: error.message,
-            errorType: "unknown",
-            attempts: 0,
-            duration: UniversalAIConfig.getPerformanceTime() - startTime,
-            timestamp: timestamp2,
-            providerDetails: { id: providerId, provider: "unknown", model: "unknown" }
-          };
-        }
-      }
-      /**
-       * Perform single test attempt
-       */
-      static async performSingleTest(provider) {
-        const timeoutMs = 3e4;
-        try {
-          validateLLMSecurity(provider.apiKey, provider.provider, "enhanced-ai-test-service.ts");
-          const testResult = await this.testProviderConnectivity(provider, timeoutMs);
-          if (testResult.success) {
-            console.log(`[Enhanced AI Test] API call successful`);
-            return { success: true };
-          } else {
-            return { success: false, error: new Error("Provider connectivity test failed") };
+          if (!response.ok) {
+            console.error("[OpenAIAdapter] Failed to list models:", response.status);
+            return ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"];
           }
+          const data = await response.json();
+          return data.data.filter((model) => model.id.includes("gpt")).map((model) => model.id).sort();
         } catch (error) {
-          return { success: false, error };
+          console.error("[OpenAIAdapter] Error listing models:", error);
+          return ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"];
         }
       }
-      /**
-       * Test provider connectivity without hardcoded imports
-       */
-      static async testProviderConnectivity(provider, timeoutMs = 3e4) {
+      async test(apiKey, modelId) {
+        const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
         try {
-          const aiClient = await DynamicAIConfig.createAIClient({
-            provider: provider.provider,
-            model: provider.model,
-            apiKey: provider.apiKey,
-            isActive: provider.isActive
+          console.log(`[OpenAIAdapter] Testing with model: ${modelId} (API key: ***${apiKey.slice(-4)})`);
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model: modelId,
+              messages: [{ role: "user", content: "Test message" }],
+              max_tokens: 1,
+              temperature: 0
+            })
           });
-          const response = await Promise.race([
-            aiClient.models ? aiClient.models.list() : Promise.resolve({ data: [] }),
-            new Promise(
-              (_, reject) => setTimeout(() => reject(new Error("Request timeout")), timeoutMs)
-            )
-          ]);
-          if (response && response.data && Array.isArray(response.data)) {
-            return { success: true };
-          } else {
-            return { success: false, error: new Error("Invalid API response format") };
-          }
+          const responseData = await response.json();
+          console.log(`[OpenAIAdapter] Test response - Status: ${response.status}, Model: ${modelId}`);
+          return {
+            ok: response.ok,
+            status: response.status,
+            body: responseData,
+            provider: "openai",
+            model: modelId,
+            timestamp: timestamp2
+          };
         } catch (error) {
-          return { success: false, error };
+          console.error("[OpenAIAdapter] Test error:", error);
+          return {
+            ok: false,
+            status: 500,
+            body: { error: error.message },
+            provider: "openai",
+            model: modelId,
+            timestamp: timestamp2
+          };
         }
       }
-      /**
-       * Analyze error and categorize for user-friendly display
-       */
-      static analyzeError(error) {
-        if (!error) {
-          return { error: "Unknown error occurred", errorType: "unknown" };
-        }
-        const errorMessage = error.message || error.toString();
-        const errorCode = error.code || error.status;
-        if (errorMessage.includes("timeout") || errorMessage.includes("ETIMEDOUT")) {
-          return {
-            error: "Request timeout - API server not responding within 30 seconds",
-            errorType: "timeout"
-          };
-        }
-        if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("network")) {
-          return {
-            error: "Network error - Cannot connect to OpenAI API servers",
-            errorType: "network_error"
-          };
-        }
-        if (errorCode === 401 || errorMessage.includes("Incorrect API key") || errorMessage.includes("invalid API key")) {
-          return {
-            error: "API key invalid - Please check your OpenAI API key",
-            errorType: "api_key_invalid"
-          };
-        }
-        if (errorCode === 429 || errorMessage.includes("rate limit") || errorMessage.includes("quota")) {
-          return {
-            error: "Rate limit exceeded - Too many requests or quota exhausted",
-            errorType: "rate_limit"
-          };
-        }
-        if (errorCode === 403 || errorMessage.includes("forbidden") || errorMessage.includes("access denied")) {
-          return {
-            error: "403 Forbidden - API key may not have required permissions",
-            errorType: "forbidden"
-          };
-        }
-        if (errorCode >= 500) {
-          return {
-            error: `Server error (${errorCode}) - OpenAI API servers experiencing issues`,
-            errorType: "network_error"
-          };
-        }
-        return {
-          error: `Unknown error: ${errorMessage}`,
-          errorType: "unknown"
-        };
-      }
-      /**
-       * Update test result in database - UNIVERSAL PROTOCOL STANDARD compliant
-       */
-      static async updateTestResult(providerId, success, errorMessage) {
+      async chat(apiKey, modelId, messages) {
         try {
-          const aiSettings2 = await investigationStorage.getAllAiSettings();
-          const provider = aiSettings2.find((setting) => setting.id === providerId);
-          if (provider) {
-            provider.testStatus = success ? "success" : "failed";
-            provider.lastTestedAt = /* @__PURE__ */ new Date();
-            await investigationStorage.saveAiSettings(provider);
-            console.log(`[Enhanced AI Test] Updated database - Provider ${providerId}: ${success ? "SUCCESS" : "FAILED"}`);
-          }
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model: modelId,
+              messages,
+              max_tokens: 1e3,
+              temperature: 0.7
+            })
+          });
+          return await response.json();
         } catch (error) {
-          console.error("[Enhanced AI Test] Failed to update database:", error);
+          console.error("[OpenAIAdapter] Chat error:", error);
+          throw error;
         }
       }
-      /**
-       * Live API ping test - simple connectivity check
-       */
-      static async performLivePing(providerId) {
-        const startTime = UniversalAIConfig.getPerformanceTime();
-        try {
-          const aiSettings2 = await investigationStorage.getAllAiSettings();
-          const provider = aiSettings2.find((setting) => setting.id === providerId);
-          if (!provider) {
-            return { success: false, latency: 0, error: "Provider not found" };
-          }
-          validateLLMSecurity(provider.apiKey, provider.provider, "enhanced-ai-test-service.ts");
-          const testResult = await this.testProviderConnectivity(provider, 1e4);
-          if (!testResult.success) {
-            throw testResult.error || new Error("Connectivity test failed");
-          }
-          const latency = UniversalAIConfig.getPerformanceTime() - startTime;
-          console.log(`[Enhanced AI Test] Live ping successful - ${latency}ms latency`);
-          return { success: true, latency };
-        } catch (error) {
-          const latency = UniversalAIConfig.getPerformanceTime() - startTime;
-          console.log(`[Enhanced AI Test] Live ping failed - ${latency}ms - ${error.message}`);
-          return {
-            success: false,
-            latency,
-            error: error.message
-          };
-        }
+    };
+    ProviderRegistry = class {
+      static adapters = /* @__PURE__ */ new Map();
+      static {
+        this.adapters.set("openai", new OpenAIAdapter());
+      }
+      static getAdapter(providerId) {
+        return this.adapters.get(providerId) || null;
+      }
+      static getSupportedProviders() {
+        return Array.from(this.adapters.keys());
       }
     };
   }
@@ -10066,6 +10012,13 @@ var upload = multer({
 });
 async function registerRoutes(app3) {
   console.log("[ROUTES] Starting registerRoutes function - CRITICAL DEBUG");
+  app3.get("/version.json", (_req, res) => {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.json({
+      version: Date.now(),
+      created: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  });
   app3.get("/api/evidence-library/search-with-elimination", async (req, res) => {
     console.log("[ROUTES] Evidence library search with elimination route accessed - Universal Protocol Standard compliant");
     try {
@@ -12390,28 +12343,104 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
   app3.post("/api/admin/ai-settings/:id/test", async (req, res) => {
     try {
       const { id } = req.params;
-      console.log(`[ADMIN] Testing AI provider ${id}`);
-      const setting = await investigationStorage.getAiSettingsById(parseInt(id));
-      if (!setting) {
-        return res.status(404).json({ message: "AI provider not found" });
+      console.log(`[ADMIN] Testing AI provider ${id} using stable envelope`);
+      const { getProviderConfigById: getProviderConfigById2 } = await Promise.resolve().then(() => (init_ai_config(), ai_config_exports));
+      const providerConfig = await getProviderConfigById2(parseInt(id));
+      if (!providerConfig) {
+        const envelope = {
+          ok: false,
+          status: 404,
+          error: {
+            code: "provider_not_found",
+            type: "config",
+            detail: "AI provider configuration not found"
+          }
+        };
+        return res.status(404).json(envelope);
       }
-      const { AIService: AIService2 } = await Promise.resolve().then(() => (init_ai_service(), ai_service_exports));
-      const testResult = await AIService2.testApiKey(setting.provider, setting.apiKey);
-      const testStatus = testResult.success ? "success" : "failed";
+      const { ProviderRegistry: ProviderRegistry2 } = await Promise.resolve().then(() => (init_ai_provider_adapters(), ai_provider_adapters_exports));
+      const adapter = ProviderRegistry2.getAdapter(providerConfig.provider);
+      if (!adapter) {
+        const envelope = {
+          ok: false,
+          status: 400,
+          providerId: providerConfig.provider,
+          modelId: providerConfig.modelId,
+          error: {
+            code: "unsupported_provider",
+            type: "config",
+            detail: `Provider not supported: ${providerConfig.provider}`
+          }
+        };
+        return res.status(400).json(envelope);
+      }
+      const testResult = await adapter.test(providerConfig.apiKeyDecrypted, providerConfig.modelId);
+      const testStatus = testResult.ok ? "success" : "failed";
       await investigationStorage.updateAiSettingsTestStatus(
         parseInt(id),
         testStatus,
-        testResult.error
+        testResult.ok ? void 0 : testResult.body?.error?.message || "Test failed"
       );
-      res.json({
-        success: testResult.success,
-        message: testResult.success ? "API key test successful" : `Test failed: ${testResult.error}`,
-        testStatus,
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      });
+      if (testResult.ok) {
+        const envelope = {
+          ok: true,
+          status: 200,
+          providerId: providerConfig.provider,
+          modelId: providerConfig.modelId,
+          message: "API test successful",
+          meta: {
+            latencyMs: Date.now() - new Date(testResult.timestamp).getTime(),
+            timestamp: testResult.timestamp
+          }
+        };
+        res.status(200).json(envelope);
+      } else {
+        let errorCode = "unknown_error";
+        let errorType = "unknown";
+        if (testResult.status === 401 || testResult.body?.error?.message?.includes("API key")) {
+          errorCode = "invalid_api_key";
+          errorType = "auth";
+        } else if (testResult.status === 404 || testResult.body?.error?.message?.includes("model")) {
+          errorCode = "model_not_found";
+          errorType = "config";
+        } else if (testResult.status === 429) {
+          errorCode = "rate_limit_exceeded";
+          errorType = "quota";
+        } else if (testResult.body?.error?.message?.includes("quota") || testResult.body?.error?.message?.includes("billing")) {
+          errorCode = "insufficient_quota";
+          errorType = "billing";
+        }
+        const envelope = {
+          ok: false,
+          status: testResult.status,
+          providerId: providerConfig.provider,
+          modelId: providerConfig.modelId,
+          error: {
+            code: errorCode,
+            type: errorType,
+            detail: testResult.body?.error?.message || "API test failed"
+          }
+        };
+        res.status(testResult.status).json(envelope);
+      }
     } catch (error) {
       console.error("[ADMIN] Error testing AI provider:", error);
-      res.status(500).json({ message: "Failed to test AI provider" });
+      let errorCode = "server_error";
+      let detail = "Internal server error during test";
+      if (error.message && error.message.includes("Model is required")) {
+        errorCode = "invalid_config";
+        detail = error.message;
+      }
+      const envelope = {
+        ok: false,
+        status: 500,
+        error: {
+          code: errorCode,
+          type: "server",
+          detail
+        }
+      };
+      res.status(500).json(envelope);
     }
   });
   app3.delete("/api/admin/ai-settings/:id", async (req, res) => {
@@ -12430,41 +12459,154 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
   });
   app3.post("/api/admin/ai-settings/test", async (req, res) => {
     try {
-      console.log(`[ADMIN] Testing AI configuration via Enhanced AI Test Service (NO HARDCODING)`);
-      const { EnhancedAITestService: EnhancedAITestService2 } = await Promise.resolve().then(() => (init_enhanced_ai_test_service(), enhanced_ai_test_service_exports));
-      const aiSettings2 = await investigationStorage.getAllAiSettings();
-      const activeProvider = aiSettings2.find((setting) => setting.isActive);
-      if (!activeProvider) {
-        return res.json({
-          success: false,
-          message: "No active AI provider configured",
-          configurationSource: "admin-database",
-          testTimestamp: (/* @__PURE__ */ new Date()).toISOString()
-        });
+      console.log(`[ADMIN] Testing active AI configuration using stable envelope (NO HARDCODING)`);
+      const { getActiveProviderConfig: getActiveProviderConfig2 } = await Promise.resolve().then(() => (init_ai_config(), ai_config_exports));
+      const activeConfig = await getActiveProviderConfig2();
+      if (!activeConfig) {
+        const envelope = {
+          ok: false,
+          status: 404,
+          error: {
+            code: "no_active_provider",
+            type: "config",
+            detail: "No active AI provider configured"
+          }
+        };
+        return res.status(404).json(envelope);
       }
-      const testResult = await EnhancedAITestService2.testAIProvider(activeProvider.id);
-      console.log(`[ADMIN] Enhanced test result: ${testResult.success ? "SUCCESS" : "FAILED"} - Provider: ${activeProvider.provider}`);
+      const { ProviderRegistry: ProviderRegistry2 } = await Promise.resolve().then(() => (init_ai_provider_adapters(), ai_provider_adapters_exports));
+      const adapter = ProviderRegistry2.getAdapter(activeConfig.provider);
+      if (!adapter) {
+        const envelope = {
+          ok: false,
+          status: 400,
+          providerId: activeConfig.provider,
+          modelId: activeConfig.modelId,
+          error: {
+            code: "unsupported_provider",
+            type: "config",
+            detail: `Provider not supported: ${activeConfig.provider}`
+          }
+        };
+        return res.status(400).json(envelope);
+      }
+      const testResult = await adapter.test(activeConfig.apiKeyDecrypted, activeConfig.modelId);
+      console.log(`[ADMIN] Enhanced test result: ${testResult.ok ? "SUCCESS" : "FAILED"} - Provider: ${activeConfig.provider}, Model: ${activeConfig.modelId}`);
+      const testStatus = testResult.ok ? "success" : "failed";
+      await investigationStorage.updateAiSettingsTestStatus(
+        activeConfig.providerId,
+        testStatus,
+        testResult.ok ? void 0 : testResult.body?.error?.message || "Test failed"
+      );
       const { AIStatusMonitor: AIStatusMonitor2 } = await Promise.resolve().then(() => (init_ai_status_monitor(), ai_status_monitor_exports));
       AIStatusMonitor2.logAIOperation({
         source: "admin-enhanced-test",
-        success: testResult.success,
-        provider: activeProvider.provider
+        success: testResult.ok,
+        provider: activeConfig.provider
       });
-      res.json({
-        success: testResult.success,
-        message: testResult.success ? "AI configuration tested successfully" : testResult.error || "Test failed",
-        configurationSource: "admin-database",
-        testTimestamp: (/* @__PURE__ */ new Date()).toISOString(),
-        providerId: activeProvider.id,
-        provider: activeProvider.provider
-      });
+      if (testResult.ok) {
+        const envelope = {
+          ok: true,
+          status: 200,
+          providerId: activeConfig.provider,
+          modelId: activeConfig.modelId,
+          message: "AI configuration test successful",
+          meta: {
+            latencyMs: Date.now() - new Date(testResult.timestamp).getTime(),
+            timestamp: testResult.timestamp,
+            configurationSource: "admin-database"
+          }
+        };
+        res.status(200).json(envelope);
+      } else {
+        let errorCode = "unknown_error";
+        let errorType = "unknown";
+        if (testResult.status === 401 || testResult.body?.error?.message?.includes("API key")) {
+          errorCode = "invalid_api_key";
+          errorType = "auth";
+        } else if (testResult.status === 404 || testResult.body?.error?.message?.includes("model")) {
+          errorCode = "model_not_found";
+          errorType = "config";
+        } else if (testResult.status === 429) {
+          errorCode = "rate_limit_exceeded";
+          errorType = "quota";
+        } else if (testResult.body?.error?.message?.includes("quota") || testResult.body?.error?.message?.includes("billing")) {
+          errorCode = "insufficient_quota";
+          errorType = "billing";
+        }
+        const envelope = {
+          ok: false,
+          status: testResult.status,
+          providerId: activeConfig.provider,
+          modelId: activeConfig.modelId,
+          error: {
+            code: errorCode,
+            type: errorType,
+            detail: testResult.body?.error?.message || "AI configuration test failed"
+          }
+        };
+        res.status(testResult.status).json(envelope);
+      }
     } catch (error) {
       console.error("[ADMIN] Enhanced AI test failed:", error);
+      let errorCode = "server_error";
+      let detail = "Internal server error during configuration test";
+      if (error instanceof Error && error.message.includes("Model is required")) {
+        errorCode = "invalid_config";
+        detail = error.message;
+      }
+      const envelope = {
+        ok: false,
+        status: 500,
+        error: {
+          code: errorCode,
+          type: "server",
+          detail
+        }
+      };
+      res.status(500).json(envelope);
+    }
+  });
+  app3.get("/api/ai/models", async (req, res) => {
+    try {
+      const { provider } = req.query;
+      if (!provider) {
+        return res.status(400).json({
+          success: false,
+          message: "Provider parameter is required"
+        });
+      }
+      console.log(`[AI] Loading models for provider: ${provider} (NO HARDCODING)`);
+      const aiSettings2 = await investigationStorage.getAllAiSettings();
+      const providerSetting = aiSettings2.find((setting) => setting.provider === provider);
+      if (!providerSetting || !providerSetting.apiKey) {
+        return res.status(404).json({
+          success: false,
+          message: `No API key configured for provider: ${provider}`
+        });
+      }
+      const { ProviderRegistry: ProviderRegistry2 } = await Promise.resolve().then(() => (init_ai_provider_adapters(), ai_provider_adapters_exports));
+      const adapter = ProviderRegistry2.getAdapter(provider);
+      if (!adapter) {
+        return res.status(400).json({
+          success: false,
+          message: `Unsupported provider: ${provider}`,
+          supportedProviders: ProviderRegistry2.getSupportedProviders()
+        });
+      }
+      const models = await adapter.listModels(providerSetting.apiKey);
+      res.json({
+        success: true,
+        provider,
+        models,
+        count: models.length,
+        source: "dynamic-api"
+      });
+    } catch (error) {
+      console.error("[AI] Error loading models:", error);
       res.status(500).json({
         success: false,
-        message: "Failed to test AI configuration",
-        configurationSource: "admin-database",
-        testTimestamp: (/* @__PURE__ */ new Date()).toISOString()
+        message: "Failed to load models"
       });
     }
   });
@@ -15031,7 +15173,25 @@ app2.use((req, res, next) => {
       if (req.path.startsWith("/api/")) {
         return next();
       }
-      return express2.static(publicPath)(req, res, next);
+      return express2.static(publicPath, {
+        // Cache headers to prevent stale cache issues
+        setHeaders: (res2, filePath) => {
+          if (filePath.endsWith(".html")) {
+            res2.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            res2.setHeader("Pragma", "no-cache");
+            res2.setHeader("Expires", "0");
+          } else {
+            res2.setHeader(
+              "Cache-Control",
+              "public, max-age=31536000, immutable"
+            );
+          }
+        }
+      })(req, res, next);
+    });
+    app2.get(["/", "/index.html"], (_req, res) => {
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.sendFile(path5.join(publicPath, "index.html"));
     });
     app2.get("*", (req, res, next) => {
       if (req.path.startsWith("/api/")) {
@@ -15039,6 +15199,7 @@ app2.use((req, res, next) => {
         return res.status(404).json({ error: "API endpoint not found", path: req.path });
       }
       const indexPath = path5.resolve(publicPath, "index.html");
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate");
       res.sendFile(indexPath);
     });
     server = createServer2(app2);

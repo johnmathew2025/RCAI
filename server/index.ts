@@ -120,17 +120,38 @@ app.use((req, res, next) => {
       throw error;
     }
     
-    // AFTER API routes: Serve static assets from built React app - but NOT for API routes
+    // AFTER API routes: Serve static assets with proper cache headers
     const publicPath = path.resolve(__dirname, '../dist/public');
     app.use((req, res, next) => {
       // Skip static file serving for API routes
       if (req.path.startsWith('/api/')) {
         return next();
       }
-      return express.static(publicPath)(req, res, next);
+      return express.static(publicPath, {
+        // Cache headers to prevent stale cache issues
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith(".html")) {
+            // HTML must never be cached
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            res.setHeader("Pragma", "no-cache");
+            res.setHeader("Expires", "0");
+          } else {
+            // Hashed assets can be cached long-term
+            res.setHeader(
+              "Cache-Control",
+              "public, max-age=31536000, immutable"
+            );
+          }
+        },
+      })(req, res, next);
     });
     
-    // LAST: Handle React Router - serve index.html for non-API routes only (MUST be last)
+    // LAST: Handle React Router - serve index.html with no-cache headers (MUST be last)
+    app.get(["/", "/index.html"], (_req, res) => {
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.sendFile(path.join(publicPath, "index.html"));
+    });
+    
     app.get('*', (req, res, next) => {
       // API routes should never reach here
       if (req.path.startsWith('/api/')) {
@@ -138,8 +159,9 @@ app.use((req, res, next) => {
         return res.status(404).json({ error: 'API endpoint not found', path: req.path });
       }
       
-      // Serve React app for all other routes
+      // Serve React app for all other routes with no-cache headers
       const indexPath = path.resolve(publicPath, 'index.html');
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate");
       res.sendFile(indexPath);
     });
     

@@ -1,0 +1,134 @@
+Instruction to Replit agent — “Make stale cache impossible”
+1) Server: set cache headers correctly (HTML no-store, assets immutable)
+In the Express server that serves the built frontend (where we call express.static(dist/public)), add per-file headers:
+// server/index.ts (or wherever we serve the built app)
+import path from "path";
+import express from "express";
+
+const app = express();
+const distDir = path.resolve(__dirname, "../dist/public");
+
+app.use(
+  express.static(distDir, {
+    // Let Vite’s hashed assets cache “forever”
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".html")) {
+        // HTML must never be cached
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+      } else {
+        // Hashed assets can be cached long-term
+        res.setHeader(
+          "Cache-Control",
+          "public, max-age=31536000, immutable"
+        );
+      }
+    },
+  })
+);
+
+// Also ensure the HTML entry itself bypasses cache on direct hits:
+app.get(["/", "/index.html"], (_req, res) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.sendFile(path.join(distDir, "index.html"));
+});
+This guarantees the browser always fetches fresh index.html, which points to the newest hash-named JS/CSS files.
+2) Build a version beacon and auto-reload when it changes
+At build time write a version.json (or inject a Vite env var). Easiest: add a tiny script to Vite build.
+// vite.config.ts
+import { defineConfig } from "vite";
+import { writeFileSync, mkdirSync } from "fs";
+import path from "path";
+
+export default defineConfig({
+  build: {
+    outDir: "dist/public",
+    sourcemap: true,
+  },
+  plugins: [
+    {
+      name: "emit-build-version",
+      closeBundle() {
+        const dir = path.resolve(__dirname, "dist/public");
+        mkdirSync(dir, { recursive: true });
+        const version = {
+          version: Date.now(), // or commit hash if available
+        };
+        writeFileSync(path.join(dir, "version.json"), JSON.stringify(version));
+      },
+    },
+  ],
+});
+On the client, poll the beacon with cache: 'no-store' and reload if it changes:
+// client/src/lib/version-watch.ts
+let currentVersion: string | null = null;
+
+async function fetchVersion(): Promise<string | null> {
+  try {
+    const res = await fetch("/version.json", { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return String(data?.version ?? "");
+  } catch {
+    return null;
+  }
+}
+
+export async function startVersionWatcher(intervalMs = 30_000) {
+  currentVersion = await fetchVersion();
+  setInterval(async () => {
+    const v = await fetchVersion();
+    if (v && currentVersion && v !== currentVersion) {
+      // Version changed -> force hard reload
+      window.location.reload();
+    }
+  }, intervalMs);
+
+  // Also check on tab focus (fast feedback)
+  window.addEventListener("focus", async () => {
+    const v = await fetchVersion();
+    if (v && currentVersion && v !== currentVersion) {
+      window.location.reload();
+    }
+  });
+}
+Call it once in your app bootstrap (e.g., main.tsx):
+import { startVersionWatcher } from "@/lib/version-watch";
+startVersionWatcher();
+3) If a Service Worker is (now or later) used — auto-update
+If you introduce a SW (e.g., Vite PWA), ensure:
+// On registration result
+navigator.serviceWorker.addEventListener("controllerchange", () => {
+  // When a new SW takes control, reload to get fresh assets
+  window.location.reload();
+});
+
+// In the SW update flow
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+Or simply unregister any old rogue SW now (one-time cleanup):
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) =>
+    regs.forEach((r) => r.unregister())
+  );
+}
+4) Dev convenience: disable Vite dev cache for HTML
+For development previews where caching can still bite, you can inject:
+// development only, if relevant
+app.use((_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+5) Acceptance tests
+•	Reload the Admin page after a fresh build → no old UI strings appear.
+•	Deploy a trivial client change (e.g., console.log) → version.json value changes → the open tab auto-reloadswithin ~30s or on tab focus.
+•	Network panel shows index.html not cached, assets cached with immutable.
+6) Keep it hardcoding-free
+•	No provider/model names in any of the above.
+•	Version comes from timestamp/commit; nothing business-specific.
+•	Headers logic is purely based on file extension, not routes or product labels.
+ 
+
