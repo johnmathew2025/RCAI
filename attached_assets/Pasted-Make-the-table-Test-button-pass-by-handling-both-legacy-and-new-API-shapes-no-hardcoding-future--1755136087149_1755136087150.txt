@@ -1,0 +1,161 @@
+Make the table “Test” button pass by handling both legacy and new API shapes (no hardcoding, future-proof). The UI must work whether the server returns {success} or {ok}.
+1) Add a small normalizer (client) — one place only
+Create client/src/lib/aiTestNormalize.ts:
+// Accept both legacy and new envelopes and return a single shape.
+export type AITestOk = {
+  ok: true;
+  status: number;
+  providerId?: string;
+  modelId?: string;
+  message?: string;
+  meta?: Record<string, unknown>;
+};
+export type AITestErr = {
+  ok: false;
+  status: number;
+  providerId?: string;
+  modelId?: string;
+  error: { code?: string; type?: string; detail?: string };
+};
+export type AITestResp = AITestOk | AITestErr;
+
+function toNumber(n: unknown, fallback = 200) {
+  return typeof n === "number" ? n : fallback;
+}
+
+// Normalizes:
+// 1) New: { ok, status, providerId, modelId, message, error }
+// 2) Legacy success: { success: true, message, ... }
+// 3) Legacy error:   { success: false, error: { code, message } } or { error: "..."}
+export function normalizeAITest(resp: any): AITestResp {
+  if (resp && typeof resp === "object") {
+    // New envelope already
+    if ("ok" in resp) {
+      return resp.ok
+        ? {
+            ok: true,
+            status: toNumber(resp.status, 200),
+            providerId: resp.providerId,
+            modelId: resp.modelId,
+            message: resp.message,
+            meta: resp.meta,
+          }
+        : {
+            ok: false,
+            status: toNumber(resp.status, 400),
+            providerId: resp.providerId,
+            modelId: resp.modelId,
+            error:
+              resp.error && typeof resp.error === "object"
+                ? {
+                    code: resp.error.code,
+                    type: resp.error.type,
+                    detail: resp.error.detail ?? resp.error.message,
+                  }
+                : { detail: String(resp.error ?? "Unknown error") },
+          };
+    }
+
+    // Legacy success
+    if (resp.success === true) {
+      return {
+        ok: true,
+        status: 200,
+        providerId: resp.provider || resp.providerId,
+        modelId: resp.model || resp.modelId,
+        message: resp.message,
+      };
+    }
+
+    // Legacy error variations
+    if (resp.success === false || "error" in resp) {
+      const errObj =
+        typeof resp.error === "object"
+          ? resp.error
+          : { detail: String(resp.error ?? resp.message ?? "Unknown error") };
+      return {
+        ok: false,
+        status: toNumber(resp.status, 400),
+        providerId: resp.provider || resp.providerId,
+        modelId: resp.model || resp.modelId,
+        error: {
+          code: errObj.code,
+          type: errObj.type,
+          detail: errObj.detail ?? errObj.message,
+        },
+      };
+    }
+  }
+
+  // Totally unexpected shape
+  return { ok: false, status: 500, error: { detail: "Malformed response" } };
+}
+2) Use the normalizer in the table “Test” mutation
+In client/src/pages/admin-settings.tsx:
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { normalizeAITest, type AITestResp } from "@/lib/aiTestNormalize";
+
+// helper fetch
+async function postJSON<T>(url: string, body?: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  return data as T;
+}
+
+const queryClient = useQueryClient();
+
+const testProviderMutation = useMutation({
+  mutationFn: async (id: number): Promise<AITestResp> => {
+    const raw = await postJSON(`/api/admin/ai-settings/${id}/test`);
+    return normalizeAITest(raw);
+  },
+
+  onMutate: () => {
+    // optionally set row to “testing…”
+  },
+
+  onSuccess: (data) => {
+    if (data.ok) {
+      toast.success(
+        data.message ??
+          `AI test passed ${data.providerId ? `(${data.providerId}${data.modelId ? ` / ${data.modelId}` : ""})` : ""}`
+      );
+    } else {
+      const map: Record<string, string> = {
+        invalid_api_key: "The API key is invalid or revoked.",
+        model_not_found: "Model is not available; select another or request access.",
+        insufficient_quota: "Quota/billing limit reached for this provider.",
+        rate_limit_exceeded: "Rate limit exceeded. Try again shortly.",
+      };
+      const msg =
+        data.error?.detail ??
+        (data.error?.code ? map[data.error.code] : undefined) ??
+        "AI test failed. See server logs for details.";
+      toast.error(msg);
+    }
+    // Always refresh the table row after test
+    queryClient.invalidateQueries({ queryKey: ["ai-settings"] });
+  },
+
+  onError: () => {
+    toast.error("AI test failed — request error");
+  },
+});
+This keeps things provider-agnostic and works for any future provider/model because we never check names — we only use the normalized envelope.
+3) (Optional but recommended) Normalize the top test too
+Wherever you call POST /api/admin/ai-status/test, wrap the response with normalizeAITest() as well. Then both buttons share identical logic.
+4) Clear stale UI state
+•	When opening Admin Settings, reset any local testFailed flags you may have set earlier.
+•	On each test, set a transient isTesting state to avoid flashing an old red banner.
+5) Verify & protect (no hardcoding)
+•	Grep to ensure there are no checks like if (provider === 'openai') in the client.
+•	Ensure model options (if any) still come from /api/ai/models?provider=<id>; no arrays in React.
+6) Quick test cases
+•	Backend returns new envelope {ok:true} → green toast + table refresh.
+•	Backend returns legacy {success:true} → also green toast.
+•	Backend returns error (e.g., invalid_api_key) → friendly toast from code mapping.
+
