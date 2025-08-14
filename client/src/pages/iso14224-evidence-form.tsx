@@ -28,9 +28,9 @@ import { apiRequest } from "@/lib/queryClient";
 
 // ISO 14224 Equipment Taxonomy (simplified for frontend)
 const EQUIPMENT_CATEGORIES = [
-  { id: "rotating", name: "Rotating Equipment", icon: <Activity className="h-4 w-4" /> },
-  { id: "static", name: "Static Equipment", icon: <Settings className="h-4 w-4" /> },
-  { id: "electrical", name: "Electrical Equipment", icon: <Activity className="h-4 w-4" /> },
+  { id: "rotating", name: "Rotating", icon: <Activity className="h-4 w-4" /> },
+  { id: "static", name: "Static", icon: <Settings className="h-4 w-4" /> },
+  { id: "electrical", name: "Electrical", icon: <Activity className="h-4 w-4" /> },
   { id: "instrumentation", name: "Instrumentation & Control", icon: <Settings className="h-4 w-4" /> },
   { id: "support", name: "Support Equipment", icon: <Wrench className="h-4 w-4" /> }
 ];
@@ -58,7 +58,7 @@ const SUBCATEGORIES = {
   ],
   instrumentation: [
     { id: "sensors", name: "Sensors & Transmitters" },
-    { id: "control_valves", name: "Control Valves" },
+    { id: "control_valves", name: "Control" },
     { id: "analyzers", name: "Analyzers" },
     { id: "plc_dcs", name: "PLC/DCS Systems" }
   ],

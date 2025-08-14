@@ -165,7 +165,7 @@ export default function TaxonomyManagement() {
             <CardHeader>
               <CardTitle>Equipment Groups</CardTitle>
               <CardDescription>
-                Top-level equipment classifications (e.g., Rotating, Static, Electrical)
+                Top-level equipment classifications from your database
               </CardDescription>
             </CardHeader>
             <CardContent>

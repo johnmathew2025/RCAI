@@ -152,15 +152,15 @@ export default function EvidenceLibraryAdmin() {
       filtered = filtered.filter((item: EvidenceLibraryItem) => {
         switch (filterBy) {
           case "rotating":
-            return item.equipmentGroup === "Rotating Equipment";
+            return item.equipmentGroup ?.toLowerCase().includes("rotating");
           case "electrical":
-            return item.equipmentGroup === "Electrical";
+            return item.equipmentGroup ?.toLowerCase().includes("electrical");
           case "control":
-            return item.equipmentGroup === "Control Valves";
+            return item.equipmentGroup ?.toLowerCase().includes("control");
           case "environmental":
-            return item.equipmentGroup === "Environmental";
+            return item.equipmentGroup ?.toLowerCase().includes("environmental");
           case "instrumentation":
-            return item.equipmentGroup === "Instrumentation";
+            return item.equipmentGroup ?.toLowerCase().includes("instrumentation");
           default:
             return true;
         }
@@ -172,15 +172,15 @@ export default function EvidenceLibraryAdmin() {
       filtered = filtered.filter((item: EvidenceLibraryItem) => {
         switch (filterByCategory) {
           case "rotating":
-            return item.equipmentGroup === "Rotating Equipment";
+            return item.equipmentGroup ?.toLowerCase().includes("rotating");
           case "electrical":
-            return item.equipmentGroup === "Electrical";
+            return item.equipmentGroup ?.toLowerCase().includes("electrical");
           case "control":
-            return item.equipmentGroup === "Control Valves";
+            return item.equipmentGroup ?.toLowerCase().includes("control");
           case "environmental":
-            return item.equipmentGroup === "Environmental";
+            return item.equipmentGroup ?.toLowerCase().includes("environmental");
           case "instrumentation":
-            return item.equipmentGroup === "Instrumentation";
+            return item.equipmentGroup ?.toLowerCase().includes("instrumentation");
           default:
             return true;
         }
@@ -652,9 +652,9 @@ export default function EvidenceLibraryAdmin() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Equipment</SelectItem>
-                      <SelectItem value="rotating">Rotating Equipment</SelectItem>
-                      <SelectItem value="static">Static Equipment</SelectItem>
-                      <SelectItem value="electrical">Electrical Equipment</SelectItem>
+                      <SelectItem value="rotating">Rotating</SelectItem>
+                      <SelectItem value="static">Static</SelectItem>
+                      <SelectItem value="electrical">Electrical</SelectItem>
                       <SelectItem value="process">Process Equipment</SelectItem>
                     </SelectContent>
                   </Select>
@@ -721,9 +721,9 @@ export default function EvidenceLibraryAdmin() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Equipment Types</SelectItem>
-                          <SelectItem value="rotating">Rotating Equipment</SelectItem>
-                          <SelectItem value="static">Static Equipment</SelectItem>
-                          <SelectItem value="electrical">Electrical Systems</SelectItem>
+                          <SelectItem value="rotating">Rotating</SelectItem>
+                          <SelectItem value="static">Static</SelectItem>
+                          <SelectItem value="electrical">Electrical</SelectItem>
                           <SelectItem value="process">Process Control</SelectItem>
                           <SelectItem value="instrumentation">Instrumentation</SelectItem>
                         </SelectContent>

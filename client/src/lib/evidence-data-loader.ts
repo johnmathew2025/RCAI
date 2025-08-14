@@ -13,9 +13,9 @@
 export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   {
     "id": 1,
-    "equipmentGroup": "Rotating",
-    "equipmentType": "Pumps",
-    "subtype": "Centrifugal",
+    "equipmentGroup": "DATABASE_DRIVEN",
+    "equipmentType": "DATABASE_DRIVEN",
+    "subtype": "DATABASE_DRIVEN",
     "componentFailureMode": "Seal Leak",
     "equipmentCode": "PMP-CEN-001",
     "failureCode": "F-001",
@@ -27,7 +27,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 2,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Centrifugal",
     "componentFailureMode": "Bearing Failure",
@@ -41,7 +41,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 3,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Centrifugal",
     "componentFailureMode": "Impeller Damage",
@@ -55,7 +55,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 4,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Centrifugal",
     "componentFailureMode": "Casing Crack",
@@ -69,7 +69,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 5,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Centrifugal",
     "componentFailureMode": "Motor Overload",
@@ -83,7 +83,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 6,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Centrifugal",
     "componentFailureMode": "Misalignment",
@@ -97,7 +97,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 7,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Reciprocating",
     "componentFailureMode": "Valve Plate Failure",
@@ -111,7 +111,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 8,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Reciprocating",
     "componentFailureMode": "Piston Ring Wear",
@@ -125,7 +125,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 9,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Reciprocating",
     "componentFailureMode": "Crankshaft Failure",
@@ -139,7 +139,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 10,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Reciprocating",
     "componentFailureMode": "Cylinder Liner Scoring",
@@ -153,7 +153,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 11,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Rotary",
     "componentFailureMode": "Gear Wear",
@@ -167,7 +167,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 12,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Rotary",
     "componentFailureMode": "Housing Crack",
@@ -181,7 +181,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 13,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Compressors",
     "subtype": "Centrifugal",
     "componentFailureMode": "Surge Event",
@@ -195,7 +195,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 14,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Compressors",
     "subtype": "Centrifugal",
     "componentFailureMode": "Seal Oil System Fault",
@@ -209,7 +209,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 15,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Compressors",
     "subtype": "Centrifugal",
     "componentFailureMode": "Rotor Rub",
@@ -223,7 +223,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 16,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Compressors",
     "subtype": "Reciprocating",
     "componentFailureMode": "Cylinder Leak",
@@ -237,7 +237,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 17,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Compressors",
     "subtype": "Reciprocating",
     "componentFailureMode": "Valve Failure",
@@ -251,7 +251,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 18,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Compressors",
     "subtype": "Reciprocating",
     "componentFailureMode": "Crosshead Pin Wear",
@@ -265,7 +265,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 19,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Turbines",
     "subtype": "Gas",
     "componentFailureMode": "Blade Erosion",
@@ -279,7 +279,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 20,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Turbines",
     "subtype": "Gas",
     "componentFailureMode": "Bearing Overheating",
@@ -293,7 +293,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 21,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Turbines",
     "subtype": "Gas",
     "componentFailureMode": "Combustion Instability",
@@ -307,7 +307,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 22,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Turbines",
     "subtype": "Steam",
     "componentFailureMode": "Steam Leak",
@@ -321,7 +321,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 23,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Turbines",
     "subtype": "Steam",
     "componentFailureMode": "Gland Packing Failure",
@@ -335,7 +335,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 24,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Fans/Blowers",
     "subtype": "Centrifugal",
     "componentFailureMode": "Impeller Imbalance",
@@ -349,7 +349,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 25,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Fans/Blowers",
     "subtype": "Centrifugal",
     "componentFailureMode": "Bearing Wear",
@@ -363,7 +363,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 26,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Fans/Blowers",
     "subtype": "Axial",
     "componentFailureMode": "Blade Crack",
@@ -377,7 +377,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 27,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Agitators/Mixers",
     "subtype": "Side Entry",
     "componentFailureMode": "Shaft Seal Leak",
@@ -391,7 +391,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 28,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Agitators/Mixers",
     "subtype": "Top Entry",
     "componentFailureMode": "Coupling Failure",
@@ -405,7 +405,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 29,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Heat Exchangers",
     "subtype": "Shell & Tube",
     "componentFailureMode": "Tube Leak",
@@ -419,7 +419,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 30,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Heat Exchangers",
     "subtype": "Shell & Tube",
     "componentFailureMode": "Tube Fouling",
@@ -433,7 +433,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 31,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Heat Exchangers",
     "subtype": "Plate",
     "componentFailureMode": "Plate Crack/Leak",
@@ -447,7 +447,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 32,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Boilers",
     "subtype": "Water Tube",
     "componentFailureMode": "Tube Rupture",
@@ -461,7 +461,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 33,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Boilers",
     "subtype": "Fire Tube",
     "componentFailureMode": "Soot Buildup",
@@ -475,7 +475,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 34,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Boilers",
     "subtype": "Fire Tube",
     "componentFailureMode": "Burner Failure",
@@ -489,7 +489,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 35,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Tanks",
     "subtype": "Atmospheric",
     "componentFailureMode": "Roof Corrosion/Leak",
@@ -503,7 +503,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 36,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Tanks",
     "subtype": "Pressurized",
     "componentFailureMode": "Shell Crack",
@@ -517,7 +517,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 37,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Columns/Towers",
     "subtype": "Distillation",
     "componentFailureMode": "Tray Damage/Flooding",
@@ -531,7 +531,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 38,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Columns/Towers",
     "subtype": "Absorber",
     "componentFailureMode": "Packing Blockage",
@@ -545,7 +545,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 39,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pressure Vessels",
     "subtype": "Separator",
     "componentFailureMode": "Internal Corrosion",
@@ -559,7 +559,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 40,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pressure Vessels",
     "subtype": "Reactor",
     "componentFailureMode": "Nozzle Crack",
@@ -573,7 +573,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 41,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Piping",
     "subtype": "Process",
     "componentFailureMode": "External Corrosion",
@@ -587,7 +587,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 42,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Piping",
     "subtype": "Process",
     "componentFailureMode": "Internal Erosion",
@@ -601,7 +601,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 43,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Piping",
     "subtype": "Process",
     "componentFailureMode": "Fatigue Crack",
@@ -615,7 +615,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 44,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Piping",
     "subtype": "Utility",
     "componentFailureMode": "Freeze Damage",
@@ -629,7 +629,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 45,
-    "equipmentGroup": "Static",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Piping",
     "subtype": "Steam",
     "componentFailureMode": "Expansion Joint Failure",
@@ -643,7 +643,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 46,
-    "equipmentGroup": "Electrical",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Switchgear",
     "subtype": "MV/LV",
     "componentFailureMode": "Breaker Fails to Open",
@@ -657,7 +657,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 47,
-    "equipmentGroup": "Electrical",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Switchgear",
     "subtype": "MV/LV",
     "componentFailureMode": "Contact Overheating",
@@ -671,7 +671,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 48,
-    "equipmentGroup": "Electrical",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Switchgear",
     "subtype": "GIS",
     "componentFailureMode": "SF6 Leak",
@@ -685,7 +685,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 49,
-    "equipmentGroup": "Electrical",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Motors",
     "subtype": "Induction",
     "componentFailureMode": "Winding Insulation Fail",
@@ -699,7 +699,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 50,
-    "equipmentGroup": "Electrical",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Motors",
     "subtype": "Induction",
     "componentFailureMode": "Rotor Bar Crack",
@@ -713,7 +713,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 51,
-    "equipmentGroup": "Electrical",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Motors",
     "subtype": "Synchronous",
     "componentFailureMode": "Out-of-Step/Sync",
@@ -727,7 +727,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 52,
-    "equipmentGroup": "Electrical",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Generators",
     "subtype": "Synchronous",
     "componentFailureMode": "Rotor Earth Fault",
@@ -741,7 +741,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 53,
-    "equipmentGroup": "Electrical",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Generators",
     "subtype": "Synchronous",
     "componentFailureMode": "Bearing Overheating",
@@ -811,8 +811,8 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 58,
-    "equipmentGroup": "Control Valves",
-    "equipmentType": "Control Valves",
+    "equipmentGroup": "DATABASE_DRIVEN",
+    "equipmentType": "DATABASE_DRIVEN",
     "subtype": "Pneumatic",
     "componentFailureMode": "Stem Stiction",
     "equipmentCode": "CVL-PNU-001",
@@ -825,8 +825,8 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 59,
-    "equipmentGroup": "Control Valves",
-    "equipmentType": "Control Valves",
+    "equipmentGroup": "DATABASE_DRIVEN",
+    "equipmentType": "DATABASE_DRIVEN",
     "subtype": "Electric",
     "componentFailureMode": "Motor Burnout",
     "equipmentCode": "CVL-ELC-001",
@@ -1021,7 +1021,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 73,
-    "equipmentGroup": "Fire & Safety",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Fire Protection Systems",
     "subtype": "Deluge",
     "componentFailureMode": "Valve WonÃt Open",
@@ -1035,7 +1035,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 74,
-    "equipmentGroup": "Fire & Safety",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Fire Protection Systems",
     "subtype": "Sprinkler",
     "componentFailureMode": "Plugged Head",
@@ -1049,7 +1049,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 75,
-    "equipmentGroup": "Fire & Safety",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Fire Protection Systems",
     "subtype": "Alarm Panel",
     "componentFailureMode": "Battery Backup Fail",
@@ -1063,7 +1063,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 76,
-    "equipmentGroup": "Fire & Safety",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Fire Protection Systems",
     "subtype": "Hydrant",
     "componentFailureMode": "Low Pressure",
@@ -1217,7 +1217,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 87,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Gearboxes",
     "subtype": "Parallel Shaft",
     "componentFailureMode": "Tooth Wear/Breakage",
@@ -1231,7 +1231,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 88,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Gearboxes",
     "subtype": "Planetary",
     "componentFailureMode": "Carrier Bearing Failure",
@@ -1245,7 +1245,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 89,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Expanders",
     "subtype": "Turbo-Expander",
     "componentFailureMode": "Rotor Rub",
@@ -1259,7 +1259,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 90,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Expanders",
     "subtype": "Turbo-Expander",
     "componentFailureMode": "Shaft Seal Leak",
@@ -1357,7 +1357,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 97,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Centrifugal",
     "componentFailureMode": "Shaft Misalignment",
@@ -1371,7 +1371,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 98,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Centrifugal",
     "componentFailureMode": "Shaft Breakage",
@@ -1385,7 +1385,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 99,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Centrifugal",
     "componentFailureMode": "Shaft Key Shear",
@@ -1399,7 +1399,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 100,
-    "equipmentGroup": "Rotating",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Pumps",
     "subtype": "Centrifugal",
     "componentFailureMode": "Shaft Not Available (Spare)",

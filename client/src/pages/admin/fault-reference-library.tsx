@@ -239,7 +239,7 @@ export default function FaultReferenceLibrary() {
                 <SelectItem value="pressure">Pressure</SelectItem>
                 <SelectItem value="acoustic">Acoustic</SelectItem>
                 <SelectItem value="visual">Visual</SelectItem>
-                <SelectItem value="electrical">Electrical</SelectItem>
+                <SelectItem value="electrical">Database-Driven</SelectItem>
                 <SelectItem value="chemical">Chemical</SelectItem>
                 <SelectItem value="process">Process</SelectItem>
                 <SelectItem value="operational">Operational</SelectItem>
@@ -374,7 +374,7 @@ export default function FaultReferenceLibrary() {
                   <SelectItem value="pressure">Pressure</SelectItem>
                   <SelectItem value="acoustic">Acoustic</SelectItem>
                   <SelectItem value="visual">Visual</SelectItem>
-                  <SelectItem value="electrical">Electrical</SelectItem>
+                  <SelectItem value="electrical">Database-Driven</SelectItem>
                   <SelectItem value="chemical">Chemical</SelectItem>
                   <SelectItem value="process">Process</SelectItem>
                   <SelectItem value="operational">Operational</SelectItem>

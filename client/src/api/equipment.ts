@@ -7,7 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 
 export type EquipmentOption = { 
   id: number; 
-  code: string; 
   name: string; 
 };
 

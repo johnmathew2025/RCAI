@@ -47,7 +47,7 @@ export default function ComprehensiveParameters({
     }
     
     if (['motor', 'generator'].includes(equipmentType)) {
-      fields.push('electrical', 'lubrication');
+      fields.push('database-driven', 'lubrication');
     }
     
     if (['pump', 'motor', 'compressor', 'turbine', 'gearbox'].includes(equipmentType)) {
@@ -89,7 +89,7 @@ export default function ComprehensiveParameters({
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="basic">Basic</TabsTrigger>
           <TabsTrigger value="lubrication">Lubrication</TabsTrigger>
-          <TabsTrigger value="electrical">Electrical</TabsTrigger>
+          <TabsTrigger value="database-driven">Database-Driven</TabsTrigger>
           <TabsTrigger value="runtime">Runtime</TabsTrigger>
           <TabsTrigger value="environmental">Environment</TabsTrigger>
           <TabsTrigger value="process">Process</TabsTrigger>
@@ -267,13 +267,13 @@ export default function ComprehensiveParameters({
           </Card>
         </TabsContent>
 
-        {/* Electrical Parameters */}
-        <TabsContent value="electrical" className="space-y-4">
+        {/* Database-Driven Parameters */}
+        <TabsContent value="database-driven" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Electrical Parameters</CardTitle>
+              <CardTitle>Database-Driven Parameters</CardTitle>
               <div className="text-sm text-muted-foreground">
-                Critical for motor and electrical equipment analysis
+                Critical for motor and database-driven equipment analysis
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -282,8 +282,8 @@ export default function ComprehensiveParameters({
                   <Label>Current (Amps)</Label>
                   <Input
                     type="number"
-                    value={parameters.electrical?.current_amps || ''}
-                    onChange={(e) => updateParameter('electrical', 'current_amps', parseFloat(e.target.value))}
+                    value={parameters.database-driven?.current_amps || ''}
+                    onChange={(e) => updateParameter('database-driven', 'current_amps', parseFloat(e.target.value))}
                     placeholder="A"
                   />
                 </div>
@@ -291,8 +291,8 @@ export default function ComprehensiveParameters({
                   <Label>Voltage (V)</Label>
                   <Input
                     type="number"
-                    value={parameters.electrical?.voltage || ''}
-                    onChange={(e) => updateParameter('electrical', 'voltage', parseFloat(e.target.value))}
+                    value={parameters.database-driven?.voltage || ''}
+                    onChange={(e) => updateParameter('database-driven', 'voltage', parseFloat(e.target.value))}
                     placeholder="V"
                   />
                 </div>
@@ -303,8 +303,8 @@ export default function ComprehensiveParameters({
                     step="0.01"
                     min="0"
                     max="1"
-                    value={parameters.electrical?.power_factor || ''}
-                    onChange={(e) => updateParameter('electrical', 'power_factor', parseFloat(e.target.value))}
+                    value={parameters.database-driven?.power_factor || ''}
+                    onChange={(e) => updateParameter('database-driven', 'power_factor', parseFloat(e.target.value))}
                     placeholder="0.85"
                   />
                 </div>
@@ -312,8 +312,8 @@ export default function ComprehensiveParameters({
                   <Label>Insulation Resistance (MΩ)</Label>
                   <Input
                     type="number"
-                    value={parameters.electrical?.insulation_resistance || ''}
-                    onChange={(e) => updateParameter('electrical', 'insulation_resistance', parseFloat(e.target.value))}
+                    value={parameters.database-driven?.insulation_resistance || ''}
+                    onChange={(e) => updateParameter('database-driven', 'insulation_resistance', parseFloat(e.target.value))}
                     placeholder="MΩ"
                   />
                 </div>

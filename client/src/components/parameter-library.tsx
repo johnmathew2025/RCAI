@@ -81,7 +81,7 @@ export default function ParameterLibrary({ onParametersUpdate }: ParameterLibrar
   });
 
   const categories = [
-    'basic', 'lubrication', 'electrical', 'temperature', 'vibration', 
+    'basic', 'lubrication', 'database-driven', 'temperature', 'vibration', 
     'process', 'environmental', 'runtime', 'alarm', 'maintenance'
   ];
 
@@ -351,7 +351,7 @@ export default function ParameterLibrary({ onParametersUpdate }: ParameterLibrar
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="basic">Basic</TabsTrigger>
           <TabsTrigger value="lubrication">Lubrication</TabsTrigger>
-          <TabsTrigger value="electrical">Electrical</TabsTrigger>
+          <TabsTrigger value="database-driven">Database-Driven</TabsTrigger>
           <TabsTrigger value="process">Process</TabsTrigger>
           <TabsTrigger value="all">All Parameters</TabsTrigger>
         </TabsList>
