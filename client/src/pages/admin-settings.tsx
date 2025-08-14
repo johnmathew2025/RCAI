@@ -764,6 +764,22 @@ export default function AdminSettings() {
             </div>
           </div>
 
+          {/* Requirement 5: Model ID input field - NO HARDCODING */}
+          <div className="space-y-2">
+            <Label htmlFor="model">Model ID</Label>
+            <Input
+              id="model"
+              type="text"
+              value={formData.model}
+              onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
+              placeholder="e.g., gpt-4o-mini, claude-3-sonnet-20240229, gemini-pro"
+              className="w-full"
+            />
+            <p className="text-sm text-muted-foreground">
+              Enter the specific model ID for your provider. This will be used for API calls.
+            </p>
+          </div>
+
           <div className="flex items-center space-x-2">
             <input
               type="checkbox"
@@ -822,6 +838,7 @@ export default function AdminSettings() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Provider</TableHead>
+                  <TableHead>Model</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last Tested</TableHead>
                   <TableHead>Created</TableHead>
@@ -833,6 +850,9 @@ export default function AdminSettings() {
                   <TableRow key={setting.id}>
                     <TableCell className="font-medium">
                       {getProviderName(setting.provider)}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {setting.model || 'Not specified'}
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(setting.testStatus, setting.isActive)}

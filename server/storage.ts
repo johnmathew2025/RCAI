@@ -446,9 +446,28 @@ export class DatabaseInvestigationStorage implements IInvestigationStorage {
       const [setting] = await db.select().from(aiSettings).where(eq(aiSettings.id, id));
       if (!setting) return null;
       
+      // Import AIService for decryption - REQUIRED FOR UNIFIED TEST SERVICE
+      let AIService: any = null;
+      let decryptedApiKey = null;
+      
+      try {
+        const aiServiceModule = await import('./ai-service');
+        AIService = aiServiceModule.AIService;
+        
+        if (setting.encryptedApiKey) {
+          console.log(`[DatabaseInvestigationStorage] Attempting to decrypt API key for setting ${setting.id}`);
+          decryptedApiKey = AIService.decrypt(setting.encryptedApiKey);
+          console.log(`[DatabaseInvestigationStorage] Successfully decrypted API key for setting ${setting.id}: YES (last 4 chars: ${decryptedApiKey.slice(-4)})`);
+        }
+      } catch (error) {
+        console.error(`[DatabaseInvestigationStorage] Failed to decrypt API key for setting ${setting.id}:`, error);
+      }
+      
       return {
         id: setting.id,
         provider: setting.provider,
+        model: setting.model || setting.provider, // Include model field - CRITICAL FOR UNIFIED TESTING
+        apiKey: decryptedApiKey, // CRITICAL: Decrypted API key for unified test service
         encryptedApiKey: setting.encryptedApiKey,
         isActive: setting.isActive,
         createdBy: setting.createdBy,

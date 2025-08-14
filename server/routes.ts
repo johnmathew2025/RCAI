@@ -2983,39 +2983,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test specific AI provider
+  // Test specific AI provider - UNIFIED TESTING (Requirement 4)
   app.post("/api/admin/ai-settings/:id/test", async (req, res) => {
     try {
       const { id } = req.params;
-      console.log(`[ADMIN] Testing AI provider ${id}`);
+      console.log(`[ADMIN] Testing AI provider ${id} using unified test service`);
       
-      // Get the specific provider settings
-      const setting = await investigationStorage.getAiSettingsById(parseInt(id));
-      if (!setting) {
-        return res.status(404).json({ message: "AI provider not found" });
+      // Use unified testing service (Requirement 1 & 4)
+      const { AITestService } = await import("./ai-test-service");
+      
+      // Get provider configuration (single source of truth)
+      const providerConfig = await AITestService.getProviderConfigById(parseInt(id));
+      if (!providerConfig) {
+        return res.status(404).json({ 
+          success: false,
+          message: "AI provider not found" 
+        });
       }
       
-      // Test the API key with real connection
-      const { AIService } = await import("./ai-service");
-      const testResult = await AIService.testApiKey(setting.provider, setting.apiKey);
+      // Test using unified service (Requirement 4)
+      const testResult = await AITestService.testProvider(providerConfig);
       
       // Update test status in database
-      const testStatus = testResult.success ? 'success' : 'failed';
+      const testStatus = testResult.ok ? 'success' : 'failed';
       await investigationStorage.updateAiSettingsTestStatus(
         parseInt(id), 
         testStatus, 
-        testResult.error
+        testResult.ok ? undefined : AITestService.mapErrorToUserMessage(testResult.body)
       );
       
+      // Requirement 6: User-friendly error messages
+      const userMessage = testResult.ok 
+        ? `API test successful with model ${testResult.model}` 
+        : AITestService.mapErrorToUserMessage(testResult.body);
+      
       res.json({
-        success: testResult.success,
-        message: testResult.success ? 'API key test successful' : `Test failed: ${testResult.error}`,
+        success: testResult.ok,
+        message: userMessage,
         testStatus,
-        timestamp: new Date().toISOString()
+        timestamp: testResult.timestamp,
+        provider: testResult.provider,
+        model: testResult.model,
+        statusCode: testResult.status
       });
     } catch (error) {
       console.error('[ADMIN] Error testing AI provider:', error);
-      res.status(500).json({ message: "Failed to test AI provider" });
+      
+      // Handle model validation errors (Requirement 1)
+      if (error instanceof Error && error.message.includes('Model is required')) {
+        return res.status(400).json({ 
+          success: false,
+          message: error.message
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to test AI provider" 
+      });
     }
   });
 
@@ -3037,19 +3062,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced AI Configuration Test - UNIFIED TESTING (Requirement 4)
   app.post("/api/admin/ai-settings/test", async (req, res) => {
     try {
-      // Use enhanced AI test service - UNIVERSAL PROTOCOL STANDARD compliant
-      console.log(`[ADMIN] Testing AI configuration via Enhanced AI Test Service (NO HARDCODING)`);
+      console.log(`[ADMIN] Testing active AI configuration using unified test service (NO HARDCODING)`);
       
-      // Import Enhanced AI Test Service for professional testing
-      const { EnhancedAITestService } = await import("./enhanced-ai-test-service");
+      // Use unified testing service (Requirement 1 & 4)
+      const { AITestService } = await import("./ai-test-service");
       
-      // Get active AI settings from database (NO HARDCODING)
-      const aiSettings = await investigationStorage.getAllAiSettings();
-      const activeProvider = aiSettings.find((setting: any) => setting.isActive);
+      // Get active provider configuration (single source of truth)
+      const activeConfig = await AITestService.getActiveAIProviderConfig();
       
-      if (!activeProvider) {
+      if (!activeConfig) {
         return res.json({
           success: false,
           message: 'No active AI provider configured',
@@ -3058,29 +3082,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Test the active configuration using Enhanced AI Test Service
-      const testResult = await EnhancedAITestService.testAIProvider(activeProvider.id);
+      // Test using unified service (Requirement 3: real completion using stored modelId)
+      const testResult = await AITestService.testProvider(activeConfig);
       
-      console.log(`[ADMIN] Enhanced test result: ${testResult.success ? 'SUCCESS' : 'FAILED'} - Provider: ${activeProvider.provider}`);
+      console.log(`[ADMIN] Enhanced test result: ${testResult.ok ? 'SUCCESS' : 'FAILED'} - Provider: ${activeConfig.provider}, Model: ${activeConfig.modelId}`);
+      
+      // Update test status in database
+      const testStatus = testResult.ok ? 'success' : 'failed';
+      await investigationStorage.updateAiSettingsTestStatus(
+        activeConfig.providerId, 
+        testStatus, 
+        testResult.ok ? undefined : AITestService.mapErrorToUserMessage(testResult.body)
+      );
       
       // Log the test operation for compliance tracking
       const { AIStatusMonitor } = await import('./ai-status-monitor');
       AIStatusMonitor.logAIOperation({
         source: 'admin-enhanced-test',
-        success: testResult.success,
-        provider: activeProvider.provider
+        success: testResult.ok,
+        provider: activeConfig.provider
       });
       
+      // Requirement 6: User-friendly error messages
+      const userMessage = testResult.ok 
+        ? `AI configuration tested successfully with ${activeConfig.provider} ${activeConfig.modelId}` 
+        : AITestService.mapErrorToUserMessage(testResult.body);
+      
       res.json({
-        success: testResult.success,
-        message: testResult.success ? 'AI configuration tested successfully' : testResult.error || 'Test failed',
+        success: testResult.ok,
+        message: userMessage,
         configurationSource: 'admin-database',
-        testTimestamp: new Date().toISOString(),
-        providerId: activeProvider.id,
-        provider: activeProvider.provider
+        testTimestamp: testResult.timestamp,
+        providerId: activeConfig.providerId,
+        provider: activeConfig.provider,
+        model: activeConfig.modelId,
+        statusCode: testResult.status
       });
     } catch (error) {
       console.error('[ADMIN] Enhanced AI test failed:', error);
+      
+      // Handle model validation errors (Requirement 1)
+      if (error instanceof Error && error.message.includes('Model is required')) {
+        return res.status(400).json({ 
+          success: false,
+          message: error.message,
+          configurationSource: 'admin-database',
+          testTimestamp: new Date().toISOString()
+        });
+      }
+      
       res.status(500).json({ 
         success: false, 
         message: "Failed to test AI configuration",
