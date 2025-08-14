@@ -1,0 +1,90 @@
+Immediate unblock (safe hotfix)
+1.	Make the working row active and correct the broken one (or delete it, per your hard-delete policy):
+-- Show me what’s there
+SELECT id, provider, model, is_active, test_status, last_tested_at FROM ai_settings ORDER BY id;
+
+-- OPTION A: fix the broken row (#2) and keep it
+UPDATE ai_settings
+SET model = 'gpt-4o-mini'
+WHERE id = 2 AND provider = 'openai';
+
+-- Ensure *exactly one* active provider per provider id
+UPDATE ai_settings SET is_active = FALSE WHERE provider = 'openai';
+UPDATE ai_settings SET is_active = TRUE  WHERE id = 2;
+
+-- OPTION B (if you prefer): hard delete row #2 and reactivate #1
+-- DELETE FROM ai_settings WHERE id = 2;  -- HARD DELETE ONLY (as per policy)
+-- UPDATE ai_settings SET is_active = TRUE WHERE id = 1;
+2.	Click Test again. If it still fails, the test route is still reading model from the wrong source — proceed with the “permanent fixes” below.
+ 
+🛡️ Permanent fix (no hardcoding, future-proof)
+A) Data model & constraints
+•	Require a real model id (not the provider string) and ensure only one active row per provider:
+-- Model must be non-empty
+ALTER TABLE ai_settings
+  ALTER COLUMN model SET NOT NULL,
+  ALTER COLUMN model SET DEFAULT '';
+
+-- Prevent “model == provider” mistakes
+ALTER TABLE ai_settings
+  ADD CONSTRAINT chk_model_not_provider CHECK (LOWER(model) <> LOWER(provider));
+
+-- Enforce only one active configuration per provider
+CREATE UNIQUE INDEX IF NOT EXISTS ai_settings_one_active_per_provider
+ON ai_settings(provider)
+WHERE is_active = TRUE;
+Your policy is “hard delete only”. Keep DELETE behavior and no soft-delete columns.
+B) Single source of truth for config
+Create helper(s) used by both test endpoints and runtime:
+// server/ai-config.ts
+export async function getActiveProviderConfig() {
+  // Load active row; decrypt key; return { providerId, modelId, apiKey }
+}
+All callers (test routes, runtime inference) must use this helper — no duplication.
+C) Provider adapter interface (future-proof)
+Introduce an adapter pattern so adding providers/models never requires hardcoding in UI:
+interface AIProviderAdapter {
+  id: 'openai' | string;                 // provider id
+  listModels(apiKey: string): Promise<string[]>;
+  test(apiKey: string, modelId: string): Promise<{ok:boolean; status:number; body:any}>;
+  chat(apiKey: string, modelId: string, messages: ChatMessage[]): Promise<any>;
+}
+•	Implement OpenAIAdapter now (no hardcoding of model names).
+•	Future providers (Anthropic, Gemini, etc.) implement the same interface.
+D) Backend endpoints (dynamic, no vocab in code)
+•	GET /api/ai/providers/catalog → from AVAILABLE_AI_PROVIDERS env (already done).
+•	GET /api/ai/models?provider=<id> → uses that adapter’s listModels() (proxy/cached), returns ["gpt-4o-mini", ...].
+•	In save and test:
+o	Validate model exists in the returned list (or perform a trial call and propagate provider error).
+o	On failure, return sanitized upstream error (invalid_api_key, model_not_found, insufficient_quota, etc.).
+E) Test routes: same logic, no hardcoding
+Refactor both test paths to a single implementation:
+// Enhanced config test and row-level test both call:
+await adapters[providerId].test(apiKey, modelId);
+•	Ensure Authorization: Bearer <apiKey> header is passed.
+•	For OpenAI, the enhanced test should hit /v1/chat/completions with a tiny prompt (detects wrong model fast).
+•	Do not log secrets; log only provider id, model id, status code.
+F) Admin UI: model must be chosen from backend
+•	Add Model field next to provider with a dropdown populated via GET /api/ai/models?provider=<id> (or allow free text + server validation).
+•	Prevent saving if model is blank/equals provider or not in the catalog.
+•	No arrays of model names in React; the dropdown is driven only by the API.
+G) Safeguards & build-time checks
+•	Keep your anti-hardcoding scanner; extend it to flag:
+o	Provider/model vocabulary in UI or server code.
+o	Any if (provider === 'openai') ... blocks (should be adapter-based).
+•	Add unit tests:
+o	cannot save model === provider
+o	unique active per provider enforced
+o	test endpoint passes when key+model are valid; surfaces upstream model_not_found cleanly
+H) Migration/backfill
+•	If legacy rows have NULL or "openai" as model:
+o	Prompt admin in the UI to select a model (preferred), or
+o	One-time script to set gpt-4o-mini only if model is empty, then require user confirmation.
+ 
+✅ Acceptance criteria
+•	Admin can only save a provider with a real model id supplied by the backend.
+•	Both Test actions pass with valid keys/models; they fail with clear, sanitized messages for invalid key/model/quota.
+•	Only one active row per provider is possible (DB-enforced).
+•	Adding a new provider/model requires only adding/plugging a new adapter — no UI or server rewrites.
+•	Scanner confirms no hardcoding of provider/model vocabulary.
+
