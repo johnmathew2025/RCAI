@@ -151,6 +151,11 @@ export interface IInvestigationStorage {
   getEquipmentTypesForGroup(group: string): Promise<string[]>;
   getEquipmentSubtypesForGroupAndType(group: string, type: string): Promise<string[]>;
   
+  // NEW: ID-based equipment operations for normalized API
+  getEquipmentGroups(options?: { activeOnly?: boolean }): Promise<EquipmentGroup[]>;
+  getEquipmentTypes(options: { groupId: number; activeOnly?: boolean }): Promise<EquipmentType[]>;
+  getEquipmentSubtypes(options: { typeId: number; activeOnly?: boolean }): Promise<EquipmentSubtype[]>;
+  
   // Incident operations - New RCA workflow
   createIncident(data: Partial<InsertIncident>): Promise<Incident>;
   getIncident(id: number): Promise<Incident | undefined>;
@@ -1287,6 +1292,55 @@ export class DatabaseInvestigationStorage implements IInvestigationStorage {
       .from(equipmentGroups)
       .where(eq(equipmentGroups.isActive, true))
       .orderBy(equipmentGroups.name);
+  }
+
+  // NEW: ID-based equipment operations for normalized API
+  async getEquipmentGroups(options?: { activeOnly?: boolean }): Promise<EquipmentGroup[]> {
+    console.log(`[EQUIPMENT-STORAGE] Getting equipment groups, activeOnly=${options?.activeOnly}`);
+    
+    let query = db.select().from(equipmentGroups);
+    
+    if (options?.activeOnly) {
+      query = query.where(eq(equipmentGroups.isActive, true));
+    }
+    
+    const results = await query.orderBy(equipmentGroups.name);
+    console.log(`[EQUIPMENT-STORAGE] Retrieved ${results.length} equipment groups`);
+    return results;
+  }
+
+  async getEquipmentTypes(options: { groupId: number; activeOnly?: boolean }): Promise<EquipmentType[]> {
+    console.log(`[EQUIPMENT-STORAGE] Getting equipment types for groupId=${options.groupId}, activeOnly=${options.activeOnly}`);
+    
+    let query = db.select().from(equipmentTypes).where(eq(equipmentTypes.equipmentGroupId, options.groupId));
+    
+    if (options.activeOnly) {
+      query = query.where(and(
+        eq(equipmentTypes.equipmentGroupId, options.groupId),
+        eq(equipmentTypes.isActive, true)
+      ));
+    }
+    
+    const results = await query.orderBy(equipmentTypes.name);
+    console.log(`[EQUIPMENT-STORAGE] Retrieved ${results.length} equipment types`);
+    return results;
+  }
+
+  async getEquipmentSubtypes(options: { typeId: number; activeOnly?: boolean }): Promise<EquipmentSubtype[]> {
+    console.log(`[EQUIPMENT-STORAGE] Getting equipment subtypes for typeId=${options.typeId}, activeOnly=${options.activeOnly}`);
+    
+    let query = db.select().from(equipmentSubtypes).where(eq(equipmentSubtypes.equipmentTypeId, options.typeId));
+    
+    if (options.activeOnly) {
+      query = query.where(and(
+        eq(equipmentSubtypes.equipmentTypeId, options.typeId),
+        eq(equipmentSubtypes.isActive, true)
+      ));
+    }
+    
+    const results = await query.orderBy(equipmentSubtypes.name);
+    console.log(`[EQUIPMENT-STORAGE] Retrieved ${results.length} equipment subtypes`);
+    return results;
   }
 
   async createEquipmentGroup(data: InsertEquipmentGroup): Promise<EquipmentGroup> {

@@ -17,14 +17,15 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { startVersionWatcher } from "@/lib/version-watch";
 import { showSmartToast, dismissToast } from "@/lib/smart-toast";
+import { useEquipmentGroups, useEquipmentTypes, useEquipmentSubtypes, useEquipmentChainValidation } from "@/hooks/use-equipment";
 
-// Form schema for incident reporting - THREE-LEVEL CASCADING DROPDOWN SYSTEM + STRUCTURED TIMELINE + REGULATORY COMPLIANCE
+// Form schema for incident reporting - ID-BASED NORMALIZED EQUIPMENT SYSTEM + STRUCTURED TIMELINE + REGULATORY COMPLIANCE
 const incidentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
-  equipmentGroup: z.string().min(1, "Equipment group is required"),
-  equipmentType: z.string().min(1, "Equipment type is required"),
-  equipmentSubtype: z.string().min(1, "Equipment subtype is required"),
+  equipment_group_id: z.number().nullable().refine(val => val !== null, "Equipment group is required"),
+  equipment_type_id: z.number().nullable().refine(val => val !== null, "Equipment type is required"),
+  equipment_subtype_id: z.number().nullable().refine(val => val !== null, "Equipment subtype is required"),
   equipmentId: z.string().min(1, "Equipment ID is required"),
   location: z.string().min(1, "Location is required"),
   reportedBy: z.string().min(1, "Reporter name is required"),
@@ -120,9 +121,9 @@ export default function IncidentReporting() {
       ...{
       title: "",
       description: "",
-      equipmentGroup: "",
-      equipmentType: "",
-      equipmentSubtype: "",
+      equipment_group_id: null,
+      equipment_type_id: null,
+      equipment_subtype_id: null,
       equipmentId: "",
       location: "",
       reportedBy: "",
@@ -149,10 +150,16 @@ export default function IncidentReporting() {
     ...loadSavedDraft(), // Merge saved draft
   });
 
-  // THREE-LEVEL CASCADING DROPDOWN STATE
-  const selectedEquipmentGroup = form.watch("equipmentGroup");
-  const selectedEquipmentType = form.watch("equipmentType");
-  const selectedEquipmentSubtype = form.watch("equipmentSubtype");
+  // ID-BASED CASCADING DROPDOWN STATE
+  const selectedGroupId = form.watch("equipment_group_id");
+  const selectedTypeId = form.watch("equipment_type_id");
+  const selectedSubtypeId = form.watch("equipment_subtype_id");
+
+  // Normalized Equipment API Hooks
+  const { data: equipmentGroups = [], isLoading: groupsLoading } = useEquipmentGroups();
+  const { data: equipmentTypes = [], isLoading: typesLoading } = useEquipmentTypes(selectedGroupId);
+  const { data: equipmentSubtypes = [], isLoading: subtypesLoading } = useEquipmentSubtypes(selectedTypeId);
+  const validateChain = useEquipmentChainValidation();
   
   // REGULATORY COMPLIANCE CONDITIONAL RENDERING
   const reportableStatus = form.watch("reportableStatus");
@@ -230,20 +237,25 @@ export default function IncidentReporting() {
 
   // Generate timeline questions when equipment selection is complete
   useEffect(() => {
-    if (selectedEquipmentGroup && selectedEquipmentType && selectedEquipmentSubtype) {
+    if (selectedGroupId && selectedTypeId && selectedSubtypeId) {
       generateTimelineQuestions();
     }
-  }, [selectedEquipmentGroup, selectedEquipmentType, selectedEquipmentSubtype]);
+  }, [selectedGroupId, selectedTypeId, selectedSubtypeId]);
 
   const generateTimelineQuestions = async () => {
     try {
+      // Get equipment names for API call (timeline engine needs names, not IDs)
+      const selectedGroup = equipmentGroups.find(g => g.id === selectedGroupId);
+      const selectedType = equipmentTypes.find(t => t.id === selectedTypeId);
+      const selectedSubtype = equipmentSubtypes.find(s => s.id === selectedSubtypeId);
+      
       const response = await fetch('/api/incidents/0/generate-timeline-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          equipmentGroup: selectedEquipmentGroup,
-          equipmentType: selectedEquipmentType,
-          equipmentSubtype: selectedEquipmentSubtype
+          equipmentGroup: selectedGroup?.name,
+          equipmentType: selectedType?.name,
+          equipmentSubtype: selectedSubtype?.name
         })
       });
       
@@ -258,70 +270,9 @@ export default function IncidentReporting() {
     }
   };
 
-  // LEVEL 1: Fetch Equipment Groups from Evidence Library
-  const { data: equipmentGroups = [] } = useQuery({
-    queryKey: ['/api/cascading/equipment-groups'],
-    queryFn: async () => {
-      try {
-        const response = await fetch('/api/cascading/equipment-groups');
-        if (!response.ok) {
-          console.error('Equipment groups API failed, falling back to SQL query');
-          // Fallback to direct data fetch
-          return ["Rotating", "Static", "Electrical", "Control Valves", "Instrumentation", "Fire & Safety", "HVAC & Utilities", "Material Handling", "Plant Utilities", "Environmental", "Utility"];
-        }
-        return response.json();
-      } catch (error) {
-        console.error('Equipment groups fetch error:', error);
-        return ["Rotating", "Static", "Electrical", "Control Valves", "Instrumentation", "Fire & Safety", "HVAC & Utilities", "Material Handling", "Plant Utilities", "Environmental", "Utility"];
-      }
-    },
-  });
+  // OLD CODE REMOVED - NOW USING NORMALIZED ID-BASED EQUIPMENT HOOKS
 
-  // LEVEL 2: Fetch Equipment Types for Selected Group
-  const { data: equipmentTypes = [], isLoading: isLoadingTypes, error: typesError } = useQuery({
-    queryKey: ['/api/cascading/equipment-types', selectedEquipmentGroup],
-    queryFn: async () => {
-      if (!selectedEquipmentGroup) return [];
-      console.log(`[Cascading Dropdown] Fetching equipment types for group: ${selectedEquipmentGroup}`);
-      try {
-        const response = await fetch(`/api/cascading/equipment-types/${encodeURIComponent(selectedEquipmentGroup)}`);
-        if (!response.ok) {
-          console.error('Equipment types API failed');
-          return [];
-        }
-        const data = await response.json();
-        console.log(`[Cascading Dropdown] Got ${data.length} equipment types:`, data);
-        return data;
-      } catch (error) {
-        console.error('Equipment types fetch error:', error);
-        return [];
-      }
-    },
-    enabled: !!selectedEquipmentGroup,
-  });
-
-  // LEVEL 3: Fetch Equipment Subtypes for Selected Group and Type
-  const { data: equipmentSubtypes = [], isLoading: isLoadingSubtypes } = useQuery({
-    queryKey: ['/api/cascading/equipment-subtypes', selectedEquipmentGroup, selectedEquipmentType],
-    queryFn: async () => {
-      if (!selectedEquipmentGroup || !selectedEquipmentType) return [];
-      console.log(`[Cascading Dropdown] Fetching subtypes for ${selectedEquipmentGroup}/${selectedEquipmentType}`);
-      try {
-        const response = await fetch(`/api/cascading/equipment-subtypes/${encodeURIComponent(selectedEquipmentGroup)}/${encodeURIComponent(selectedEquipmentType)}`);
-        if (!response.ok) {
-          console.error('Equipment subtypes API failed');
-          return [];
-        }
-        const data = await response.json();
-        console.log(`[Cascading Dropdown] Got ${data.length} subtypes:`, data);
-        return data;
-      } catch (error) {
-        console.error('Equipment subtypes fetch error:', error);
-        return [];
-      }
-    },
-    enabled: !!selectedEquipmentGroup && !!selectedEquipmentType,
-  });
+  // OLD HARDCODED CODE REMOVED - NOW USING ID-BASED NORMALIZED EQUIPMENT HOOKS
 
   // Create incident mutation
   const createIncidentMutation = useMutation({
@@ -607,12 +558,12 @@ export default function IncidentReporting() {
                   )}
                 />
 
-                {/* THREE-LEVEL CASCADING DROPDOWN SYSTEM - NO FREE TEXT ALLOWED */}
+                {/* ID-BASED NORMALIZED EQUIPMENT SELECTION - NO HARDCODING */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* LEVEL 1: Equipment Group */}
                   <FormField
                     control={form.control}
-                    name="equipmentGroup"
+                    name="equipment_group_id"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center gap-2">
@@ -621,22 +572,24 @@ export default function IncidentReporting() {
                         </FormLabel>
                         <Select 
                           onValueChange={(value) => {
-                            field.onChange(value);
-                            // Reset dependent fields when group changes
-                            form.setValue("equipmentType", "");
-                            form.setValue("equipmentSubtype", "");
+                            const groupId = value ? parseInt(value) : null;
+                            field.onChange(groupId);
+                            // Reset dependent fields when group changes  
+                            form.setValue("equipment_type_id", null);
+                            form.setValue("equipment_subtype_id", null);
                           }} 
-                          value={field.value}
+                          value={field.value?.toString() ?? ""}
+                          disabled={groupsLoading}
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select equipment group" />
+                              <SelectValue placeholder={groupsLoading ? "Loading groups..." : "Select equipment group"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {equipmentGroups.map((group: string) => (
-                              <SelectItem key={group} value={group}>
-                                {group}
+                            {equipmentGroups.map((group) => (
+                              <SelectItem key={group.id} value={group.id.toString()}>
+                                {group.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -649,25 +602,26 @@ export default function IncidentReporting() {
                   {/* LEVEL 2: Equipment Type */}
                   <FormField
                     control={form.control}
-                    name="equipmentType"
+                    name="equipment_type_id"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Equipment Type (Level 2)</FormLabel>
                         <Select 
                           onValueChange={(value) => {
-                            field.onChange(value);
+                            const typeId = value ? parseInt(value) : null;
+                            field.onChange(typeId);
                             // Reset subtype when type changes
-                            form.setValue("equipmentSubtype", "");
+                            form.setValue("equipment_subtype_id", null);
                           }} 
-                          value={field.value}
-                          disabled={!selectedEquipmentGroup}
+                          value={field.value?.toString() ?? ""}
+                          disabled={!selectedGroupId || typesLoading}
                         >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder={
-                                !selectedEquipmentGroup 
+                                !selectedGroupId 
                                   ? "Select equipment group first" 
-                                  : isLoadingTypes 
+                                  : typesLoading 
                                   ? "Loading types..." 
                                   : equipmentTypes.length === 0
                                   ? "No types found"
@@ -676,9 +630,9 @@ export default function IncidentReporting() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {equipmentTypes.map((type: string) => (
-                              <SelectItem key={type} value={type}>
-                                {type}
+                            {equipmentTypes.map((type) => (
+                              <SelectItem key={type.id} value={type.id.toString()}>
+                                {type.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -691,21 +645,24 @@ export default function IncidentReporting() {
                   {/* LEVEL 3: Equipment Subtype */}
                   <FormField
                     control={form.control}
-                    name="equipmentSubtype"
+                    name="equipment_subtype_id"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Equipment Subtype (Level 3)</FormLabel>
                         <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value}
-                          disabled={!selectedEquipmentGroup || !selectedEquipmentType}
+                          onValueChange={(value) => {
+                            const subtypeId = value ? parseInt(value) : null;
+                            field.onChange(subtypeId);
+                          }} 
+                          value={field.value?.toString() ?? ""}
+                          disabled={!selectedGroupId || !selectedTypeId || subtypesLoading}
                         >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder={
-                                !selectedEquipmentGroup || !selectedEquipmentType
+                                !selectedGroupId || !selectedTypeId
                                   ? "Select equipment type first" 
-                                  : isLoadingSubtypes
+                                  : subtypesLoading
                                   ? "Loading subtypes..." 
                                   : equipmentSubtypes.length === 0
                                   ? "No subtypes found"
@@ -714,9 +671,9 @@ export default function IncidentReporting() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {equipmentSubtypes.map((subtype: string) => (
-                              <SelectItem key={subtype} value={subtype}>
-                                {subtype}
+                            {equipmentSubtypes.map((subtype) => (
+                              <SelectItem key={subtype.id} value={subtype.id.toString()}>
+                                {subtype.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -1154,7 +1111,7 @@ You can include as much detail as available.`}
                     </div>
                     <p className="text-sm text-blue-700 mb-6">
                       Answer these timeline questions to help AI understand the sequence of events. 
-                      Generated from Evidence Library for {selectedEquipmentGroup} → {selectedEquipmentType} → {selectedEquipmentSubtype}
+                      Generated from Evidence Library for equipment selection.
                     </p>
 
                     {/* Universal Timeline Questions */}

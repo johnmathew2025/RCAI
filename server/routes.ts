@@ -28,6 +28,7 @@ import { nlpAnalyzer } from "./nlp-analyzer";
 import multer from "multer";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import { createEquipmentRouter } from "./routes.equipment";
 import { insertFaultReferenceLibrarySchema } from "@shared/schema";
 import { CleanAIAttachmentAnalyzer } from "./clean-ai-attachment-analyzer";
 import { EquipmentDecisionEngine } from "./config/equipment-decision-engine";
@@ -722,6 +723,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   console.log("[ROUTES] Equipment groups GET route registered successfully");
+
+  // NEW: Normalized Equipment API Endpoints
+  const equipmentRouter = createEquipmentRouter(investigationStorage);
+  app.use("/api/equipment", equipmentRouter);
+  console.log("[ROUTES] Normalized equipment API routes registered successfully");
 
   // Step 6: Evidence Analysis Engine API endpoint
   app.post("/api/evidence-analysis", async (req, res) => {
