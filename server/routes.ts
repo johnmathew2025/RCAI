@@ -724,10 +724,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   console.log("[ROUTES] Equipment groups GET route registered successfully");
 
-  // NEW: Normalized Equipment API Endpoints
-  const equipmentRouter = createEquipmentRouter(investigationStorage);
+  // Phase 2: Normalized Equipment API Endpoints (ID-based)
+  const equipmentRouter = (await import("./routes/equipment")).default;
   app.use("/api/equipment", equipmentRouter);
-  console.log("[ROUTES] Normalized equipment API routes registered successfully");
+  console.log("[ROUTES] Phase 2 - Normalized equipment API routes registered successfully");
 
   // Step 6: Evidence Analysis Engine API endpoint
   app.post("/api/evidence-analysis", async (req, res) => {

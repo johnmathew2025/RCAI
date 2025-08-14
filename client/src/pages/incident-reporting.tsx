@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { startVersionWatcher } from "@/lib/version-watch";
 import { showSmartToast, dismissToast } from "@/lib/smart-toast";
-import { useEquipmentGroups, useEquipmentTypes, useEquipmentSubtypes, useEquipmentChainValidation } from "@/hooks/use-equipment";
+import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
 
 // Form schema for incident reporting - ID-BASED NORMALIZED EQUIPMENT SYSTEM + STRUCTURED TIMELINE + REGULATORY COMPLIANCE
 const incidentSchema = z.object({
@@ -147,7 +147,7 @@ export default function IncidentReporting() {
       intendedRegulatoryAuthority: "",
       timelineData: {},
     },
-    ...loadSavedDraft(), // Merge saved draft
+    ...(loadSavedDraft() as Partial<IncidentForm>), // Merge saved draft
   });
 
   // ID-BASED CASCADING DROPDOWN STATE
@@ -155,11 +155,10 @@ export default function IncidentReporting() {
   const selectedTypeId = form.watch("equipment_type_id");
   const selectedSubtypeId = form.watch("equipment_subtype_id");
 
-  // Normalized Equipment API Hooks
-  const { data: equipmentGroups = [], isLoading: groupsLoading } = useEquipmentGroups();
-  const { data: equipmentTypes = [], isLoading: typesLoading } = useEquipmentTypes(selectedGroupId);
-  const { data: equipmentSubtypes = [], isLoading: subtypesLoading } = useEquipmentSubtypes(selectedTypeId);
-  const validateChain = useEquipmentChainValidation();
+  // Phase 3.3: Normalized Equipment API Hooks (ID-based with dependent queries)
+  const { data: equipmentGroups = [], isLoading: groupsLoading } = useGroups();
+  const { data: equipmentTypes = [], isLoading: typesLoading } = useTypes(selectedGroupId || undefined);
+  const { data: equipmentSubtypes = [], isLoading: subtypesLoading } = useSubtypes(selectedTypeId || undefined);
   
   // REGULATORY COMPLIANCE CONDITIONAL RENDERING
   const reportableStatus = form.watch("reportableStatus");
@@ -184,12 +183,21 @@ export default function IncidentReporting() {
 
   // Initialize smart version watcher
   useEffect(() => {
-    const cleanup = startVersionWatcher({
-      getIsFormDirty: () => isFormDirty,
-      showToast: showSmartToast,
-      dismissToast: dismissToast,
-    });
-    return cleanup;
+    let cleanup: (() => void) | undefined;
+    
+    const initWatcher = async () => {
+      cleanup = await startVersionWatcher({
+        getIsFormDirty: () => isFormDirty,
+        showToast: showSmartToast,
+        dismissToast: dismissToast,
+      });
+    };
+    
+    initWatcher();
+    
+    return () => {
+      if (cleanup) cleanup();
+    };
   }, [isFormDirty]);
 
   // Navigation guard - warn about unsaved changes
@@ -234,6 +242,16 @@ export default function IncidentReporting() {
       subscription.unsubscribe();
     };
   }, [form, storageKey]);
+
+  // Phase 3.3: Reset child selections when parent changes
+  useEffect(() => {
+    form.setValue("equipment_type_id", undefined as any);
+    form.setValue("equipment_subtype_id", undefined as any);
+  }, [selectedGroupId]);
+
+  useEffect(() => {
+    form.setValue("equipment_subtype_id", undefined as any);
+  }, [selectedTypeId]);
 
   // Generate timeline questions when equipment selection is complete
   useEffect(() => {
@@ -575,8 +593,8 @@ export default function IncidentReporting() {
                             const groupId = value ? parseInt(value) : null;
                             field.onChange(groupId);
                             // Reset dependent fields when group changes  
-                            form.setValue("equipment_type_id", null);
-                            form.setValue("equipment_subtype_id", null);
+                            form.setValue("equipment_type_id", undefined as any);
+                            form.setValue("equipment_subtype_id", undefined as any);
                           }} 
                           value={field.value?.toString() ?? ""}
                           disabled={groupsLoading}
@@ -611,7 +629,7 @@ export default function IncidentReporting() {
                             const typeId = value ? parseInt(value) : null;
                             field.onChange(typeId);
                             // Reset subtype when type changes
-                            form.setValue("equipment_subtype_id", null);
+                            form.setValue("equipment_subtype_id", undefined as any);
                           }} 
                           value={field.value?.toString() ?? ""}
                           disabled={!selectedGroupId || typesLoading}
