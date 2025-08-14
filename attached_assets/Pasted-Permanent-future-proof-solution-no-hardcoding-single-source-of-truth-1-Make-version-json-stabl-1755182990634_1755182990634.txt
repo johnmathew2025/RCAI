@@ -1,0 +1,121 @@
+Permanent, future-proof solution (no hardcoding, single source of truth)
+1) Make /version.json stable and meaningful
+Goal: only change the version when you actually deploy or restart.
+Server routes.ts (or equivalent)
+Replace Date.now() with a build identifier that changes only when code changes.
+Recommended source of truth (in order of preference):
+Git commit SHA (best—auto from CI): process.env.GIT_COMMIT
+Build-time file baked by CI/CD: read ./build-version.json
+Process start time as fallback (changes only on restart)
+Example (TypeScript-ish):
+// server/version.ts
+import fs from "fs";
+
+const fallbackVersion = String(process.env.BOOT_TIME || Math.floor(Date.now()/1000));
+let version = process.env.GIT_COMMIT || "";
+
+if (!version) {
+  try {
+    const v = JSON.parse(fs.readFileSync("./build-version.json", "utf8"));
+    version = v?.commit || v?.version || "";
+  } catch {}
+}
+
+export const APP_VERSION = version || fallbackVersion;
+export const APP_BUILT_AT = process.env.BUILD_TIME || new Date().toISOString();
+// server/routes.ts (snippet)
+import { APP_VERSION, APP_BUILT_AT } from "./version";
+
+app.get("/version.json", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({
+    ok: true,
+    version: APP_VERSION,       // e.g., "a1b2c3d4" or "1723600000"
+    builtAt: APP_BUILT_AT,      // stable at build
+    meta: { env: process.env.NODE_ENV }
+  });
+});
+No hardcoding of provider/model here. Version strings come from environment/CI, not literals.
+2) Change the watcher behavior (don’t yank the page out from under users)
+Never auto-reload if forms are “dirty”. Instead show a non-blocking toast: “A new version is available – Reload”.
+Provide a Reload button and a Dismiss action.
+When no dirty state (e.g., on dashboards), you may auto-reload. For forms, never.
+Pseudocode:
+// client/lib/versionWatcher.ts
+export function startVersionWatcher({ getIsFormDirty }: { getIsFormDirty: () => boolean }) {
+  let currentVersion = null;
+
+  async function check() {
+    const r = await fetch("/version.json", { cache: "no-store" });
+    if (!r.ok) return;
+    const { version } = await r.json();
+    if (currentVersion === null) currentVersion = version;
+    else if (version !== currentVersion) {
+      if (getIsFormDirty()) {
+        // Show toast instead of auto reload
+        showToast("A new version is available.", {
+          actionLabel: "Reload",
+          onAction: () => window.location.reload()
+        });
+      } else {
+        window.location.reload();
+      }
+    }
+  }
+
+  const interval = setInterval(check, 30000);
+  window.addEventListener("visibilitychange", () => !document.hidden && check());
+  return () => clearInterval(interval);
+}
+3) Add form-state persistence (client-side + optional server drafts)
+Client-side draft (must-have):
+Persist react-hook-form values to localStorage (or sessionStorage) with:
+Key = route + form schema version, e.g., draft:incident-report:v1.
+TTL/expiry (e.g., 7 days) to avoid stale drafts.
+Clear on successful submit.
+Generic, schema-driven: derive the key from route and a formVersion constant placed next to the zod/yup schema (no literals scattered).
+Pseudocode outline:
+// client/pages/incident-reporting.tsx
+const formVersion = "v1"; // bump when schema changes (single constant)
+const storageKey = `draft:incident-report:${formVersion}`;
+
+useEffect(() => {
+  const saved = localStorage.getItem(storageKey);
+  if (saved) reset(JSON.parse(saved)); // react-hook-form reset
+}, [reset]);
+
+useEffect(() => {
+  const sub = watch((values) => {
+    localStorage.setItem(storageKey, JSON.stringify(values));
+  });
+  return () => sub.unsubscribe();
+}, [watch]);
+
+// On successful submit:
+localStorage.removeItem(storageKey);
+Server-side autosave drafts (nice-to-have, robust):
+POST /api/incidents/drafts → returns draftId
+PATCH /api/incidents/drafts/:id every N seconds while dirty (with debounce)
+Store draftId in localStorage; on next visit, resume.
+Clean up drafts after submission.
+This supports multi-device and protects against tab crashes.
+4) Guard against navigation/tab close
+Use beforeunload and in-app route guards when isDirty to warn about unsaved changes.
+5) Multi-tab safety
+Use BroadcastChannel("incident-draft") to signal updates across tabs; last writer wins, or prompt to choose which draft to keep.
+6) Make caching sane (without breaking freshness)
+HTML: Cache-Control: no-store
+Static assets: Cache-Control: public, max-age=31536000, immutable
+/version.json: no-store
+Prefer ETag/If-None-Match on /version.json so unchanged versions return 304 (reduces noise).
+Verification checklist (do this before any code changes hit prod)
+Open incident form, type a sentence, wait 60–90s
+Expect: no auto reload while dirty; toast appears only if version changes.
+Reload manually → form repopulates from localStorage
+Expect: text remains.
+Submit incident → success
+Expect: draft cleared, subsequent reload shows empty form.
+Simulate new deployment (change GIT_COMMIT)
+Expect: toast appears (not reload) while form is dirty; auto-reload when clean.
+Multi-tab: edit in Tab A, open Tab B
+Expect: B sees latest draft or gets a choice; no silent overwrites.
