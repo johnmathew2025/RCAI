@@ -2983,17 +2983,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test specific AI provider - UNIFIED TESTING (Requirement 4)
+  // Test specific AI provider - ADAPTER-BASED UNIFIED TESTING
   app.post("/api/admin/ai-settings/:id/test", async (req, res) => {
     try {
       const { id } = req.params;
-      console.log(`[ADMIN] Testing AI provider ${id} using unified test service`);
+      console.log(`[ADMIN] Testing AI provider ${id} using adapter system`);
       
-      // Use unified testing service (Requirement 1 & 4)
-      const { AITestService } = await import("./ai-test-service");
+      // Get provider configuration using single source of truth
+      const { getProviderConfigById } = await import("./ai-config");
+      const providerConfig = await getProviderConfigById(parseInt(id));
       
-      // Get provider configuration (single source of truth)
-      const providerConfig = await AITestService.getProviderConfigById(parseInt(id));
       if (!providerConfig) {
         return res.status(404).json({ 
           success: false,
@@ -3001,21 +3000,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Test using unified service (Requirement 4)
-      const testResult = await AITestService.testProvider(providerConfig);
+      // Use provider adapter for testing - NO HARDCODING
+      const { ProviderRegistry, mapErrorToUserMessage } = await import("./ai-provider-adapters");
+      const adapter = ProviderRegistry.getAdapter(providerConfig.provider);
+      
+      if (!adapter) {
+        return res.status(400).json({
+          success: false,
+          message: `Unsupported provider: ${providerConfig.provider}`
+        });
+      }
+      
+      // Test using provider adapter
+      const testResult = await adapter.test(providerConfig.apiKeyDecrypted, providerConfig.modelId);
       
       // Update test status in database
       const testStatus = testResult.ok ? 'success' : 'failed';
       await investigationStorage.updateAiSettingsTestStatus(
         parseInt(id), 
         testStatus, 
-        testResult.ok ? undefined : AITestService.mapErrorToUserMessage(testResult.body)
+        testResult.ok ? undefined : mapErrorToUserMessage(testResult.body)
       );
       
-      // Requirement 6: User-friendly error messages
+      // User-friendly response
       const userMessage = testResult.ok 
         ? `API test successful with model ${testResult.model}` 
-        : AITestService.mapErrorToUserMessage(testResult.body);
+        : mapErrorToUserMessage(testResult.body);
       
       res.json({
         success: testResult.ok,
@@ -3029,17 +3039,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[ADMIN] Error testing AI provider:', error);
       
-      // Handle model validation errors (Requirement 1)
-      if (error instanceof Error && error.message.includes('Model is required')) {
-        return res.status(400).json({ 
-          success: false,
-          message: error.message
-        });
+      let userMessage = 'Failed to test AI provider configuration';
+      if (error.message && error.message.includes('Model is required')) {
+        userMessage = error.message;
       }
       
-      res.status(500).json({ 
+      res.status(400).json({ 
         success: false,
-        message: "Failed to test AI provider" 
+        message: userMessage
       });
     }
   });
@@ -3062,16 +3069,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Enhanced AI Configuration Test - UNIFIED TESTING (Requirement 4)
+  // Enhanced AI Configuration Test - ADAPTER-BASED UNIFIED TESTING
   app.post("/api/admin/ai-settings/test", async (req, res) => {
     try {
-      console.log(`[ADMIN] Testing active AI configuration using unified test service (NO HARDCODING)`);
+      console.log(`[ADMIN] Testing active AI configuration using adapter system (NO HARDCODING)`);
       
-      // Use unified testing service (Requirement 1 & 4)
-      const { AITestService } = await import("./ai-test-service");
-      
-      // Get active provider configuration (single source of truth)
-      const activeConfig = await AITestService.getActiveAIProviderConfig();
+      // Get active provider configuration using single source of truth
+      const { getActiveProviderConfig } = await import("./ai-config");
+      const activeConfig = await getActiveProviderConfig();
       
       if (!activeConfig) {
         return res.json({
@@ -3082,8 +3087,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Test using unified service (Requirement 3: real completion using stored modelId)
-      const testResult = await AITestService.testProvider(activeConfig);
+      // Use provider adapter for testing - NO HARDCODING
+      const { ProviderRegistry, mapErrorToUserMessage } = await import("./ai-provider-adapters");
+      const adapter = ProviderRegistry.getAdapter(activeConfig.provider);
+      
+      if (!adapter) {
+        return res.status(400).json({
+          success: false,
+          message: `Unsupported provider: ${activeConfig.provider}`,
+          configurationSource: 'admin-database',
+          testTimestamp: new Date().toISOString()
+        });
+      }
+      
+      // Test using provider adapter
+      const testResult = await adapter.test(activeConfig.apiKeyDecrypted, activeConfig.modelId);
       
       console.log(`[ADMIN] Enhanced test result: ${testResult.ok ? 'SUCCESS' : 'FAILED'} - Provider: ${activeConfig.provider}, Model: ${activeConfig.modelId}`);
       
@@ -3092,7 +3110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await investigationStorage.updateAiSettingsTestStatus(
         activeConfig.providerId, 
         testStatus, 
-        testResult.ok ? undefined : AITestService.mapErrorToUserMessage(testResult.body)
+        testResult.ok ? undefined : mapErrorToUserMessage(testResult.body)
       );
       
       // Log the test operation for compliance tracking
@@ -3103,10 +3121,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         provider: activeConfig.provider
       });
       
-      // Requirement 6: User-friendly error messages
+      // User-friendly error messages
       const userMessage = testResult.ok 
         ? `AI configuration tested successfully with ${activeConfig.provider} ${activeConfig.modelId}` 
-        : AITestService.mapErrorToUserMessage(testResult.body);
+        : mapErrorToUserMessage(testResult.body);
       
       res.json({
         success: testResult.ok,
@@ -3136,6 +3154,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Failed to test AI configuration",
         configurationSource: 'admin-database',
         testTimestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Provider-specific Models API - NO HARDCODING 
+  app.get("/api/ai/models", async (req, res) => {
+    try {
+      const { provider } = req.query;
+      
+      if (!provider) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Provider parameter is required" 
+        });
+      }
+
+      console.log(`[AI] Loading models for provider: ${provider} (NO HARDCODING)`);
+      
+      // Get API key from database for testing
+      const aiSettings = await investigationStorage.getAllAiSettings();
+      const providerSetting = aiSettings.find((setting: any) => setting.provider === provider);
+      
+      if (!providerSetting || !providerSetting.apiKey) {
+        return res.status(404).json({
+          success: false,
+          message: `No API key configured for provider: ${provider}`
+        });
+      }
+
+      // Use provider adapter to get dynamic models
+      const { ProviderRegistry } = await import("./ai-provider-adapters");
+      const adapter = ProviderRegistry.getAdapter(provider as string);
+      
+      if (!adapter) {
+        return res.status(400).json({
+          success: false,
+          message: `Unsupported provider: ${provider}`,
+          supportedProviders: ProviderRegistry.getSupportedProviders()
+        });
+      }
+      
+      const models = await adapter.listModels(providerSetting.apiKey);
+      
+      res.json({
+        success: true,
+        provider,
+        models,
+        count: models.length,
+        source: 'dynamic-api'
+      });
+      
+    } catch (error) {
+      console.error('[AI] Error loading models:', error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to load models" 
       });
     }
   });
