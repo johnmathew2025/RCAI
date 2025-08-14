@@ -1,0 +1,79 @@
+AI Settings — Professional Conformance Checklist (No Hardcoding, Hard-Delete, RBAC)
+Goal: Verify the existing AI Settings implementation fully conforms to security, reliability, and governance standards. Do not change the agreed structure; only fix gaps found. Every item below requires proof artifacts.
+0) Non-negotiables
+No hardcoding: No arrays of provider names/IDs in UI. Any dropdowns are populated from a single source (DB or one config registry), and UI imports that source only.
+Hard delete: Deleting a provider is a real SQL DELETE (no deleted_at/is_deleted), with AuditLog written first (wrapped in the same DB transaction).
+RBAC: Only Admin may create/update/delete or set active providers. View-only for non-admins.
+Secrets never exposed: API keys are never returned in responses or logs; UI shows redacted (••••) after save. (Your page states this behavior; verify it’s true in code and DB.) 
+1) Data model & constraints (verify, don’t change unless missing)
+Table (e.g., ai_providers): id, name, base_url?, model?, is_active boolean, created_at, updated_at, secret_ref (reference to key vault or encrypted blob), not plaintext.
+Single active provider:
+If multi-org: unique partial index per org: unique(is_active=true, organization_id)
+If single-org: unique where is_active=true globally
+Proof: Post \d ai_providers and the index definition.
+2) Secrets handling
+Storage: API keys are stored encrypted (or in a vault). If you must store locally, use libsodium/AES-GCM with a key in env (AI_SECRET_KEY), not in code or DB.
+At use: Decrypt only in server memory; never send to client; never log.
+Rotation: Support replacing the key without downtime; store last_rotated_at.
+Proof:
+Redacted value returned by GET /api/ai/providers (no plaintext).
+Show DB column value is ciphertext (not the raw key).
+Grep logs/tests for accidental key prints:
+rg -n "sk-[A-Za-z0-9]|api[_-]?key" server src -S
+3) Endpoints & flows
+POST /api/ai/providers — create (Admin only)
+PATCH /api/ai/providers/:id — update non-secret fields
+POST /api/ai/providers/:id/rotate-key — replace key (accepts new key, stores encrypted)
+POST /api/ai/providers/:id/activate — sets this is_active=true and all others false in one transaction
+DELETE /api/ai/providers/:id — hard delete (see §7)
+POST /api/ai/test — test call using provided key (does not store) or the active provider
+Proof: Post curl examples + 2xx/4xx JSON.
+4) Validation & safety
+Server-side validation only (zod/class-validator): provider id/name, base_url (https), timeouts (ms), retry policy (ints), etc.
+Network safety: Timeouts (< 30s), retries with jitter, circuit breaker after consecutive failures, reject non-HTTPS.
+Allowlist (optional): if you enforce specific providers, enforce by provider id registry on server (not UI).
+Proof: unit tests for validation; code snippet showing timeout/retry/circuit-breaker settings.
+5) RBAC & audit
+RBAC: Admin only for create/update/delete/activate/rotate; non-admins cannot reach endpoints (server enforced).
+AuditLog: { action:'ai_provider.create|update|rotate|activate|delete', actorId, targetId, metadata, ts }
+Proof: show 403 for non-admin, and sample audit rows for each action.
+6) UI behavior (align with screen)
+“AI Configuration Status” banner reflects active provider present vs none. (Currently shows “CONFIGURATION-REQUIRED” when none; verify logic.) 
+Add Provider form: name/provider, API key, Set as active toggle, Test Key button that performs a live test without storing.
+Providers list: shows all providers, redacted keys, “Set Active”, “Rotate Key”, “Delete”.
+No static labels in UI; menu and options load from one registry.
+Proof: screen recording: add → test → save → set active → list updates; redactions shown.
+7) Hard delete semantics (with dependencies)
+DELETE /api/ai/providers/:id:
+Wrap AuditLog + DELETE in a single transaction.
+If deleting the active provider, the system becomes “no active provider” state; banner updates accordingly.
+Response: 204 No Content (or 200 {ok:true} consistently across API).
+Proof:
+Show DB row removed (SELECT * FROM ai_providers WHERE id=:id → none).
+Show audit entry exists.
+Show UI status flips to “CONFIGURATION-REQUIRED”. 
+8) Observability
+Structured logs (no secrets), include: provider id, HTTP status, latency ms, error class (timeout/rate-limit/auth).
+Metrics: success rate, P95 latency, error counts per provider.
+Health endpoint: /api/ai/health summarizing active provider and last check.
+Proof: log samples, metric screenshots/JSON.
+9) Testing matrix (must pass in CI)
+Unit: validation, redaction, encryption/decryption, activate transaction toggles others off atomically.
+Integration: 403 for non-admins; create→test→activate→rotate→delete flow; timeouts/retries work.
+Sec tests: no secret in responses/logs; scanner fails if UI has provider arrays.
+Proof: CI run with green checks; attach failing-on-hardcoding scanner output if arrays appear.
+10) Anti-hardcoding enforcement
+UI must not define provider lists locally. If a registry exists, it lives in one file (or DB), imported by the UI; scanner fails if the strings appear elsewhere.
+Add test that the Add Provider dropdown fetches/reads from that single source, not constants.
+11) Cache hygiene (each deploy)
+Stop server, clear .next/cache / dist / node_modules/.cache; npm ci && npm run build && npm start.
+Verify in Incognito; screenshot the version/build hash in footer if available.
+12) Proof-of-Done: post all of the following
+\d ai_providers and index for single active provider (+ org, if multi-tenant).
+Curl/HTTP samples for each endpoint (create/test/activate/rotate/delete) with responses.
+Screenshot of UI before/after: “CONFIGURATION-REQUIRED” → active provider → back to required after delete. 
+AuditLog entries for each action.
+Logs/metrics snippets (redacted).
+Grep results proving no hardcoded provider arrays in UI:
+rg -n --hidden -S "OpenAI|Anthropic|Azure OpenAI|Cohere|Ollama|Bedrock" src | rg -v "registry|single-source"
+If anything fails this checklist, fix it and repost proof. Do not change the agreed structure unless we explicitly approve.

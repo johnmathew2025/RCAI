@@ -1,0 +1,59 @@
+Instruction 
+Goal: Make AI tests pass with no hardcoding. Use the saved provider config (provider id, model, encrypted apiKey). Ensure both test routes use the same source of truth and proper headers.
+1) Single Source of Truth for Provider Config
+•	Create a helper: getActiveAIProviderConfig() that returns { providerId, modelId, apiKeyDecrypted }from DB.
+•	Never infer model from provider; require modelId to be present in DB for each provider record.
+•	If modelId is missing, return 400 with: “Model is required for provider test. Please set a valid model id (e.g., gpt-4o-mini).”
+2) Fix API Key Passing
+•	In both test paths:
+o	POST /api/admin/ai-settings/:id/test (unit test)
+o	POST /api/admin/ai-status/test (enhanced config test)
+make sure the decrypted key is passed as:
+•	Authorization: Bearer <decryptedKey>
+No other header keys (no OPENAI_API_KEY custom headers).
+•	Add defensive logging (server-side, redacted): log status code and provider id, never the key itself.
+3) Correct Model Usage (no hardcoding)
+•	Enhanced test must call a real completion using the stored modelId, not the provider string.
+•	For OpenAI, call /v1/chat/completions with body:
+•	{
+•	  "model": "<modelId-from-db>",
+•	  "messages": [{"role":"user","content":"ping"}],
+•	  "max_tokens": 5
+•	}
+•	If the model is invalid, bubble up OpenAI’s JSON error so the UI shows model_not_found clearly.
+4) Consistency Between Test Endpoints
+•	Refactor both tests to use one internal function:
+•	async function testOpenAI({apiKey, modelId}): Promise<{ ok:boolean; status:number; body:any }>
+•	The “models list” ping is okay for basic auth, but Enhanced test should use a chat completion so we catch wrong model ids.
+5) UI Validation (no hardcoding)
+•	In the admin “Add AI Provider” form:
+o	Require a Model ID input (text) or a dropdown populated from /api/ai/models?provider=openai(which proxies OpenAI’s /models and filters to ids you accept).
+o	Save that modelId with the provider record.
+•	If you add a dropdown, it must be fetched from backend; do not embed model arrays in React.
+6) Error Messages (user-friendly)
+•	Map common OpenAI errors to clear UI toasts:
+o	invalid_api_key → “The API key is invalid or revoked.”
+o	model_not_found → “You don’t have access to <modelId>. Change model or request access.”
+o	rate_limit_exceeded/insufficient_quota → “Quota or billing limit reached.”
+7) Tests
+•	Add unit/integration tests for:
+o	Missing model → 400 with guidance.
+o	Valid key + valid model → 200 and a short assistant reply.
+o	Valid key + invalid model → propagates model_not_found.
+o	Key not passed → 401/invalid key.
+8) No Hardcoding Guard
+•	Run the hardcoding scanner and grep to confirm:
+o	No provider/model name literals are embedded in UI or server.
+o	Options come from AVAILABLE_AI_PROVIDERS and the DB.
+•	Keep the build blocker that fails CI if provider/model vocab is hardcoded.
+9) Data Backfill (optional)
+•	For existing ai_settings rows with model = "openai" or empty:
+o	Do a one-time backfill to gpt-4o-mini only if model is null/invalid, and log a migration note.
+o	Prefer to prompt the admin in UI to select a model instead of silent backfill.
+Acceptance Criteria
+•	“Test” button on provider row returns ✅ with your stored model (e.g., gpt-4o-mini).
+•	“Test AI Configuration” card returns ✅ and shows provider, model, timestamp.
+•	If I change the model to a bad id, the UI shows model_not_found with helpful text.
+•	No keys logged; secrets remain encrypted at rest.
+•	No hardcoded provider/model vocab anywhere.
+

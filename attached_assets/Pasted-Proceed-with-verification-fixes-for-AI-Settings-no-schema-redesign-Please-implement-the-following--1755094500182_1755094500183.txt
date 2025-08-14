@@ -1,0 +1,42 @@
+Proceed with verification fixes for AI Settings (no schema redesign)
+Please implement the following to meet the Professional Conformance Checklist. Do not change the agreed structure of the UI or tables; only add what’s missing and fix incorrect behaviors.
+
+1) RBAC (server-side, enforced)
+Protect all AI Settings endpoints so only Admin can create/update/delete/activate/rotate.
+Non-admin requests must return 403 with {reason:"forbidden"}.
+Add tests: admin allowed; viewer/editor denied.
+2) Endpoint completeness & consistent responses
+Implement:
+POST /api/ai/providers/:id/activate → sets this provider is_active=true and all others false in one transaction. Return 200 {ok:true} (or 204, pick and use consistently).
+POST /api/ai/providers/:id/rotate-key → stores new key encrypted; redact in responses. Return 200 {ok:true}.
+Fix delete behavior:
+DELETE /api/ai/settings/:id must return 404 (not 500) when the provider is not found.
+On success return 204 No Content (or 200 {ok:true} consistently across all delete endpoints).
+Add tests for 200/204 success, 403 unauthorized, and 404 not found.
+3) Single active provider constraint
+Enforce single active provider at the DB level:
+If single-tenant: a partial unique index on is_active = true.
+If multi-tenant: unique per organization_id.
+In the activate endpoint, wrap in a transaction:
+Set all providers’ is_active=false (scoped to org if multi-tenant)
+Set target is_active=true
+Write AuditLog (ai_provider.activate)
+Add tests: two providers cannot be active simultaneously; activating B deactivates A atomically.
+4) Audit logging (in transaction)
+For create/update/rotate/activate/delete, write AuditLog first, then commit the mutation in the same transaction.
+Include minimal metadata (provider id, name, changed fields), never secrets.
+5) Secrets handling (prove it)
+Confirm keys are encrypted at rest (ciphertext in DB) and never returned in plaintext.
+Responses must show redacted form (e.g., ****).
+Tests/grep to prove no plaintext keys in logs or responses.
+6) Hardcoding scanner (already compliant) — keep it
+Leave the scanner in CI to block any future hardcoded provider arrays.
+7) Proof to provide on completion
+\d ai_providers output showing the unique (is_active=true) index (and org column if applicable).
+cURL or HTTP client examples showing:
+POST /api/ai/providers/:id/activate (200/204) and that others are now inactive.
+POST /api/ai/providers/:id/rotate-key (200) with redaction on readback.
+DELETE /api/ai/settings/:id returns 404 when missing; 204/200 when deleted.
+AuditLog rows for each action.
+Test results for RBAC, activate/rotate/delete, and no-plaintext secrets.
+Important: After each change, follow the cache-clear protocol (stop server, clear .next/cache/dist/.cache, rebuild, test in Incognito).

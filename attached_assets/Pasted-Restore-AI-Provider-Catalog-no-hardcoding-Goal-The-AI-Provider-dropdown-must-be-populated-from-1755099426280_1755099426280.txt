@@ -1,0 +1,45 @@
+Restore AI Provider Catalog (no hardcoding)
+Goal: The “AI Provider” dropdown must be populated from a single dynamic source (no arrays in UI). If the env variable isn’t set, return a clear empty state.
+1) Find the catalog source the dropdown uses
+•	Grep for where options come from:
+nginx
+
+rg -n "AVAILABLE_AI_PROVIDERS|providers catalog|/providers" server client -S
+•	Confirm the endpoint the UI calls (e.g. /api/ai/providers/catalog).
+2) If the catalog is env-backed, set it in Replit Secrets (not .env)
+•	Add a Replit Secret:
+o	Key: AVAILABLE_AI_PROVIDERS
+o	Value: openai,anthropic,gemini (or whatever we support)
+•	Backend: parse once, cache, and expose via the catalog endpoint:
+ts
+
+const raw = process.env.AVAILABLE_AI_PROVIDERS || "";
+const PROVIDERS = raw.split(",").map(s => s.trim()).filter(Boolean);
+// catalog endpoint returns [{id:"openai", name:"OpenAI"}, ...] (map names server-side, not in UI)
+•	Do not hardcode arrays in React. UI calls the endpoint and renders options.
+3) If the catalog is DB-backed, seed when empty
+•	Table: ai_provider_catalog (id text primary key, name text)
+•	On boot (admin-only path or migration), if empty: insert the allowed ids.
+•	Endpoint returns the table contents; UI renders those.
+4) Empty-state & validation
+•	If catalog array is empty, show disabled select with helper text:
+o	“No providers configured. Ask admin to set AVAILABLE_AI_PROVIDERS or seed provider catalog.”
+•	Block Save/Test until a provider is selected.
+5) Proof to post
+•	curl -s http://localhost:5000/api/ai/providers/catalog → JSON array with providers.
+•	Screenshot of the dropdown showing the options.
+•	Grep proof: no provider arrays in client code.
+nginx
+
+rg -n --hidden -S "OpenAI|Anthropic|Gemini" client | rg -v "i18n|test|mock|does_not_exist"
+•	Startup log printing length only of AVAILABLE_AI_PROVIDERS (never values), e.g.:
+"[ai] provider catalog count:", 3
+6) Cache hygiene
+•	After setting the secret or seeding, rebuild and restart:
+
+
+rm -rf .next/cache dist node_modules/.cache
+npm ci
+npm run build
+npm start
+

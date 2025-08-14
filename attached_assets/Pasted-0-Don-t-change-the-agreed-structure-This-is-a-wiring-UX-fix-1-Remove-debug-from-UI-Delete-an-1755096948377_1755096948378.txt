@@ -1,0 +1,76 @@
+0) Don’t change the agreed structure. This is a wiring/UX fix.
+1) Remove debug from UI
+•	Delete any UI strings like:
+o	DEBUG: aiSettingsLoading:false, aiSettings.length:0
+•	Guard dev logs:
+ts
+
+if (process.env.NODE_ENV !== 'production') console.log({aiSettingsLoading, len: aiSettings?.length});
+•	Add a tiny unit test that fails if DEBUG: appears in rendered markup.
+2) Make the form send exactly what the API expects
+Backend expects (confirm in controller):
+json
+
+POST /api/admin/ai-settings
+{
+  "provider": "openai|anthropic|…",
+  "apiKey": "sk-...",
+  "baseUrl": "https://…",        // optional
+  "model": "gpt-4o-mini",        // optional
+  "setActive": true              // boolean
+}
+Frontend must send those exact keys:
+•	Ensure the API call uses fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(formValues) }).
+•	Make the input controlled and trimmed:
+ts
+
+const [apiKey, setApiKey] = useState<string>('');
+const payload = {
+  provider,
+  apiKey: apiKey?.trim() || null, // null → 400 (expected); non-empty → encrypt & save
+  baseUrl: baseUrl?.trim() || null,
+  model: model?.trim() || null,
+  setActive: !!setActive,
+};
+•	Common bug to fix: mismatched field name (key or secret instead of apiKey). Align to apiKey.
+3) Unify Test vs Save paths
+•	The Test Key button must use the same field name (apiKey) and serialization as Save—only difference is endpoint (/api/ai/test) and that it doesn’t persist.
+•	After a passed test, do not rely on test state when saving; always read the live apiKey input value on submit.
+4) Handle redaction properly
+•	When editing an existing provider, show a placeholder (e.g., ********) and do not submit that placeholder if the user didn’t change the key:
+ts
+
+const REDACT = '********';
+const effectiveApiKey = apiKey === REDACT ? undefined : apiKey.trim();
+•	Backend: if apiKey is undefined, don’t overwrite the stored (encrypted) key.
+5) Validate on the client before submit
+•	Block submit if provider empty or apiKey (new create) empty:
+o	Show inline error, don’t hit the server with an empty key.
+6) Confirm backend validation & return codes
+•	Missing apiKey on create → 400 { message:"API Key is required" }.
+•	On update with no new key → allowed; key remains as-is.
+•	On success → 200 {ok:true} (or 201 for create; pick and be consistent).
+7) Tests you must add and post
+•	Frontend:
+o	Render form, leave apiKey blank → clicking Save shows client error (no network call).
+o	Fill apiKey, click Test → shows “passed”.
+o	Click Save → POST payload contains apiKey key; success banner displays.
+•	Backend:
+o	Create without apiKey → 400.
+o	Create with apiKey → 201; DB stores encrypted value; GET returns redacted.
+o	Update without new apiKey → 200; DB key unchanged.
+8) Clean deployment cache before retest
+bash
+
+# stop server, nuke build caches, rebuild
+rm -rf .next/cache dist node_modules/.cache
+npm ci
+npm run build
+npm start
+# test in Incognito / hard reload
+9) Proof to post
+•	Screenshot with no debug text visible.
+•	Network tab showing the Save request payload includes "apiKey": "sk-***" and Content-Type: application/json.
+•	Server log or response 201/200 for Save; subsequent GET shows redacted key.
+•	Unit/integration test outputs green.
+
