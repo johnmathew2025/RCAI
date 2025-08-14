@@ -15,6 +15,8 @@ import { Calendar, Clock, AlertTriangle, User, MapPin, Wrench, ArrowRight, Home,
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { startVersionWatcher } from "@/lib/version-watch";
+import { showSmartToast, dismissToast } from "@/lib/smart-toast";
 
 // Form schema for incident reporting - THREE-LEVEL CASCADING DROPDOWN SYSTEM + STRUCTURED TIMELINE + REGULATORY COMPLIANCE
 const incidentSchema = z.object({
@@ -90,11 +92,23 @@ export default function IncidentReporting() {
   const [timelineQuestions, setTimelineQuestions] = useState<any[]>([]);
   const [showTimeline, setShowTimeline] = useState(false);
   
-  // Form persistence - load saved draft from localStorage
+  // Form state persistence configuration
+  const formVersion = "v1"; // Bump when schema changes
+  const storageKey = `draft:incident-report:${formVersion}`;
+  const draftTTL = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+  
+  // Load saved draft with TTL check
   const loadSavedDraft = () => {
     try {
-      const saved = localStorage.getItem('incident-draft');
-      return saved ? JSON.parse(saved) : {};
+      const saved = localStorage.getItem(storageKey);
+      if (!saved) return {};
+      
+      const { data, timestamp } = JSON.parse(saved);
+      if (Date.now() - timestamp > draftTTL) {
+        localStorage.removeItem(storageKey); // Expired draft
+        return {};
+      }
+      return data;
     } catch {
       return {};
     }
@@ -132,6 +146,7 @@ export default function IncidentReporting() {
       intendedRegulatoryAuthority: "",
       timelineData: {},
     },
+    ...loadSavedDraft(), // Merge saved draft
   });
 
   // THREE-LEVEL CASCADING DROPDOWN STATE
@@ -141,6 +156,77 @@ export default function IncidentReporting() {
   
   // REGULATORY COMPLIANCE CONDITIONAL RENDERING
   const reportableStatus = form.watch("reportableStatus");
+
+  // Auto-save form draft on changes
+  useEffect(() => {
+    const subscription = form.watch((values) => {
+      const draftData = {
+        data: values,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(storageKey, JSON.stringify(draftData));
+    });
+    return () => subscription.unsubscribe();
+  }, [form.watch, storageKey]);
+
+  // Check if form is dirty (has unsaved changes)
+  const isFormDirty = form.formState.isDirty || Object.keys(form.getValues()).some(key => {
+    const value = form.getValues()[key as keyof IncidentForm];
+    return value !== "" && value !== undefined && value !== null;
+  });
+
+  // Initialize smart version watcher
+  useEffect(() => {
+    const cleanup = startVersionWatcher({
+      getIsFormDirty: () => isFormDirty,
+      showToast: showSmartToast,
+      dismissToast: dismissToast,
+    });
+    return cleanup;
+  }, [isFormDirty]);
+
+  // Navigation guard - warn about unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isFormDirty) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isFormDirty]);
+
+  // Multi-tab draft synchronization
+  useEffect(() => {
+    const channel = new BroadcastChannel('incident-draft');
+    
+    channel.onmessage = (event) => {
+      if (event.data.type === 'draft-updated' && event.data.storageKey === storageKey) {
+        // Another tab updated the draft, reload it
+        const updatedDraft = loadSavedDraft();
+        if (Object.keys(updatedDraft).length > 0) {
+          form.reset(updatedDraft);
+        }
+      }
+    };
+    
+    // Notify other tabs when this form is updated
+    const subscription = form.watch(() => {
+      channel.postMessage({
+        type: 'draft-updated',
+        storageKey: storageKey,
+        timestamp: Date.now()
+      });
+    });
+    
+    return () => {
+      channel.close();
+      subscription.unsubscribe();
+    };
+  }, [form, storageKey]);
 
   // Generate timeline questions when equipment selection is complete
   useEffect(() => {
@@ -283,6 +369,9 @@ export default function IncidentReporting() {
         });
         return;
       }
+      
+      // Clear saved draft on successful submission
+      localStorage.removeItem(storageKey);
       
       toast({
         title: "Incident Reported",

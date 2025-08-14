@@ -58,15 +58,16 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   console.log("[ROUTES] Starting registerRoutes function - CRITICAL DEBUG");
   
-  // Stable version for development - only changes on server restart
-  const serverStartTime = Date.now();
+  // Stable version endpoint using single source of truth
+  const { APP_VERSION, APP_BUILT_AT } = await import("./version");
   
-  // Version endpoint for cache-busting system - NO HARDCODING
   app.get("/version.json", (_req, res) => {
     res.set("Cache-Control", "no-store, no-cache, must-revalidate");
     res.json({
-      version: serverStartTime, // Stable until server restart
-      created: new Date(serverStartTime).toISOString()
+      ok: true,
+      version: APP_VERSION,     // Git commit, build version, or process start time
+      builtAt: APP_BUILT_AT,    // Stable at build time
+      meta: { env: process.env.NODE_ENV }
     });
   });
   
