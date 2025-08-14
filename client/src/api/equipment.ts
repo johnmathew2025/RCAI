@@ -11,9 +11,13 @@ export type EquipmentOption = {
   name: string; 
 };
 
-// Phase 3.2: Equipment Groups hook
+// Phase 3.2: Equipment Groups hook - D) React Query freshness for taxonomy
 export const useGroups = () => useQuery({
   queryKey: ["equip", "groups"],
+  staleTime: 0,
+  gcTime: 0,
+  refetchOnMount: 'always',
+  refetchOnWindowFocus: 'always',
   queryFn: async (): Promise<EquipmentOption[]> => {
     console.log("[EQUIPMENT-HOOKS] Fetching equipment groups");
     const response = await fetch("/api/equipment/groups?active=1", { 
@@ -31,10 +35,14 @@ export const useGroups = () => useQuery({
   }
 });
 
-// Phase 3.2: Equipment Types hook (dependent on groupId)
+// Phase 3.2: Equipment Types hook (dependent on groupId) - D) React Query freshness for taxonomy
 export const useTypes = (groupId?: number) => useQuery({
   enabled: !!groupId,
   queryKey: ["equip", "types", groupId],
+  staleTime: 0,
+  gcTime: 0,
+  refetchOnMount: 'always',
+  refetchOnWindowFocus: 'always',
   queryFn: async (): Promise<EquipmentOption[]> => {
     console.log(`[EQUIPMENT-HOOKS] Fetching equipment types for group ${groupId}`);
     const response = await fetch(
@@ -53,10 +61,14 @@ export const useTypes = (groupId?: number) => useQuery({
   }
 });
 
-// Phase 3.2: Equipment Subtypes hook (dependent on typeId)
+// Phase 3.2: Equipment Subtypes hook (dependent on typeId) - D) React Query freshness for taxonomy
 export const useSubtypes = (typeId?: number) => useQuery({
   enabled: !!typeId,
   queryKey: ["equip", "subtypes", typeId],
+  staleTime: 0,
+  gcTime: 0,
+  refetchOnMount: 'always',
+  refetchOnWindowFocus: 'always',
   queryFn: async (): Promise<EquipmentOption[]> => {
     console.log(`[EQUIPMENT-HOOKS] Fetching equipment subtypes for type ${typeId}`);
     const response = await fetch(

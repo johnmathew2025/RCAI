@@ -1,0 +1,50 @@
+Make it bulletproof 
+A) Server headers (no stale HTML, safe assets)
+•	For HTML and JSON app shells (/, /index.html, /version.json, /api/*):
+•	Cache-Control: no-store
+•	For static assets (hashed filenames only):
+•	Cache-Control: public, max-age=31536000, immutable
+•	Ensure the build system outputs content-hashed filenames (e.g., app.4a8f1d.js). No hashes = cache pain.
+B) Stable, meaningful versioning
+•	/version.json must return a stable build ID (git SHA or build time at compile), not Date.now().
+•	On version change:
+o	If any form is dirty, show “New version available” toast (don’t auto-reload).
+o	If not dirty, reload and call queryClient.clear() to kill in-memory caches.
+C) Kill any Service Worker forever (unless you truly need offline)
+Add this to app bootstrap:
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+  // Optional: clear caches managed by SW
+  if (window.caches && caches.keys) {
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  }
+}
+D) React Query freshness
+•	For taxonomy queries specifically (groups/types/subtypes):
+•	useQuery({ ..., staleTime: 0, gcTime: 0, refetchOnMount: 'always', refetchOnWindowFocus: 'always' })
+•	After admin saves taxonomy, run:
+•	queryClient.invalidateQueries({ queryKey: ['equip'] });
+E) Cache-busting middleware (dev kill-switch)
+In dev, add a kill-switch env flag to force no-store globally:
+app.use((req, res, next) => {
+  if (process.env.CACHE_KILL_SWITCH === '1') {
+    res.set('Cache-Control', 'no-store');
+  }
+  next();
+});
+Turn it on when you’re not seeing changes: CACHE_KILL_SWITCH=1.
+F) Retire legacy endpoints decisively
+•	Make /api/cascading/equipment-* return 410 Gone with a Location header pointing to /api/equipment/{groups|types|subtypes}. That stops the client from “accidentally” using the old path.
+•	Grep the client to be sure nothing references the old paths:
+•	grep -RIn --exclude-dir=node_modules -E "/api/cascading/equipment-|Rotating|Pumps|Centrifugal|GROUP_OPTIONS|TYPE_OPTIONS|SUBTYPE_OPTIONS" client/src || true
+Verification checklist (what you/they must prove)
+•	Network → index.html shows Cache-Control: no-store.
+•	Network → main.js* has a hashed filename and immutable cache.
+•	No Service Worker is active (Application tab).
+•	Loading the incident form shows three requests:
+o	GET /api/equipment/groups?active=1
+o	GET /api/equipment/types?groupId=...
+o	GET /api/equipment/subtypes?typeId=...
+•	Deactivate/rename a subtype in Admin → refresh → the change appears in the form without redeploy.
+•	Grep for hardcoded vocab returns no hits.
+

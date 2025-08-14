@@ -5398,7 +5398,18 @@ If evidence is lacking, AI must explicitly state this and request specific addit
 
   // EQUIPMENT CASCADING DROPDOWN ENDPOINTS - NO HARDCODING
   // Level 1: Get distinct equipment groups from Evidence Library
+  // F) Retire legacy endpoints decisively
   app.get("/api/cascading/equipment-groups", async (req, res) => {
+    res.status(410)
+       .set('Location', '/api/equipment/groups')
+       .json({ 
+         error: 'Gone',
+         message: 'This endpoint is retired. Use /api/equipment/groups instead.',
+         newEndpoint: '/api/equipment/groups?active=1'
+       });
+  });
+  
+  app.get("/api/cascading/equipment-groups-active", async (req, res) => {
     try {
       const groups = await investigationStorage.getDistinctEquipmentGroups();
       res.json(groups);
@@ -5410,6 +5421,16 @@ If evidence is lacking, AI must explicitly state this and request specific addit
 
   // Level 2: Get equipment types for selected group
   app.get("/api/cascading/equipment-types/:group", async (req, res) => {
+    res.status(410)
+       .set('Location', '/api/equipment/types')
+       .json({ 
+         error: 'Gone',
+         message: 'This endpoint is retired. Use /api/equipment/types?groupId=X instead.',
+         newEndpoint: '/api/equipment/types?groupId=X&active=1'
+       });
+  });
+  
+  app.get("/api/cascading/equipment-types-legacy/:group", async (req, res) => {
     try {
       const { group } = req.params;
       const types = await investigationStorage.getEquipmentTypesForGroup(group);
@@ -5422,6 +5443,16 @@ If evidence is lacking, AI must explicitly state this and request specific addit
 
   // Level 3: Get equipment subtypes for selected group and type
   app.get("/api/cascading/equipment-subtypes/:group/:type", async (req, res) => {
+    res.status(410)
+       .set('Location', '/api/equipment/subtypes')
+       .json({ 
+         error: 'Gone',
+         message: 'This endpoint is retired. Use /api/equipment/subtypes?typeId=X instead.',
+         newEndpoint: '/api/equipment/subtypes?typeId=X&active=1'
+       });
+  });
+  
+  app.get("/api/cascading/equipment-subtypes-legacy/:group/:type", async (req, res) => {
     try {
       const { group, type } = req.params;
       const subtypes = await investigationStorage.getEquipmentSubtypesForGroupAndType(group, type);

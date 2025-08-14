@@ -47,6 +47,33 @@ app.use((req, res, next) => {
 
 app.use(express.urlencoded({ extended: false }));
 
+// E) Cache-busting middleware (dev kill-switch)
+app.use((req, res, next) => {
+  if (process.env.CACHE_KILL_SWITCH === '1') {
+    res.set('Cache-Control', 'no-store');
+    next();
+    return;
+  }
+  
+  // A) Server headers (no stale HTML, safe assets)
+  const path = req.path;
+  
+  // For HTML and JSON app shells (/, /index.html, /version.json, /api/*)
+  if (path === '/' || path === '/index.html' || path === '/version.json' || path.startsWith('/api/')) {
+    res.set('Cache-Control', 'no-store');
+  }
+  // For static assets (hashed filenames only)
+  else if (path.includes('assets/') && (path.includes('.') && path.match(/\.[a-f0-9]{8,}\./))) {
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+  // Default to no-store for safety
+  else {
+    res.set('Cache-Control', 'no-store');
+  }
+  
+  next();
+});
+
 app.use((req, res, next) => {
   const start = UniversalAIConfig.getPerformanceTime();
   const path = req.path;
