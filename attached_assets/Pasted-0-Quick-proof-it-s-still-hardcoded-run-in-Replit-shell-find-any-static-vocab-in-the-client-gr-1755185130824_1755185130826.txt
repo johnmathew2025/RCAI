@@ -1,0 +1,225 @@
+0) Quick proof it’s still hardcoded (run in Replit shell)
+# find any static vocab in the client
+grep -RIn --exclude-dir=node_modules -E \
+  "Rotating|Pumps|Centrifugal|Reciprocating|Rotary|Fixed|Static" client/src || true
+
+# confirm the form isn’t calling the backend
+# open DevTools → Network while loading the incident form:
+# you should see calls to /api/equipment/groups|types|subtypes (you likely won’t)
+ 
+1) Data model: enforce the hierarchy (phased, safe migration)
+A. Add missing FKs (nullable first → backfill → non-null)
+-- 001_taxonomy_linking_up.sql
+
+-- If columns don’t exist yet:
+ALTER TABLE equipment_types
+  ADD COLUMN IF NOT EXISTS group_id INTEGER NULL;
+
+ALTER TABLE equipment_subtypes
+  ADD COLUMN IF NOT EXISTS type_id INTEGER NULL;
+
+-- Indexes for speed
+CREATE INDEX IF NOT EXISTS idx_equipment_types_group_id
+  ON equipment_types(group_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_subtypes_type_id
+  ON equipment_subtypes(type_id);
+Backfill (temporary—adjust to your current data)
+-- Example backfill logic; replace with real mapping rules
+-- If you already know "Pumps" belongs to "Rotating":
+UPDATE equipment_types t
+SET group_id = g.id
+FROM equipment_groups g
+WHERE t.group_id IS NULL
+  AND t.name = 'Pumps'
+  AND g.name = 'Rotating';
+
+-- Subtypes (Centrifugal → Pumps)
+UPDATE equipment_subtypes s
+SET type_id = t.id
+FROM equipment_types t
+WHERE s.type_id IS NULL
+  AND s.name = 'Centrifugal'
+  AND t.name = 'Pumps';
+Lock integrity
+-- Now enforce referential integrity
+ALTER TABLE equipment_types
+  ADD CONSTRAINT fk_types_group
+  FOREIGN KEY (group_id) REFERENCES equipment_groups(id) ON DELETE RESTRICT;
+
+ALTER TABLE equipment_subtypes
+  ADD CONSTRAINT fk_subtypes_type
+  FOREIGN KEY (type_id) REFERENCES equipment_types(id) ON DELETE RESTRICT;
+
+-- Make them NOT NULL once backfill is done (run after verifying no NULLs)
+ALTER TABLE equipment_types ALTER COLUMN group_id SET NOT NULL;
+ALTER TABLE equipment_subtypes ALTER COLUMN type_id SET NOT NULL;
+
+-- Recommended uniqueness
+ALTER TABLE equipment_groups    ADD CONSTRAINT uq_groups_code UNIQUE (code);
+ALTER TABLE equipment_types     ADD CONSTRAINT uq_types_code UNIQUE (code);
+ALTER TABLE equipment_subtypes  ADD CONSTRAINT uq_subtypes_code UNIQUE (code);
+Result: every Type belongs to exactly one Group; every Subtype belongs to exactly one Type.
+________________________________________
+2) Backend API (single source of truth; no vocab in code)
+Create/read endpoints (read examples shown; keep create/update in your admin routes).
+// server/routes.equipment.ts
+import { Router } from "express";
+import { db } from "../db";
+export const equipmentRouter = Router();
+
+// Groups
+equipmentRouter.get("/groups", async (req, res) => {
+  const active = req.query.active === "1";
+  const data = await db.equipmentGroup.findMany({
+    where: active ? { isActive: true } : {},
+    select: { id: true, code: true, name: true },
+    orderBy: { name: "asc" }
+  });
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, data });
+});
+
+// Types for a Group
+equipmentRouter.get("/types", async (req, res) => {
+  const groupId = Number(req.query.groupId || 0);
+  if (!groupId) return res.status(400).json({ ok: false, error: { code: "bad_request", detail: "groupId required" } });
+  const active = req.query.active === "1";
+  const data = await db.equipmentType.findMany({
+    where: { groupId, ...(active ? { isActive: true } : {}) },
+    select: { id: true, code: true, name: true },
+    orderBy: { name: "asc" }
+  });
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, data });
+});
+
+// Subtypes for a Type
+equipmentRouter.get("/subtypes", async (req, res) => {
+  const typeId = Number(req.query.typeId || 0);
+  if (!typeId) return res.status(400).json({ ok: false, error: { code: "bad_request", detail: "typeId required" } });
+  const active = req.query.active === "1";
+  const data = await db.equipmentSubtype.findMany({
+    where: { typeId, ...(active ? { isActive: true } : {}) },
+    select: { id: true, code: true, name: true },
+    orderBy: { name: "asc" }
+  });
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, data });
+});
+
+export default equipmentRouter;
+Wire it:
+// server/routes.ts
+import equipmentRouter from "./routes.equipment";
+app.use("/api/equipment", equipmentRouter);
+Chain validation used when saving incidents:
+async function validateChain(groupId: number, typeId: number, subtypeId: number) {
+  const type = await db.equipmentType.findFirst({ where: { id: typeId }, select: { groupId: true } });
+  if (!type || type.groupId !== groupId) throw new Error("type_not_in_group");
+  const subtype = await db.equipmentSubtype.findFirst({ where: { id: subtypeId }, select: { typeId: true } });
+  if (!subtype || subtype.typeId !== typeId) throw new Error("subtype_not_in_type");
+}
+________________________________________
+3) Frontend: remove static lists; use dependent queries
+Create hooks:
+// client/src/api/equipment.ts
+import { useQuery } from "@tanstack/react-query";
+type Opt = { id: number; code: string; name: string };
+
+export const useGroups = () =>
+  useQuery<Opt[]>({
+    queryKey: ["equipment","groups"],
+    queryFn: async () => {
+      const r = await fetch("/api/equipment/groups?active=1", { cache: "no-store" });
+      const j = await r.json(); if (!j?.ok) throw new Error(j?.error?.detail||"load groups");
+      return j.data;
+    }
+  });
+
+export const useTypes = (groupId?: number) =>
+  useQuery<Opt[]>({
+    enabled: !!groupId,
+    queryKey: ["equipment","types",groupId],
+    queryFn: async () => {
+      const r = await fetch(`/api/equipment/types?groupId=${groupId}&active=1`, { cache: "no-store" });
+      const j = await r.json(); if (!j?.ok) throw new Error(j?.error?.detail||"load types");
+      return j.data;
+    }
+  });
+
+export const useSubtypes = (typeId?: number) =>
+  useQuery<Opt[]>({
+    enabled: !!typeId,
+    queryKey: ["equipment","subtypes",typeId],
+    queryFn: async () => {
+      const r = await fetch(`/api/equipment/subtypes?typeId=${typeId}&active=1`, { cache: "no-store" });
+      const j = await r.json(); if (!j?.ok) throw new Error(j?.error?.detail||"load subtypes");
+      return j.data;
+    }
+  });
+Use them in the incident form:
+// client/src/pages/incident-reporting.tsx  (relevant excerpt)
+const { control, watch, setValue } = useForm<IncidentForm>({ /* ... */ });
+
+const groupId = watch("equipment_group_id") || undefined;
+const typeId  = watch("equipment_type_id")  || undefined;
+
+const groups   = useGroups();
+const types    = useTypes(groupId);
+const subtypes = useSubtypes(typeId);
+
+// reset children on parent change
+useEffect(() => { setValue("equipment_type_id", null); setValue("equipment_subtype_id", null); }, [groupId]);
+useEffect(() => { setValue("equipment_subtype_id", null); }, [typeId]);
+
+// Selects (IDs only)
+<Select
+  label="Equipment Group (Level 1)"
+  value={groupId}
+  onValueChange={(v) => setValue("equipment_group_id", Number(v))}
+  options={(groups.data ?? []).map(g => ({ value: g.id, label: g.name }))}
+/>
+
+<Select
+  label="Equipment Type (Level 2)"
+  disabled={!groupId}
+  value={typeId}
+  onValueChange={(v) => setValue("equipment_type_id", Number(v))}
+  options={(types.data ?? []).map(t => ({ value: t.id, label: t.name }))}
+/>
+
+<Select
+  label="Equipment Subtype (Level 3)"
+  disabled={!typeId}
+  value={watch("equipment_subtype_id") || undefined}
+  onValueChange={(v) => setValue("equipment_subtype_id", Number(v))}
+  options={(subtypes.data ?? []).map(s => ({ value: s.id, label: s.name }))}
+/>
+Important: Delete any client constants:
+# remove/replace any found constants
+grep -RIn --exclude-dir=node_modules -E \
+  "GROUP_OPTIONS|TYPE_OPTIONS|SUBTYPE_OPTIONS|EQUIPMENT_TYPES|Rotating|Pumps|Centrifugal" client/src
+ 
+4) Admin UI: prevent orphan entries
+•	When creating a Type: require selecting a Group.
+•	When creating a Subtype: require selecting a Type.
+•	On edit, show parent pickers and block save if missing.
+•	After admin saves, invalidate queries:
+queryClient.invalidateQueries({ queryKey: ["equipment"] });
+ 
+5) Save incidents with validation (IDs only)
+On submit, your server should:
+1.	Call validateChain(groupId, typeId, subtypeId).
+2.	Persist only equipment_group_id, equipment_type_id, equipment_subtype_id.
+3.	Return a consistent envelope.
+ 
+6) Acceptance tests (what you should see)
+1.	In Admin → Subtypes, if the only entries are Centrifugal and Induction under Type=Pumps, Group=Rotating, then:
+o	Selecting Group=Rotating → Type dropdown shows Pumps only.
+o	Selecting Type=Pumps → Subtype dropdown shows Centrifugal and Induction only.
+2.	If you deactivate a subtype in Admin, it disappears from the incident form without redeploy.
+3.	Network panel shows:
+o	GET /api/equipment/groups?active=1
+o	GET /api/equipment/types?groupId=…&active=1
+o	GET /api/equipment/subtypes?typeId=…&active=1
+4.	No constants like “Rotating/Pumps/Centrifugal” exist anywhere in client/src
