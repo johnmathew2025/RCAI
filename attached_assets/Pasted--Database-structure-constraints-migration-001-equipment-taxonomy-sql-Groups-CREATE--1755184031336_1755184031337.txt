@@ -1,0 +1,341 @@
+) Database: structure & constraints (migration)
+-- 001_equipment_taxonomy.sql
+
+-- Groups
+CREATE TABLE equipment_groups (
+  id           SERIAL PRIMARY KEY,
+  code         TEXT NOT NULL UNIQUE,
+  name         TEXT NOT NULL,
+  is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Types
+CREATE TABLE equipment_types (
+  id           SERIAL PRIMARY KEY,
+  group_id     INTEGER NOT NULL REFERENCES equipment_groups(id) ON DELETE RESTRICT,
+  code         TEXT NOT NULL UNIQUE,
+  name         TEXT NOT NULL,
+  is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Subtypes
+CREATE TABLE equipment_subtypes (
+  id           SERIAL PRIMARY KEY,
+  type_id      INTEGER NOT NULL REFERENCES equipment_types(id) ON DELETE RESTRICT,
+  code         TEXT NOT NULL UNIQUE,
+  name         TEXT NOT NULL,
+  is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Optional: normalize existing incident table
+ALTER TABLE incidents
+  ADD COLUMN IF NOT EXISTS equipment_group_id  INTEGER REFERENCES equipment_groups(id),
+  ADD COLUMN IF NOT EXISTS equipment_type_id   INTEGER REFERENCES equipment_types(id),
+  ADD COLUMN IF NOT EXISTS equipment_subtype_id INTEGER REFERENCES equipment_subtypes(id);
+
+-- Server-side integrity (IDs must belong in the same chain will be checked in API)
+If these tables already exist, keep them and just ensure the unique/code/active flags are present.
+ 
+2) Backend API (no hardcoding; single source of truth)
+server/routes.equipment.ts
+import { Router } from "express";
+import { z } from "zod";
+import { db } from "../db"; // your prisma instance
+
+export const equipmentRouter = Router();
+
+// GET /api/equipment/groups?active=1
+equipmentRouter.get("/groups", async (req, res) => {
+  const active = req.query.active === "1";
+  const groups = await db.equipmentGroup.findMany({
+    where: active ? { isActive: true } : {},
+    select: { id: true, code: true, name: true },
+    orderBy: [{ name: "asc" }],
+  });
+  res.set("Cache-Control", "no-store"); // keep it fresh; or short cache if desired
+  res.json({ ok: true, data: groups });
+});
+
+// GET /api/equipment/types?groupId=123&active=1
+equipmentRouter.get("/types", async (req, res) => {
+  const groupId = Number(req.query.groupId ?? 0);
+  const active = req.query.active === "1";
+  if (!groupId) return res.status(400).json({ ok: false, error: { code: "bad_request", detail: "groupId required" }});
+
+  const types = await db.equipmentType.findMany({
+    where: { groupId, ...(active ? { isActive: true } : {}) },
+    select: { id: true, code: true, name: true },
+    orderBy: [{ name: "asc" }],
+  });
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, data: types });
+});
+
+// GET /api/equipment/subtypes?typeId=456&active=1
+equipmentRouter.get("/subtypes", async (req, res) => {
+  const typeId = Number(req.query.typeId ?? 0);
+  const active = req.query.active === "1";
+  if (!typeId) return res.status(400).json({ ok: false, error: { code: "bad_request", detail: "typeId required" }});
+
+  const subtypes = await db.equipmentSubtype.findMany({
+    where: { typeId, ...(active ? { isActive: true } : {}) },
+    select: { id: true, code: true, name: true },
+    orderBy: [{ name: "asc" }],
+  });
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, data: subtypes });
+});
+
+// POST /api/incidents  (snippet: validate chain integrity)
+const IncidentPayload = z.object({
+  // ... other fields ...
+  equipment_group_id: z.number().int().positive(),
+  equipment_type_id: z.number().int().positive(),
+  equipment_subtype_id: z.number().int().positive(),
+});
+
+equipmentRouter.post("/validate-chain", async (req, res) => {
+  // optional validation endpoint if you want one
+  res.json({ ok: true });
+});
+
+export default equipmentRouter;
+server/routes.ts (wire it)
+import equipmentRouter from "./routes.equipment";
+
+app.use("/api/equipment", equipmentRouter);
+
+// In your incidents create/update route, enforce hierarchy:
+async function validateEquipmentChain(groupId: number, typeId: number, subtypeId: number) {
+  const type = await db.equipmentType.findFirst({ where: { id: typeId }, select: { groupId: true }});
+  if (!type || type.groupId !== groupId) throw new Error("type_not_in_group");
+
+  const subtype = await db.equipmentSubtype.findFirst({ where: { id: subtypeId }, select: { typeId: true }});
+  if (!subtype || subtype.typeId !== typeId) throw new Error("subtype_not_in_type");
+}
+ 
+3) Client hooks (React Query)
+client/src/api/equipment.ts
+import { useQuery } from "@tanstack/react-query";
+
+type Option = { id: number; code: string; name: string };
+
+export function useEquipmentGroups(active = true) {
+  return useQuery({
+    queryKey: ["equipment","groups",{active}],
+    queryFn: async (): Promise<Option[]> => {
+      const r = await fetch(`/api/equipment/groups?active=${active ? 1 : 0}`, { cache: "no-store" });
+      const j = await r.json();
+      if (!j?.ok) throw new Error(j?.error?.detail || "Failed to load groups");
+      return j.data;
+    }
+  });
+}
+
+export function useEquipmentTypes(groupId?: number, active = true) {
+  return useQuery({
+    enabled: !!groupId,
+    queryKey: ["equipment","types",{groupId,active}],
+    queryFn: async (): Promise<Option[]> => {
+      const r = await fetch(`/api/equipment/types?groupId=${groupId}&active=${active ? 1 : 0}`, { cache: "no-store" });
+      const j = await r.json();
+      if (!j?.ok) throw new Error(j?.error?.detail || "Failed to load types");
+      return j.data;
+    }
+  });
+}
+
+export function useEquipmentSubtypes(typeId?: number, active = true) {
+  return useQuery({
+    enabled: !!typeId,
+    queryKey: ["equipment","subtypes",{typeId,active}],
+    queryFn: async (): Promise<Option[]> => {
+      const r = await fetch(`/api/equipment/subtypes?typeId=${typeId}&active=${active ? 1 : 0}`, { cache: "no-store" });
+      const j = await r.json();
+      if (!j?.ok) throw new Error(j?.error?.detail || "Failed to load subtypes");
+      return j.data;
+    }
+  });
+}
+ 
+4) Incident form wiring (IDs only; dependent selects)
+client/src/pages/incident-reporting.tsx (relevant excerpt)
+import { useForm, Controller } from "react-hook-form";
+import { useEquipmentGroups, useEquipmentTypes, useEquipmentSubtypes } from "@/api/equipment";
+
+type IncidentForm = {
+  // ... other fields ...
+  equipment_group_id: number | null;
+  equipment_type_id: number | null;
+  equipment_subtype_id: number | null;
+};
+
+const FORM_VERSION = "v1";
+const STORAGE_KEY = `draft:incident-report:${FORM_VERSION}`;
+
+export default function IncidentReporting() {
+  const { control, watch, setValue, reset, handleSubmit, formState } = useForm<IncidentForm>({
+    defaultValues: {
+      equipment_group_id: null,
+      equipment_type_id: null,
+      equipment_subtype_id: null,
+      // ... others ...
+    }
+  });
+
+  // draft persistence (basic)
+  React.useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) reset(JSON.parse(saved));
+  }, [reset]);
+
+  React.useEffect(() => {
+    const sub = watch((values) => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(values));
+    });
+    return () => sub.unsubscribe();
+  }, [watch]);
+
+  const groupId = watch("equipment_group_id") || undefined;
+  const typeId  = watch("equipment_type_id") || undefined;
+
+  const groups   = useEquipmentGroups(true);
+  const types    = useEquipmentTypes(groupId, true);
+  const subtypes = useEquipmentSubtypes(typeId, true);
+
+  // Reset children when parent changes
+  React.useEffect(() => {
+    setValue("equipment_type_id", null);
+    setValue("equipment_subtype_id", null);
+  }, [groupId, setValue]);
+
+  React.useEffect(() => {
+    setValue("equipment_subtype_id", null);
+  }, [typeId, setValue]);
+
+  // Submit
+  const onSubmit = async (data: IncidentForm) => {
+    // minimal client-side guard; server re-validates chain
+    if (!data.equipment_group_id || !data.equipment_type_id || !data.equipment_subtype_id) {
+      // show toast...
+      return;
+    }
+    const r = await fetch("/api/incidents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const j = await r.json();
+    if (r.ok && j?.ok) {
+      localStorage.removeItem(STORAGE_KEY);
+      // navigate / toast...
+    } else {
+      // show error j?.error?.detail
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+
+      {/* Group */}
+      <Controller
+        control={control}
+        name="equipment_group_id"
+        render={({ field }) => (
+          <Select
+            label="Equipment Group (Level 1)"
+            value={field.value ?? undefined}
+            onValueChange={(v) => field.onChange(Number(v))}
+            options={(groups.data ?? []).map(g => ({ value: g.id, label: g.name }))}
+            loading={groups.isLoading}
+            placeholder="Select group"
+          />
+        )}
+      />
+
+      {/* Type (depends on group) */}
+      <Controller
+        control={control}
+        name="equipment_type_id"
+        render={({ field }) => (
+          <Select
+            label="Equipment Type (Level 2)"
+            disabled={!groupId}
+            value={field.value ?? undefined}
+            onValueChange={(v) => field.onChange(Number(v))}
+            options={(types.data ?? []).map(t => ({ value: t.id, label: t.name }))}
+            loading={types.isLoading}
+            placeholder="Select type"
+          />
+        )}
+      />
+
+      {/* Subtype (depends on type) */}
+      <Controller
+        control={control}
+        name="equipment_subtype_id"
+        render={({ field }) => (
+          <Select
+            label="Equipment Subtype (Level 3)"
+            disabled={!typeId}
+            value={field.value ?? undefined}
+            onValueChange={(v) => field.onChange(Number(v))}
+            options={(subtypes.data ?? []).map(s => ({ value: s.id, label: s.name }))}
+            loading={subtypes.isLoading}
+            placeholder="Select subtype"
+          />
+        )}
+      />
+
+      {/* ...rest of form... */}
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+Select is your UI component (shadcn/ui or similar). It should accept value as the ID and display labelfrom API.
+ 
+5) Server-side validation (enforce hierarchy on save)
+In your incidents create/update controller:
+await validateEquipmentChain(
+  payload.equipment_group_id,
+  payload.equipment_type_id,
+  payload.equipment_subtype_id
+);
+
+// then persist IDs only
+await db.incident.create({
+  data: {
+    // ...
+    equipmentGroupId: payload.equipment_group_id,
+    equipmentTypeId: payload.equipment_type_id,
+    equipmentSubtypeId: payload.equipment_subtype_id,
+  }
+});
+Return a consistent envelope on error:
+catch (err) {
+  if (String(err.message).includes("type_not_in_group")) {
+    return res.status(400).json({ ok: false, error: { code: "type_not_in_group", detail: "Selected type does not belong to the selected group." }});
+  }
+  if (String(err.message).includes("subtype_not_in_type")) {
+    return res.status(400).json({ ok: false, error: { code: "subtype_not_in_type", detail: "Selected subtype does not belong to the selected type." }});
+  }
+  return res.status(500).json({ ok: false, error: { code: "server_error", detail: "Unexpected error." }});
+}
+ 
+6) Remove any lingering hardcoding
+Run these in the repo root (Replit shell):
+grep -RIn --exclude-dir=node_modules -E "Centrifugal|Reciprocating|Rotary|Rotating|Pumps" client/src || true
+grep -RIn --exclude-dir=node_modules -E "GROUP_OPTIONS|TYPE_OPTIONS|SUBTYPE_OPTIONS|EQUIPMENT_TYPES|EQUIPMENT_GROUPS" client/src || true
+If anything shows up in TS/TSX constants, delete them and replace with the hooks above.
+ 
+7) Admin impact
+•	Your existing Admin → Group/Type/Subtype pages remain the sole place to curate taxonomy.
+•	The incident form will reflect any admin changes without redeploys (no caching beyond the request).
+•	If you want faster UX, set short caching on the three endpoints and call queryClient.invalidateQueries(["equipment"]) when admin saves changes.
+
