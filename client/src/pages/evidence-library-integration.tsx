@@ -342,7 +342,7 @@ export default function EvidenceLibraryIntegration() {
         <CardHeader>
           <CardTitle>Filter Evidence by Taxonomy</CardTitle>
           <CardDescription>
-            Use cascading dropdowns to filter evidence by equipment classification
+            Use database-driven dropdowns to filter evidence by equipment classification
           </CardDescription>
         </CardHeader>
         <CardContent>

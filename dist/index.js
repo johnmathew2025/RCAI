@@ -1771,6 +1771,43 @@ var init_storage = __esm({
       async getActiveEquipmentGroups() {
         return await db.select().from(equipmentGroups).where(eq(equipmentGroups.isActive, true)).orderBy(equipmentGroups.name);
       }
+      // NEW: ID-based equipment operations for normalized API
+      async getEquipmentGroups(options) {
+        console.log(`[EQUIPMENT-STORAGE] Getting equipment groups, activeOnly=${options?.activeOnly}`);
+        let query = db.select().from(equipmentGroups);
+        if (options?.activeOnly) {
+          query = query.where(eq(equipmentGroups.isActive, true));
+        }
+        const results = await query.orderBy(equipmentGroups.name);
+        console.log(`[EQUIPMENT-STORAGE] Retrieved ${results.length} equipment groups`);
+        return results;
+      }
+      async getEquipmentTypes(options) {
+        console.log(`[EQUIPMENT-STORAGE] Getting equipment types for groupId=${options.groupId}, activeOnly=${options.activeOnly}`);
+        let query = db.select().from(equipmentTypes).where(eq(equipmentTypes.equipmentGroupId, options.groupId));
+        if (options.activeOnly) {
+          query = query.where(and(
+            eq(equipmentTypes.equipmentGroupId, options.groupId),
+            eq(equipmentTypes.isActive, true)
+          ));
+        }
+        const results = await query.orderBy(equipmentTypes.name);
+        console.log(`[EQUIPMENT-STORAGE] Retrieved ${results.length} equipment types`);
+        return results;
+      }
+      async getEquipmentSubtypes(options) {
+        console.log(`[EQUIPMENT-STORAGE] Getting equipment subtypes for typeId=${options.typeId}, activeOnly=${options.activeOnly}`);
+        let query = db.select().from(equipmentSubtypes).where(eq(equipmentSubtypes.equipmentTypeId, options.typeId));
+        if (options.activeOnly) {
+          query = query.where(and(
+            eq(equipmentSubtypes.equipmentTypeId, options.typeId),
+            eq(equipmentSubtypes.isActive, true)
+          ));
+        }
+        const results = await query.orderBy(equipmentSubtypes.name);
+        console.log(`[EQUIPMENT-STORAGE] Retrieved ${results.length} equipment subtypes`);
+        return results;
+      }
       async createEquipmentGroup(data) {
         const [result] = await db.insert(equipmentGroups).values({
           ...data,
@@ -4281,6 +4318,145 @@ Respond in JSON format:
         }
       }
     };
+  }
+});
+
+// server/version.ts
+var version_exports = {};
+__export(version_exports, {
+  APP_BUILT_AT: () => APP_BUILT_AT,
+  APP_VERSION: () => APP_VERSION
+});
+import fs2 from "fs";
+var fallbackVersion, version, APP_VERSION, APP_BUILT_AT;
+var init_version = __esm({
+  "server/version.ts"() {
+    "use strict";
+    fallbackVersion = String(process.env.BOOT_TIME || Math.floor(Date.now() / 1e3));
+    version = process.env.GIT_COMMIT || "";
+    if (!version) {
+      try {
+        const buildFile = JSON.parse(fs2.readFileSync("./build-version.json", "utf8"));
+        version = buildFile?.commit || buildFile?.version || "";
+      } catch {
+      }
+    }
+    APP_VERSION = version || fallbackVersion;
+    APP_BUILT_AT = process.env.BUILD_TIME || (/* @__PURE__ */ new Date()).toISOString();
+    console.log(`[VERSION] Using version: ${APP_VERSION} (built: ${APP_BUILT_AT})`);
+  }
+});
+
+// server/routes/equipment.ts
+var equipment_exports = {};
+__export(equipment_exports, {
+  default: () => equipment_default,
+  validateEquipmentChain: () => validateEquipmentChain
+});
+import { Router } from "express";
+import { eq as eq2, and as and2 } from "drizzle-orm";
+async function validateEquipmentChain(groupId, typeId, subtypeId) {
+  console.log(`[EQUIPMENT-API] Validating chain: group=${groupId}, type=${typeId}, subtype=${subtypeId}`);
+  const type = await db.query.equipmentTypes.findFirst({
+    where: eq2(equipmentTypes.id, typeId),
+    columns: { groupId: true }
+  });
+  if (!type || type.groupId !== groupId) {
+    throw new Error("type_not_in_group");
+  }
+  const subtype = await db.query.equipmentSubtypes.findFirst({
+    where: eq2(equipmentSubtypes.id, subtypeId),
+    columns: { typeId: true }
+  });
+  if (!subtype || subtype.typeId !== typeId) {
+    throw new Error("subtype_not_in_type");
+  }
+  console.log("[EQUIPMENT-API] Equipment chain validation passed");
+  return true;
+}
+var router, equipment_default;
+var init_equipment = __esm({
+  "server/routes/equipment.ts"() {
+    "use strict";
+    init_db();
+    init_schema();
+    router = Router();
+    router.get("/groups", async (req, res) => {
+      console.log("[EQUIPMENT-API] Fetching equipment groups");
+      const active = req.query.active === "1";
+      try {
+        const data = await db.select({
+          id: equipmentGroups.id,
+          name: equipmentGroups.name
+        }).from(equipmentGroups).where(active ? eq2(equipmentGroups.isActive, true) : void 0).orderBy(equipmentGroups.name);
+        res.set("Cache-Control", "no-store");
+        res.json({ ok: true, data });
+        console.log(`[EQUIPMENT-API] Returned ${data.length} equipment groups`);
+      } catch (error) {
+        console.error("[EQUIPMENT-API] Error fetching groups:", error);
+        res.status(500).json({
+          ok: false,
+          error: { code: "internal_error", detail: "Failed to fetch equipment groups" }
+        });
+      }
+    });
+    router.get("/types", async (req, res) => {
+      const groupId = Number(req.query.groupId || 0);
+      console.log(`[EQUIPMENT-API] Fetching equipment types for groupId=${groupId}`);
+      if (!groupId) {
+        return res.status(400).json({
+          ok: false,
+          error: { code: "bad_request", detail: "groupId required" }
+        });
+      }
+      const active = req.query.active === "1";
+      try {
+        const whereConditions = [eq2(equipmentTypes.groupId, groupId)];
+        if (active) whereConditions.push(eq2(equipmentTypes.isActive, true));
+        const data = await db.select({
+          id: equipmentTypes.id,
+          name: equipmentTypes.name
+        }).from(equipmentTypes).where(and2(...whereConditions)).orderBy(equipmentTypes.name);
+        res.set("Cache-Control", "no-store");
+        res.json({ ok: true, data });
+        console.log(`[EQUIPMENT-API] Returned ${data.length} equipment types for group ${groupId}`);
+      } catch (error) {
+        console.error("[EQUIPMENT-API] Error fetching types:", error);
+        res.status(500).json({
+          ok: false,
+          error: { code: "internal_error", detail: "Failed to fetch equipment types" }
+        });
+      }
+    });
+    router.get("/subtypes", async (req, res) => {
+      const typeId = Number(req.query.typeId || 0);
+      console.log(`[EQUIPMENT-API] Fetching equipment subtypes for typeId=${typeId}`);
+      if (!typeId) {
+        return res.status(400).json({
+          ok: false,
+          error: { code: "bad_request", detail: "typeId required" }
+        });
+      }
+      const active = req.query.active === "1";
+      try {
+        const whereConditions = [eq2(equipmentSubtypes.typeId, typeId)];
+        if (active) whereConditions.push(eq2(equipmentSubtypes.isActive, true));
+        const data = await db.select({
+          id: equipmentSubtypes.id,
+          name: equipmentSubtypes.name
+        }).from(equipmentSubtypes).where(and2(...whereConditions)).orderBy(equipmentSubtypes.name);
+        res.set("Cache-Control", "no-store");
+        res.json({ ok: true, data });
+        console.log(`[EQUIPMENT-API] Returned ${data.length} equipment subtypes for type ${typeId}`);
+      } catch (error) {
+        console.error("[EQUIPMENT-API] Error fetching subtypes:", error);
+        res.status(500).json({
+          ok: false,
+          error: { code: "internal_error", detail: "Failed to fetch equipment subtypes" }
+        });
+      }
+    });
+    equipment_default = router;
   }
 });
 
@@ -7331,7 +7507,7 @@ var universal_evidence_analyzer_exports = {};
 __export(universal_evidence_analyzer_exports, {
   UniversalEvidenceAnalyzer: () => UniversalEvidenceAnalyzer
 });
-import * as fs2 from "fs";
+import * as fs3 from "fs";
 import { spawn } from "child_process";
 import * as mime from "mime-types";
 var UniversalEvidenceAnalyzer;
@@ -7369,7 +7545,7 @@ var init_universal_evidence_analyzer = __esm({
           } else {
             analysisEngine = "ai-text";
             console.log(`[UNIVERSAL EVIDENCE] Unknown file type, defaulting to AI/GPT text analysis`);
-            const textContent = fs2.readFileSync(filePath, "utf-8");
+            const textContent = fs3.readFileSync(filePath, "utf-8");
             const aiResult = await this.analyzeTextWithAI(textContent, fileName, equipmentContext);
             parsedData = aiResult.data;
             adequacyScore = aiResult.confidence;
@@ -7579,7 +7755,7 @@ Format response as JSON:
       static async analyzeVisualWithAI(filePath, fileName, equipmentContext) {
         try {
           const { DynamicAIConfig: DynamicAIConfig2 } = await Promise.resolve().then(() => (init_dynamic_ai_config(), dynamic_ai_config_exports));
-          const fileBuffer = fs2.readFileSync(filePath);
+          const fileBuffer = fs3.readFileSync(filePath);
           const base64Data = fileBuffer.toString("base64");
           const mimeType = mime.lookup(fileName) || "application/octet-stream";
           const visionPrompt = `
@@ -8703,7 +8879,7 @@ import express2 from "express";
 // server/routes.ts
 init_storage();
 import { createServer } from "http";
-import * as fs3 from "fs";
+import * as fs4 from "fs";
 import * as path2 from "path";
 
 // server/investigation-engine.ts
@@ -10012,11 +10188,16 @@ var upload = multer({
 });
 async function registerRoutes(app3) {
   console.log("[ROUTES] Starting registerRoutes function - CRITICAL DEBUG");
+  const { APP_VERSION: APP_VERSION2, APP_BUILT_AT: APP_BUILT_AT2 } = await Promise.resolve().then(() => (init_version(), version_exports));
   app3.get("/version.json", (_req, res) => {
     res.set("Cache-Control", "no-store, no-cache, must-revalidate");
     res.json({
-      version: Date.now(),
-      created: (/* @__PURE__ */ new Date()).toISOString()
+      ok: true,
+      version: APP_VERSION2,
+      // Git commit, build version, or process start time
+      builtAt: APP_BUILT_AT2,
+      // Stable at build time
+      meta: { env: process.env.NODE_ENV }
     });
   });
   app3.get("/api/evidence-library/search-with-elimination", async (req, res) => {
@@ -10541,6 +10722,9 @@ async function registerRoutes(app3) {
     }
   });
   console.log("[ROUTES] Equipment groups GET route registered successfully");
+  const equipmentRouter = (await Promise.resolve().then(() => (init_equipment(), equipment_exports))).default;
+  app3.use("/api/equipment", equipmentRouter);
+  console.log("[ROUTES] Phase 2 - Normalized equipment API routes registered successfully");
   app3.post("/api/evidence-analysis", async (req, res) => {
     console.log("[ROUTES] Evidence analysis route accessed - Universal Protocol Standard compliant");
     try {
@@ -12883,7 +13067,7 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
       const uniqueId = UniversalAIConfig.generateUUID();
       const fileExtension = path2.extname(file.originalname);
       const tempFilePath = path2.join(os.tmpdir(), `evidence_${incidentId}_${uniqueId}${fileExtension}`);
-      fs3.writeFileSync(tempFilePath, file.buffer);
+      fs4.writeFileSync(tempFilePath, file.buffer);
       try {
         const { UniversalEvidenceAnalyzer: UniversalEvidenceAnalyzer2 } = await Promise.resolve().then(() => (init_universal_evidence_analyzer(), universal_evidence_analyzer_exports));
         const equipmentContext = {
@@ -12988,7 +13172,7 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
         });
       } finally {
         try {
-          fs3.unlinkSync(tempFilePath);
+          fs4.unlinkSync(tempFilePath);
         } catch (cleanupError) {
           console.warn("[UNIVERSAL EVIDENCE] Temp file cleanup failed:", cleanupError);
         }
@@ -14181,6 +14365,13 @@ If evidence is lacking, AI must explicitly state this and request specific addit
     }
   });
   app3.get("/api/cascading/equipment-groups", async (req, res) => {
+    res.status(410).set("Location", "/api/equipment/groups").json({
+      error: "Gone",
+      message: "This endpoint is retired. Use /api/equipment/groups instead.",
+      newEndpoint: "/api/equipment/groups?active=1"
+    });
+  });
+  app3.get("/api/cascading/equipment-groups-active", async (req, res) => {
     try {
       const groups = await investigationStorage.getDistinctEquipmentGroups();
       res.json(groups);
@@ -14190,6 +14381,13 @@ If evidence is lacking, AI must explicitly state this and request specific addit
     }
   });
   app3.get("/api/cascading/equipment-types/:group", async (req, res) => {
+    res.status(410).set("Location", "/api/equipment/types").json({
+      error: "Gone",
+      message: "This endpoint is retired. Use /api/equipment/types?groupId=X instead.",
+      newEndpoint: "/api/equipment/types?groupId=X&active=1"
+    });
+  });
+  app3.get("/api/cascading/equipment-types-legacy/:group", async (req, res) => {
     try {
       const { group } = req.params;
       const types = await investigationStorage.getEquipmentTypesForGroup(group);
@@ -14200,6 +14398,13 @@ If evidence is lacking, AI must explicitly state this and request specific addit
     }
   });
   app3.get("/api/cascading/equipment-subtypes/:group/:type", async (req, res) => {
+    res.status(410).set("Location", "/api/equipment/subtypes").json({
+      error: "Gone",
+      message: "This endpoint is retired. Use /api/equipment/subtypes?typeId=X instead.",
+      newEndpoint: "/api/equipment/subtypes?typeId=X&active=1"
+    });
+  });
+  app3.get("/api/cascading/equipment-subtypes-legacy/:group/:type", async (req, res) => {
     try {
       const { group, type } = req.params;
       const subtypes = await investigationStorage.getEquipmentSubtypesForGroupAndType(group, type);
@@ -14994,7 +15199,7 @@ import { createServer as createServer2 } from "http";
 
 // server/vite.ts
 import express from "express";
-import fs4 from "fs";
+import fs5 from "fs";
 import path4 from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 
@@ -15074,7 +15279,7 @@ async function setupVite(app3, server) {
         "client",
         "index.html"
       );
-      let template = await fs4.promises.readFile(clientTemplate, "utf-8");
+      let template = await fs5.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid2()}"`
@@ -15116,6 +15321,22 @@ app2.use((req, res, next) => {
   return express2.json({ limit: "10mb" })(req, res, next);
 });
 app2.use(express2.urlencoded({ extended: false }));
+app2.use((req, res, next) => {
+  if (process.env.CACHE_KILL_SWITCH === "1") {
+    res.set("Cache-Control", "no-store");
+    next();
+    return;
+  }
+  const path6 = req.path;
+  if (path6 === "/" || path6 === "/index.html" || path6 === "/version.json" || path6.startsWith("/api/")) {
+    res.set("Cache-Control", "no-store");
+  } else if (path6.includes("assets/") && (path6.includes(".") && path6.match(/\.[a-f0-9]{8,}\./))) {
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+  } else {
+    res.set("Cache-Control", "no-store");
+  }
+  next();
+});
 app2.use((req, res, next) => {
   const start = UniversalAIConfig.getPerformanceTime();
   const path6 = req.path;
