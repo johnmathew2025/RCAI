@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 export type EquipmentOption = { 
   id: number; 
   name: string; 
+  code?: string;
 };
 
 // Phase 3.2: Equipment Groups hook - D) React Query freshness for taxonomy

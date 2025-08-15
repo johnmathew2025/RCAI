@@ -25,24 +25,9 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
 
-// DATABASE-DRIVEN Equipment Taxonomy - use API instead
-const EQUIPMENT_CATEGORIES_DEPRECATED = [
-  { id: "database", name: "Database Driven", icon: <Activity className="h-4 w-4" /> },
-  { id: "api", name: "API Driven", icon: <Settings className="h-4 w-4" /> },
-  { id: "dynamic", name: "Dynamic Config", icon: <Activity className="h-4 w-4" /> },
-  { id: "config", name: "Config Driven", icon: <Settings className="h-4 w-4" /> },
-  { id: "admin", name: "Admin Managed", icon: <Wrench className="h-4 w-4" /> }
-];
-
-const SUBCATEGORIES_DEPRECATED = {
-  // DATABASE DRIVEN - use API instead
-  database: [
-    { id: "api_driven", name: "API Driven" },
-    { id: "config_driven", name: "Config Driven" },
-    { id: "admin_managed", name: "Admin Managed" }
-  ]
-};
+// All equipment data loaded dynamically from database via API hooks
 
 // DEPRECATED - USE DATABASE INSTEAD
 // This constant violates the anti-hardcoding policy
@@ -99,6 +84,13 @@ export default function ISO14224EvidenceForm() {
   // Auto-save functionality
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  // DATABASE-DRIVEN EQUIPMENT HOOKS
+  const { data: groups = [] } = useGroups();
+  const selectedGroupId = answers.equipment_category ? parseInt(answers.equipment_category) : undefined;
+  const { data: types = [] } = useTypes(selectedGroupId);
+  const selectedTypeId = answers.equipment_subcategory ? parseInt(answers.equipment_subcategory) : undefined;
+  const { data: subs = [] } = useSubtypes(selectedTypeId);
 
   useEffect(() => {
     // Auto-save every 30 seconds if there are changes
@@ -351,21 +343,21 @@ export default function ISO14224EvidenceForm() {
           text: "Equipment Category", 
           type: "select", 
           required: true,
-          options: EQUIPMENT_CATEGORIES.map(c => c.id)
+          options: groups.map(g => ({ value: g.id.toString(), label: g.name }))
         },
         { 
           id: "equipment_subcategory", 
           text: "Equipment Subcategory", 
           type: "select", 
           required: true,
-          options: answers.equipment_category ? SUBCATEGORIES[answers.equipment_category as keyof typeof SUBCATEGORIES]?.map(s => s.id) || [] : []
+          options: types.map(t => ({ value: t.id.toString(), label: t.name }))
         },
         {
           id: "equipment_type",
           text: "Specific Equipment Type",
           type: "select",
           required: true,
-          options: [] // TODO: Load dynamically from /api/equipment-subtypes
+          options: subs.map(s => ({ value: s.id.toString(), label: s.name }))
         },
         { id: "manufacturer", text: "Manufacturer", type: "text", required: false },
         { id: "installation_year", text: "Year of Installation", type: "number", required: false },

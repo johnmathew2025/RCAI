@@ -1,25 +1,6 @@
-/**
- * Equipment Hooks - Normalized ID-based API Client
- * Protocol: Zero hardcoding, database-driven cascading dropdowns
- * Purpose: React hooks for equipment taxonomy management
- */
-
-import { useQuery } from "@tanstack/react-query";
-import { z } from "zod";
-
-// Response schemas for normalized equipment API
-const EquipmentItemSchema = z.object({
-  id: z.number(),
-  code: z.string(),
-  name: z.string()
-});
-
-const EquipmentResponseSchema = z.object({
-  ok: z.boolean(),
-  data: z.array(EquipmentItemSchema)
-});
-
-export type EquipmentItem = z.infer<typeof EquipmentItemSchema>;
+// DO NOT USE. Legacy file removed.
+// Use: client/src/api/equipment.ts
+throw new Error("use-equipment.ts is deprecated. Import from '@/api/equipment'.");
 
 // Equipment Groups Hook
 export function useEquipmentGroups(activeOnly = true) {

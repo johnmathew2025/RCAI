@@ -1,0 +1,43 @@
+1.	Kill the legacy hook file
+git rm -f client/src/hooks/use-equipment.ts
+If you want to keep a stub for history, replace its contents with:
+// DO NOT USE. Legacy file removed.
+// Use: client/src/api/equipment.ts
+throw new Error("use-equipment.ts is deprecated. Import from '@/api/equipment'.");
+2.	Hunt imports that still point to the legacy path
+grep -RIn --exclude-dir=node_modules "@/hooks/use-equipment" client/src || true
+Every hit must be changed to:
+import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
+3.	Purge hardcoded arrays
+# Show all offenders
+grep -RIn --exclude-dir=node_modules -E \
+"EQUIPMENT_CATEGORIES|SUBCATEGORIES|Rotating|Static|Electrical|Control Valves|Instrumentation|Fire & Safety|HVAC & Utilities|Material Handling|Plant Utilities|Environmental|Utility" client/src || true
+•	In client/src/pages/iso14224-evidence-form.tsx (lines Replit mentioned), replace array usage with the real hooks:
+const { data: groups=[] } = useGroups();
+const { data: types=[] }  = useTypes(selectedGroupId);
+const { data: subs=[] }   = useSubtypes(selectedTypeId);
+
+// options = groups.map(g => ({ value: g.id, label: g.name }))
+// options = types.map(t => ({ value: t.id, label: t.name }))
+// options = subs.map(s => ({ value: s.id, label: s.name }))
+•	Delete the constants or move them to a test fixture folder outside client/src so they cannot be bundled.
+4.	Fix the small API schema mismatch
+•	Either add code to all /api/equipment/* responses, or make code optional in the client type:
+export type EquipmentOption = { id: number; name: string; code?: string };
+5.	Remove all fallbacks
+Search for any “fallback” logic and delete it:
+grep -RIn --exclude-dir=node_modules -E "fallback|/api/cascading/equipment-" client/src || true
+If a fetch fails, show an error; do not substitute static options.
+6.	Make stale content impossible while you test
+•	Ensure HTML & JSON endpoints send Cache-Control: no-store.
+•	Hard refresh after deploy (Cmd/Ctrl–Shift–R).
+•	If you ever registered a Service Worker, unregister and clear caches once.
+What “done” looks like (acceptance)
+•	grep for the legacy import and hardcoded vocab returns no matches.
+•	In DevTools → Network, opening the incident form triggers only:
+o	GET /api/equipment/groups?active=1
+o	GET /api/equipment/types?groupId=…
+o	GET /api/equipment/subtypes?typeId=…
+…and no /api/cascading/*.
+•	Admin taxonomy changes (add/deactivate a group/type/subtype) are reflected on a page reload—no redeploy needed.
+
