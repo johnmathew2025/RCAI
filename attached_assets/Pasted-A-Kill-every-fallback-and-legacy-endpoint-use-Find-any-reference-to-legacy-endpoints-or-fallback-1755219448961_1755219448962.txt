@@ -1,0 +1,39 @@
+A. Kill every fallback and legacy endpoint use
+# Find any reference to legacy endpoints or fallback logs
+grep -RIn --exclude-dir=node_modules -E "/api/cascading/equipment-|falling back|fallback.*equipment" client/src || true
+
+# Remove any code that calls legacy endpoints or loads local arrays when fetch fails.
+# On error, show a toast and surface the error; DO NOT substitute static options.
+B. Purge hardcoded vocab from the client
+# These MUST return no hits when done
+grep -RIn --exclude-dir=node_modules -E \
+"Rotating|Static|Electrical|Control Valves|Instrumentation|Fire & Safety|HVAC & Utilities|Material Handling|Plant Utilities|Environmental|Utility" client/src || true
+•	Delete/replace any constants with API-driven data.
+•	If something must keep a label list (e.g., unit tests), move it to a test fixture outside client/src so it never ships.
+C. Fix the schema mismatch (choose one)
+•	Preferred (server): return { id, code, name } for all 3 endpoints.
+•	Or (client): make code optional in the EquipmentOption type (used by incident form) so it doesn’t throw.
+D. Make the failure obvious in dev
+•	In the hooks, if fetch fails, throw; do not catch-and-fallback.
+•	Add a visible toast like: “Failed to load Equipment Groups (500). No legacy fallback.”
+E. Block regressions (CI/build-time)
+Add a build step that fails if forbidden strings reappear:
+# scripts/forbid-legacy.sh
+set -euo pipefail
+FORBIDDEN='Rotating|Static|Electrical|Control Valves|Instrumentation|Fire & Safety|HVAC & Utilities|Material Handling|Plant Utilities|Environmental|Utility|/api/cascading/equipment-'
+if grep -RIn --exclude-dir=node_modules -E "$FORBIDDEN" client/src; then
+  echo "❌ Forbidden legacy tokens found. Remove them." >&2
+  exit 1
+fi
+echo "✅ No legacy tokens."
+Run this in CI before building.
+F. Acceptance checklist (must pass before saying “fixed”)
+1.	DevTools → Network on the incident form shows only:
+o	GET /api/equipment/groups?active=1
+o	GET /api/equipment/types?groupId=…
+o	GET /api/equipment/subtypes?typeId=…
+and no /api/cascading/*.
+2.	The dropdown values exactly match Admin tables (change one in Admin → refresh form → it appears/disappears).
+3.	The grep commands above return no hits.
+4.	Disabling the DB table entries (set inactive) removes the option from the form without redeploy.
+5.	If the API is deliberately broken (simulate 500), the UI shows an error toast; it does not show any static list.
