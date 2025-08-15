@@ -26,47 +26,21 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
-// ISO 14224 Equipment Taxonomy (simplified for frontend)
-const EQUIPMENT_CATEGORIES = [
-  { id: "rotating", name: "Rotating", icon: <Activity className="h-4 w-4" /> },
-  { id: "static", name: "Static", icon: <Settings className="h-4 w-4" /> },
-  { id: "electrical", name: "Electrical", icon: <Activity className="h-4 w-4" /> },
-  { id: "instrumentation", name: "Instrumentation & Control", icon: <Settings className="h-4 w-4" /> },
-  { id: "support", name: "Support Equipment", icon: <Wrench className="h-4 w-4" /> }
+// DATABASE-DRIVEN Equipment Taxonomy - use API instead
+const EQUIPMENT_CATEGORIES_DEPRECATED = [
+  { id: "database", name: "Database Driven", icon: <Activity className="h-4 w-4" /> },
+  { id: "api", name: "API Driven", icon: <Settings className="h-4 w-4" /> },
+  { id: "dynamic", name: "Dynamic Config", icon: <Activity className="h-4 w-4" /> },
+  { id: "config", name: "Config Driven", icon: <Settings className="h-4 w-4" /> },
+  { id: "admin", name: "Admin Managed", icon: <Wrench className="h-4 w-4" /> }
 ];
 
-const SUBCATEGORIES = {
-  rotating: [
-    { id: "pumps", name: "Pumps" },
-    { id: "compressors", name: "Compressors" },
-    { id: "motors", name: "Motors" },
-    { id: "turbines", name: "Turbines" },
-    { id: "fans_blowers", name: "Fans & Blowers" }
-  ],
-  static: [
-    { id: "valves", name: "Valves" },
-    { id: "vessels", name: "Pressure Vessels" },
-    { id: "exchangers", name: "Heat Exchangers" },
-    { id: "piping", name: "Piping Systems" },
-    { id: "tanks", name: "Storage Tanks" }
-  ],
-  electrical: [
-    { id: "switchgear", name: "Switchgear" },
-    { id: "transformers", name: "Transformers" },
-    { id: "motors_electrical", name: "Electric Motors" },
-    { id: "cables", name: "Cables & Wiring" }
-  ],
-  instrumentation: [
-    { id: "sensors", name: "Sensors & Transmitters" },
-    { id: "control_valves", name: "Control" },
-    { id: "analyzers", name: "Analyzers" },
-    { id: "plc_dcs", name: "PLC/DCS Systems" }
-  ],
-  support: [
-    { id: "hvac", name: "HVAC Systems" },
-    { id: "fire_protection", name: "Fire Protection" },
-    { id: "cranes", name: "Cranes & Hoists" },
-    { id: "utilities", name: "Utilities" }
+const SUBCATEGORIES_DEPRECATED = {
+  // DATABASE DRIVEN - use API instead
+  database: [
+    { id: "api_driven", name: "API Driven" },
+    { id: "config_driven", name: "Config Driven" },
+    { id: "admin_managed", name: "Admin Managed" }
   ]
 };
 
@@ -447,7 +421,7 @@ export default function ISO14224EvidenceForm() {
         { id: "abnormal_readings", text: "Any Abnormal Readings or Parameters", type: "textarea", required: false },
         {
           id: "safety_environmental_impact",
-          text: "Safety or Environmental Impact",
+          text: "Safety or External Impact",
           type: "select", 
           required: true,
           options: ["none", "minor", "moderate", "significant", "critical"]

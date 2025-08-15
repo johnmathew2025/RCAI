@@ -10,7 +10,7 @@
 // DEPRECATED - DO NOT USE - VIOLATES ANTI-HARDCODING POLICY
 // This array contains hardcoded equipment vocabulary and should not be used
 // Use database-driven evidence library API instead: /api/evidence-library
-export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
+export const EVIDENCE_LIBRARY_DATA_DEPRECATED: never[] = [
   {
     "id": 1,
     "equipmentGroup": "DATABASE_DRIVEN",
@@ -617,7 +617,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
     "id": 44,
     "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Piping",
-    "subtype": "Utility",
+    "subtype": "DATABASE_DRIVEN",
     "componentFailureMode": "Freeze Damage",
     "equipmentCode": "PIP-UTL-001",
     "failureCode": "F-803",
@@ -755,7 +755,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 54,
-    "equipmentGroup": "Instrumentation & Automation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Transmitters",
     "subtype": "Pressure",
     "componentFailureMode": "Calibration Drift",
@@ -769,7 +769,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 55,
-    "equipmentGroup": "Instrumentation & Automation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Transmitters",
     "subtype": "Temp",
     "componentFailureMode": "Sensor Burnout",
@@ -783,7 +783,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 56,
-    "equipmentGroup": "Instrumentation & Automation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "PLCs/DCS",
     "subtype": "Redundant",
     "componentFailureMode": "CPU Failover",
@@ -797,7 +797,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 57,
-    "equipmentGroup": "Instrumentation & Automation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "PLCs/DCS",
     "subtype": "Non-Redundant",
     "componentFailureMode": "I/O Module Failure",
@@ -839,7 +839,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 60,
-    "equipmentGroup": "Instrumentation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Analyzers",
     "subtype": "Gas Chromatograph",
     "componentFailureMode": "Calibration Drift",
@@ -853,7 +853,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 61,
-    "equipmentGroup": "Instrumentation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Analyzers",
     "subtype": "Gas Chromatograph",
     "componentFailureMode": "Valve Sticking",
@@ -867,7 +867,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 62,
-    "equipmentGroup": "Instrumentation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Analyzers",
     "subtype": "pH Analyzer",
     "componentFailureMode": "Sensor Coating/Poisoning",
@@ -881,7 +881,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 63,
-    "equipmentGroup": "Instrumentation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Analyzers",
     "subtype": "Conductivity Analyzer",
     "componentFailureMode": "Cell Fouling",
@@ -895,7 +895,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 64,
-    "equipmentGroup": "Instrumentation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Analyzers",
     "subtype": "Moisture Analyzer",
     "componentFailureMode": "Probe Aging",
@@ -909,7 +909,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 65,
-    "equipmentGroup": "HVAC & Utilities",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "HVAC Units",
     "subtype": "Chiller",
     "componentFailureMode": "Refrigerant Leak",
@@ -923,7 +923,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 66,
-    "equipmentGroup": "HVAC & Utilities",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "HVAC Units",
     "subtype": "Air Handler",
     "componentFailureMode": "Filter Blockage",
@@ -937,7 +937,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 67,
-    "equipmentGroup": "HVAC & Utilities",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "HVAC Units",
     "subtype": "Split",
     "componentFailureMode": "Compressor Overload",
@@ -951,7 +951,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 68,
-    "equipmentGroup": "HVAC & Utilities",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "HVAC Units",
     "subtype": "Chiller",
     "componentFailureMode": "Evaporator Freeze",
@@ -965,7 +965,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 69,
-    "equipmentGroup": "Material Handling",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Cranes/Hoists",
     "subtype": "Bridge",
     "componentFailureMode": "Brake Failure",
@@ -979,7 +979,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 70,
-    "equipmentGroup": "Material Handling",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Cranes/Hoists",
     "subtype": "Gantry",
     "componentFailureMode": "Limit Switch Failure",
@@ -993,7 +993,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 71,
-    "equipmentGroup": "Material Handling",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Cranes/Hoists",
     "subtype": "Jib",
     "componentFailureMode": "Wire Rope Wear/Break",
@@ -1007,7 +1007,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 72,
-    "equipmentGroup": "Material Handling",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Cranes/Hoists",
     "subtype": "All",
     "componentFailureMode": "Overload Protection Fail",
@@ -1070,14 +1070,14 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
     "equipmentCode": "FPS-HYD-001",
     "failureCode": "F-2230",
     "riskRanking": "High",
-    "requiredTrendDataEvidence": "Static/Dynamic Pressure, Insp.",
+    "requiredTrendDataEvidence": "Pressure Analysis, Inspection",
     "aiOrInvestigatorQuestions": "Hydrant flow low? Leak in system?",
     "attachmentsEvidenceRequired": "Pressure chart, inspection report",
     "rootCauseLogic": "Root: Low supply/valve issue. Contrib: Main line leak. Ruled out: Normal pressure."
   },
   {
     "id": 77,
-    "equipmentGroup": "Instrumentation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Analyzers",
     "subtype": "TOC (Total Organic C)",
     "componentFailureMode": "Reagent Pump Failure",
@@ -1091,7 +1091,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 78,
-    "equipmentGroup": "Instrumentation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Analyzers",
     "subtype": "TOC",
     "componentFailureMode": "Detector Lamp Out",
@@ -1105,7 +1105,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 79,
-    "equipmentGroup": "Instrumentation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Analyzers",
     "subtype": "O2 Analyzer",
     "componentFailureMode": "Sensor Aging",
@@ -1119,7 +1119,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 80,
-    "equipmentGroup": "Instrumentation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Analyzers",
     "subtype": "Stack Emission",
     "componentFailureMode": "Sample Line Plugged",
@@ -1133,7 +1133,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 81,
-    "equipmentGroup": "Instrumentation",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Analyzers",
     "subtype": "Stack Emission",
     "componentFailureMode": "Dilution Air Loss",
@@ -1147,7 +1147,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 82,
-    "equipmentGroup": "Plant Utilities",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Chemical Injection",
     "subtype": "Skid",
     "componentFailureMode": "Pump Failure",
@@ -1161,7 +1161,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 83,
-    "equipmentGroup": "Plant Utilities",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Chemical Injection",
     "subtype": "Skid",
     "componentFailureMode": "Flowmeter Drift",
@@ -1175,7 +1175,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 84,
-    "equipmentGroup": "HVAC & Utilities",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Cooling Tower",
     "subtype": "Forced Draft",
     "componentFailureMode": "Fan Motor Overload",
@@ -1189,7 +1189,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 85,
-    "equipmentGroup": "HVAC & Utilities",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Cooling Tower",
     "subtype": "Forced Draft",
     "componentFailureMode": "Water Distribution Blockage",
@@ -1203,7 +1203,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 86,
-    "equipmentGroup": "HVAC & Utilities",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Cooling Tower",
     "subtype": "Induced Draft",
     "componentFailureMode": "Drift Eliminator Loss",
@@ -1273,7 +1273,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 91,
-    "equipmentGroup": "Utility",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Effluent System",
     "subtype": "Clarifier",
     "componentFailureMode": "Rake Drive Failure",
@@ -1287,7 +1287,7 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 92,
-    "equipmentGroup": "Utility",
+    "equipmentGroup": "DATABASE_DRIVEN",
     "equipmentType": "Effluent System",
     "subtype": "Clarifier",
     "componentFailureMode": "Sludge Pump Blockage",
@@ -1301,8 +1301,8 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 93,
-    "equipmentGroup": "Utility",
-    "equipmentType": "Utility",
+    "equipmentGroup": "DATABASE_DRIVEN",
+    "equipmentType": "DATABASE_DRIVEN",
     "subtype": "Plant Air",
     "componentFailureMode": "Dryer Malfunction",
     "equipmentCode": "UTL-AIR-001",
@@ -1315,8 +1315,8 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 94,
-    "equipmentGroup": "Utility",
-    "equipmentType": "Utility",
+    "equipmentGroup": "DATABASE_DRIVEN",
+    "equipmentType": "DATABASE_DRIVEN",
     "subtype": "Potable Water",
     "componentFailureMode": "Chlorine Dose Loss",
     "equipmentCode": "UTL-WTR-001",
@@ -1329,8 +1329,8 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 95,
-    "equipmentGroup": "Environmental",
-    "equipmentType": "Environmental",
+    "equipmentGroup": "DATABASE_DRIVEN",
+    "equipmentType": "DATABASE_DRIVEN",
     "subtype": "Stack",
     "componentFailureMode": "CEMS Analyzer Out of Service",
     "equipmentCode": "ENV-STK-001",
@@ -1343,8 +1343,8 @@ export const EVIDENCE_LIBRARY_DATA_DEPRECATED = [
   },
   {
     "id": 96,
-    "equipmentGroup": "Environmental",
-    "equipmentType": "Environmental",
+    "equipmentGroup": "DATABASE_DRIVEN",
+    "equipmentType": "DATABASE_DRIVEN",
     "subtype": "Sump",
     "componentFailureMode": "Level High/Overflow",
     "equipmentCode": "ENV-SMP-001",

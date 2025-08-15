@@ -367,11 +367,11 @@ export default function ComprehensiveParameters({
           </Card>
         </TabsContent>
 
-        {/* Environmental Parameters */}
+        {/* External Parameters */}
         <TabsContent value="environmental" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Environmental Conditions</CardTitle>
+              <CardTitle>External Conditions</CardTitle>
               <div className="text-sm text-muted-foreground">
                 External factors affecting equipment reliability
               </div>

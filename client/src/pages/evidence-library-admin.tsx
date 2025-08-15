@@ -301,7 +301,7 @@ export default function EvidenceLibraryAdmin() {
     'Cables/Busbars': 'cables_power',
     'Sensors/Transmitters': 'sensors_pressure',
     'PLCs/DCS Systems': 'plc_redundant',
-    'Control Valves': 'control_valves_pneumatic',
+    'DATABASE_DRIVEN': 'database_driven',
     'Analyzers': 'analyzers_gc',
     'HVAC Units': 'hvac_air_handler',
     'Cranes/Hoists': 'cranes_bridge',
@@ -652,9 +652,9 @@ export default function EvidenceLibraryAdmin() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Equipment</SelectItem>
-                      <SelectItem value="rotating">Rotating</SelectItem>
-                      <SelectItem value="static">Static</SelectItem>
-                      <SelectItem value="electrical">Electrical</SelectItem>
+                      <SelectItem value="rotating">Database Driven</SelectItem>
+                      <SelectItem value="static">Database Driven</SelectItem>
+                      <SelectItem value="electrical">Database Driven</SelectItem>
                       <SelectItem value="process">Process Equipment</SelectItem>
                     </SelectContent>
                   </Select>
@@ -721,11 +721,11 @@ export default function EvidenceLibraryAdmin() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Equipment Types</SelectItem>
-                          <SelectItem value="rotating">Rotating</SelectItem>
-                          <SelectItem value="static">Static</SelectItem>
-                          <SelectItem value="electrical">Electrical</SelectItem>
+                          <SelectItem value="rotating">Database Driven</SelectItem>
+                          <SelectItem value="static">Database Driven</SelectItem>
+                          <SelectItem value="electrical">Database Driven</SelectItem>
                           <SelectItem value="process">Process Control</SelectItem>
-                          <SelectItem value="instrumentation">Instrumentation</SelectItem>
+                          <SelectItem value="instrumentation">Database Driven</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

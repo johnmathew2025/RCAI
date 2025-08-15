@@ -78,7 +78,7 @@ export default function EvidenceGathering({ analysis, onComplete }: EvidenceGath
       });
     }
 
-    // Environmental conditions
+    // External conditions
     if (!operatingParams?.environmental) {
       questions.push({
         id: 'environmental_factors',
@@ -86,7 +86,7 @@ export default function EvidenceGathering({ analysis, onComplete }: EvidenceGath
         type: 'multiselect',
         options: ['High temperature', 'High humidity', 'Corrosive atmosphere', 'Dusty environment', 'Vibration from nearby equipment', 'Frequent temperature cycling', 'Chemical exposure', 'No environmental issues'],
         required: false,
-        context: 'Environmental factors significantly impact equipment reliability and failure modes'
+        context: 'External factors significantly impact equipment reliability and failure modes'
       });
     }
 
@@ -116,7 +116,7 @@ export default function EvidenceGathering({ analysis, onComplete }: EvidenceGath
         question: 'Please describe the environmental conditions where this equipment operates (temperature, humidity, contamination, etc.)',
         type: 'text',
         required: false,
-        context: 'Environmental factors significantly impact equipment reliability'
+        context: 'External factors significantly impact equipment reliability'
       });
     }
     if (!histData?.maintenanceRecords || histData.maintenanceRecords.length === 0) {

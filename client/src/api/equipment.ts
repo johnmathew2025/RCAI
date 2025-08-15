@@ -25,8 +25,9 @@ export const useGroups = () => useQuery({
     const json = await response.json();
     
     if (!json?.ok) {
+      const errorMessage = `Failed to load Equipment Groups (${response.status}). No legacy fallback.`;
       console.error("[EQUIPMENT-HOOKS] Groups fetch failed:", json?.error);
-      throw new Error(json?.error?.detail || "Failed to load equipment groups");
+      throw new Error(errorMessage);
     }
     
     console.log(`[EQUIPMENT-HOOKS] Loaded ${json.data.length} equipment groups`);
@@ -51,8 +52,9 @@ export const useTypes = (groupId?: number) => useQuery({
     const json = await response.json();
     
     if (!json?.ok) {
+      const errorMessage = `Failed to load Equipment Types (${response.status}). No legacy fallback.`;
       console.error("[EQUIPMENT-HOOKS] Types fetch failed:", json?.error);
-      throw new Error(json?.error?.detail || "Failed to load equipment types");
+      throw new Error(errorMessage);
     }
     
     console.log(`[EQUIPMENT-HOOKS] Loaded ${json.data.length} equipment types for group ${groupId}`);
@@ -77,8 +79,9 @@ export const useSubtypes = (typeId?: number) => useQuery({
     const json = await response.json();
     
     if (!json?.ok) {
+      const errorMessage = `Failed to load Equipment Subtypes (${response.status}). No legacy fallback.`;
       console.error("[EQUIPMENT-HOOKS] Subtypes fetch failed:", json?.error);
-      throw new Error(json?.error?.detail || "Failed to load equipment subtypes");
+      throw new Error(errorMessage);
     }
     
     console.log(`[EQUIPMENT-HOOKS] Loaded ${json.data.length} equipment subtypes for type ${typeId}`);

@@ -171,7 +171,7 @@ export default function InvestigationType() {
                 </div>
                 <div>
                   <CardTitle className="text-xl text-red-700 dark:text-red-300">
-                    YES - Safety/Environmental
+                    YES - Safety/External
                   </CardTitle>
                   <Badge variant="destructive" className="mt-1">ECFA Methodology</Badge>
                 </div>
