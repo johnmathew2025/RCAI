@@ -27,6 +27,8 @@ const incidentSchema = z.object({
   equipment_type_id: z.number().nullable().refine(val => val !== null, "Equipment type is required"),
   equipment_subtype_id: z.number().nullable().refine(val => val !== null, "Equipment subtype is required"),
   equipmentId: z.string().min(1, "Equipment ID is required"),
+  manufacturer: z.string().max(100, "Manufacturer must be 100 characters or less").optional(),
+  model: z.string().max(100, "Model must be 100 characters or less").optional(),
   location: z.string().min(1, "Location is required"),
   reportedBy: z.string().min(1, "Reporter name is required"),
   incidentDateTime: z.string().min(1, "Incident date/time is required"),
@@ -703,7 +705,7 @@ export default function IncidentReporting() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <FormField
                     control={form.control}
                     name="equipmentId"
@@ -712,6 +714,42 @@ export default function IncidentReporting() {
                         <FormLabel>Equipment ID/Tag</FormLabel>
                         <FormControl>
                           <Input {...field} placeholder="e.g., P-101, M-205" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="manufacturer"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Manufacturer</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            placeholder="e.g., Grundfos, Siemens, Emerson"
+                            maxLength={100}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="model"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Model</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            placeholder="e.g., CR64-2-2, 1LE1003-1CB23"
+                            maxLength={100}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

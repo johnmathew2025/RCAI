@@ -218,6 +218,14 @@ export default function AnalysisDetails() {
                   <p className="font-medium">{incident.equipmentId}</p>
                 </div>
                 <div>
+                  <span className="text-gray-500">Manufacturer:</span>
+                  <p className="font-medium">{incident.manufacturerSnapshot || 'Not provided'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Model:</span>
+                  <p className="font-medium">{incident.modelSnapshot || 'Not provided'}</p>
+                </div>
+                <div>
                   <span className="text-gray-500">Location:</span>
                   <p className="font-medium">{incident.location}</p>
                 </div>
