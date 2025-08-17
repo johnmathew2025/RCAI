@@ -18,6 +18,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { startVersionWatcher } from "@/lib/version-watch";
 import { showSmartToast, dismissToast } from "@/lib/smart-toast";
 import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
+import { getIncidentId } from "@/utils/getIncidentId";
+import type { CreateIncidentResponse } from '@/../../shared/types';
 
 // Helper function: Convert datetime-local to ISO 8601 with timezone
 function localDatetimeToISO(dtLocal: string): string | undefined {
@@ -102,11 +104,47 @@ const incidentSchema = z.object({
 
 type IncidentForm = z.infer<typeof incidentSchema>;
 
+// Default form values - explicit null for equipment IDs (NO HARDCODING)
+const defaultFormValues: IncidentForm = {
+  title: "",
+  description: "",
+  equipment_group_id: null,
+  equipment_type_id: null,
+  equipment_subtype_id: null,
+  equipmentId: "",
+  manufacturer: "",
+  model: "",
+  location: "",
+  reportedBy: "",
+  incidentDateTime: "",
+  priority: "Medium",
+  immediateActions: "",
+  safetyImplications: "",
+  operatingParameters: "",
+  issueFrequency: undefined,
+  issueSeverity: undefined,
+  initialContextualFactors: "",
+  sequenceOfEvents: "",
+  sequenceOfEventsFiles: [],
+  reportableStatus: "not_reportable",
+  regulatoryAuthorityName: "",
+  dateReported: "",
+  reportReferenceId: "",
+  complianceImpactSummary: "",
+  plannedDateOfReporting: "",
+  delayReason: "",
+  intendedRegulatoryAuthority: "",
+  timelineData: {},
+};
+
 export default function IncidentReporting() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [timelineQuestions, setTimelineQuestions] = useState<any[]>([]);
   const [showTimeline, setShowTimeline] = useState(false);
+  
+  // Form key for forcing remount when starting new incident (NO HARDCODING)
+  const [formKey, setFormKey] = useState(() => Date.now());
   
   // Draft persistence configuration (no hardcoding)
   const draftEnabled = import.meta.env.FORM_DRAFT_ENABLED !== 'false';
@@ -138,39 +176,11 @@ export default function IncidentReporting() {
   const form = useForm<IncidentForm>({
     resolver: zodResolver(incidentSchema),
     defaultValues: {
-      ...{
-        title: "",
-        description: "",
-        equipment_group_id: null,
-        equipment_type_id: null,
-        equipment_subtype_id: null,
-        equipmentId: "",
-        manufacturer: "",
-        model: "",
-        location: "",
-        reportedBy: "",
-        incidentDateTime: "",
-        priority: "Medium",
-        immediateActions: "",
-        safetyImplications: "",
-        operatingParameters: "",
-        issueFrequency: undefined,
-        issueSeverity: undefined,
-        initialContextualFactors: "",
-        sequenceOfEvents: "",
-        sequenceOfEventsFiles: [],
-        reportableStatus: "not_reportable",
-        regulatoryAuthorityName: "",
-        dateReported: "",
-        reportReferenceId: "",
-        complianceImpactSummary: "",
-        plannedDateOfReporting: "",
-        delayReason: "",
-        intendedRegulatoryAuthority: "",
-        timelineData: {},
-      },
+      ...defaultFormValues,
       ...(loadSavedDraft() as Partial<IncidentForm>), // Merge saved draft
-    }
+    },
+    shouldUnregister: true, // Remove hidden fields from form state
+    mode: "onChange",
   });
 
   // ID-BASED CASCADING DROPDOWN STATE
@@ -281,14 +291,23 @@ export default function IncidentReporting() {
     };
   }, [form, storageKey]);
 
-  // Phase 3.3: Reset child selections when parent changes
+  // Fresh form initialization for new incidents (NO HARDCODING)
+  const startNewIncident = () => {
+    form.reset(defaultFormValues);
+    setFormKey(Date.now()); // Force remount to clear internal RHF state
+    if (draftEnabled) {
+      localStorage.removeItem(storageKey);
+    }
+  };
+  
+  // Bullet-proof cascading resets (NO HARDCODING)
   useEffect(() => {
-    form.setValue("equipment_type_id", undefined as any);
-    form.setValue("equipment_subtype_id", undefined as any);
+    form.setValue("equipment_type_id", null, { shouldValidate: false });
+    form.setValue("equipment_subtype_id", null, { shouldValidate: false });
   }, [selectedGroupId]);
 
   useEffect(() => {
-    form.setValue("equipment_subtype_id", undefined as any);
+    form.setValue("equipment_subtype_id", null, { shouldValidate: false });
   }, [selectedTypeId]);
 
   // Generate timeline questions when equipment selection is complete
@@ -330,14 +349,13 @@ export default function IncidentReporting() {
 
   // OLD HARDCODED CODE REMOVED - NOW USING ID-BASED NORMALIZED EQUIPMENT HOOKS
 
-  // Create incident mutation
+  // Create incident mutation with defensive response handling (NO HARDCODING)
   const createIncidentMutation = useMutation({
-    mutationFn: async (data: IncidentForm) => {
-      console.log('Making API request to create incident...');
+    mutationFn: async (data: IncidentForm): Promise<CreateIncidentResponse> => {
       const response = await fetch("/api/incidents", {
         method: "POST",
-        body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
       
       if (!response.ok) {
@@ -346,98 +364,78 @@ export default function IncidentReporting() {
         throw new Error(`Failed to create incident: ${response.status}`);
       }
       
-      const result = await response.json();
-      console.log('🔍 CRITICAL DEBUG - Raw API response:', result);
-      console.log('🔍 Response type:', typeof result);
-      console.log('🔍 Response has success:', 'success' in result, result.success);
-      console.log('🔍 Response has data:', 'data' in result, result.data);
-      console.log('🔍 Response data has id:', result.data && 'id' in result.data, result.data?.id);
-      console.log('🔍 Full response structure:', JSON.stringify(result, null, 2));
-      return result;
+      return await response.json();
     },
-    onSuccess: (response: any) => {
-      console.log('🎯 MUTATION SUCCESS HANDLER CALLED');
-      console.log('🎯 Response received in onSuccess:', response);
-      console.log('🎯 Response type check:', typeof response);
-      console.log('🎯 Response structure:', JSON.stringify(response, null, 2));
-      let incidentId;
-      
-      // Handle response - expect string incident ID (no hardcoding)
-      if (typeof response === "object" && response?.data?.id) {
-        incidentId = response.data.id; // Keep as string
-        console.log('✅ Found incident ID at response.data.id:', incidentId);
-      } else {
-        console.error("❌ Unexpected response format", response);
-        console.error("Response keys:", response ? Object.keys(response) : "null");
-        console.error("Response.data:", response?.data);
-        console.error("Response.success:", response?.success);
-        throw new Error("Failed to get incident ID for navigation");
+  });
+
+  // Comprehensive submit handler with defensive ID extraction (NO HARDCODING)
+  const onSubmit = async (values: IncidentForm) => {
+    setSubmitting(true);
+    
+    console.debug("RHF values on submit:", form.getValues());
+    console.debug("Draft in localStorage:", localStorage.getItem(storageKey));
+    
+    try {
+      // Strict validation before submit
+      if (!values.equipment_subtype_id) {
+        toast({
+          title: "Validation Error",
+          description: "Equipment subtype is required",
+          variant: "destructive",
+        });
+        return;
       }
       
-      console.log('Extracted incident ID for navigation:', incidentId, 'Type:', typeof incidentId);
+      // Normalize payload - convert datetime to ISO and trim strings
+      const payload = {
+        ...values,
+        incidentDateTime: values.incidentDateTime ? localDatetimeToISO(values.incidentDateTime) : undefined,
+        manufacturer: values.manufacturer?.trim() || undefined,
+        model: values.model?.trim() || undefined,
+      };
       
-      // Clear saved draft on successful submission (no hardcoding)
+      const response = await createIncidentMutation.mutateAsync(payload);
+      const incidentId = getIncidentId(response);
+      
+      if (!incidentId) {
+        console.error("CreateIncident response without ID:", response);
+        toast({
+          title: "Error",
+          description: "Failed to get incident ID from server response.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Clear draft and reset form immediately
       if (draftEnabled) {
         localStorage.removeItem(storageKey);
       }
       
-
+      // Navigate first so form unmounts (prevents stale state)
+      const nextRoute = import.meta.env.VITE_NEXT_ROUTE || '/equipment-selection';
+      const navigationUrl = `${nextRoute}?incident=${encodeURIComponent(incidentId)}`;
+      setLocation(navigationUrl);
+      
+      // Belt-and-suspenders reset as safety net
+      form.reset(defaultFormValues);
+      queryClient.invalidateQueries({ queryKey: ["incidents", incidentId] });
       
       toast({
         title: "Incident Reported",
         description: "Moving to equipment selection and symptom input...",
       });
       
-
-      
-      // Navigate immediately after toast with URL-encoded incident ID (no hardcoding)
-      const nextRoute = import.meta.env.VITE_NEXT_ROUTE || '/equipment-selection';
-      const navigationUrl = `${nextRoute}?incident=${encodeURIComponent(incidentId)}`;
-      console.log('incidentId used for navigation:', incidentId);
-      console.log('Navigating to:', navigationUrl);
-      console.log('About to call setLocation with:', navigationUrl);
-      setLocation(navigationUrl);
-      console.log('setLocation called successfully');
-    },
-    onError: (error: any) => {
-      console.error('❌ MUTATION ERROR:', error);
-      console.error('Error message:', error?.message);
-      console.error('Error details:', JSON.stringify(error, null, 2));
-      setSubmitting(false); // Reset submission state on error
+    } catch (error: any) {
+      console.error("CreateIncident failed:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create incident report",
+        description: error?.message ?? "Incident creation failed.",
         variant: "destructive",
       });
-    },
-  });
-
-  const onSubmit = (data: IncidentForm) => {
-    setSubmitting(true); // Stop auto-saving during submission
-    
-    // Strict validation before submit - ensure equipment_subtype_id is required
-    if (!data.equipment_subtype_id) {
-      toast({
-        title: "Validation Error", 
-        description: "Equipment subtype is required",
-        variant: "destructive",
-      });
+    } finally {
       setSubmitting(false);
-      return;
     }
-    
-    console.log('🚀 Submitting incident with data:', JSON.stringify(data, null, 2));
-    
-    // Normalize payload - convert datetime to ISO and trim manufacturer/model
-    const payload = {
-      ...data,
-      incidentDateTime: data.incidentDateTime ? localDatetimeToISO(data.incidentDateTime) : undefined,
-      manufacturer: data.manufacturer?.trim() || undefined,
-      model: data.model?.trim() || undefined,
-    };
-    
-    console.log('📤 Final payload being sent to API:', JSON.stringify(payload, null, 2));
-    createIncidentMutation.mutate(payload);
   };
 
   // Reset form function (no hardcoding)
@@ -517,7 +515,7 @@ export default function IncidentReporting() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Form {...form}>
+            <Form {...form} key={formKey}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 {/* Incident Details - Field 1 */}
                 <FormField
@@ -682,13 +680,12 @@ export default function IncidentReporting() {
                         </FormLabel>
                         <Select 
                           onValueChange={(value) => {
-                            const groupId = value ? parseInt(value) : null;
-                            field.onChange(groupId);
-                            // Reset dependent fields when group changes  
-                            form.setValue("equipment_type_id", null, { shouldValidate: false });
-                            form.setValue("equipment_subtype_id", null, { shouldValidate: false });
+                            const next = value === "" ? null : Number(value);
+                            field.onChange(next);
+                            form.setValue("equipment_type_id", null, { shouldValidate: false, shouldDirty: true });
+                            form.setValue("equipment_subtype_id", null, { shouldValidate: false, shouldDirty: true });
                           }} 
-                          value={field.value ? field.value.toString() : ""}
+                          value={field.value == null ? "" : String(field.value)}
                           disabled={groupsLoading}
                         >
                           <FormControl>
@@ -718,12 +715,11 @@ export default function IncidentReporting() {
                         <FormLabel>Equipment Type (Level 2)</FormLabel>
                         <Select 
                           onValueChange={(value) => {
-                            const typeId = value ? parseInt(value) : null;
-                            field.onChange(typeId);
-                            // Reset subtype when type changes
-                            form.setValue("equipment_subtype_id", null, { shouldValidate: false });
+                            const next = value === "" ? null : Number(value);
+                            field.onChange(next);
+                            form.setValue("equipment_subtype_id", null, { shouldValidate: false, shouldDirty: true });
                           }} 
-                          value={field.value ? field.value.toString() : ""}
+                          value={field.value == null ? "" : String(field.value)}
                           disabled={!selectedGroupId || typesLoading}
                         >
                           <FormControl>
@@ -760,14 +756,10 @@ export default function IncidentReporting() {
                       <FormItem>
                         <FormLabel>Equipment Subtype (Level 3)</FormLabel>
                         <Select 
-                          value={field.value ? field.value.toString() : ""}
+                          value={field.value == null ? "" : String(field.value)}
                           onValueChange={(v) => {
-                            const subtypeId = v ? Number(v) : null;
-                            field.onChange(subtypeId);
-                            form.setValue("equipment_subtype_id", subtypeId, {
-                              shouldValidate: true,
-                              shouldDirty: true
-                            });
+                            const next = v === "" ? null : Number(v);
+                            field.onChange(next);
                           }}
                           disabled={!selectedGroupId || !selectedTypeId || subtypesLoading}
                         >

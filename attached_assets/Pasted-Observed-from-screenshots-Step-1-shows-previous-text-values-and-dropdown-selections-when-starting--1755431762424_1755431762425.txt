@@ -1,0 +1,92 @@
+Observed (from screenshots)
+Step 1 shows previous text values and dropdown selections when starting a new incident; “Proceed to Equipment” then throws validation on subtype while Type stays from history. (See Step 1 of 8 UI and “Proceed to Equipment Selection” footer in the screenshot.)
+Root causes to check (most likely)
+Form isn’t truly reinitialized between incidents. react-hook-form retains values unless you explicitly reset() or remount the provider with a new key.
+Draft persistence (localStorage / react-query cache) is repopulating the fields on mount.
+Dependent selects don’t cascade-reset: Type changes, but Subtype stays null (red “Required”), while Type still shows the old value.
+Hidden/conditional fields remain registered so stale values leak into the next submit. (shouldUnregister not enabled.)
+Required fixes
+Force a fresh form on a “new” incident
+Compute a formKey that changes whenever you start a new incident (e.g., timestamp or route state).
+Use that to remount the form provider so RHF dumps all internal state.
+// incident-reporting.tsx
+const defaultValues: FormValues = {
+  // all fields explicitly set (IDs null, strings "")
+  equipmentGroupId: null,
+  equipmentTypeId: null,
+  equipmentSubtypeId: null,
+  // ...rest
+};
+
+const [formKey, setFormKey] = useState(() => Date.now());
+
+const form = useForm<FormValues>({
+  defaultValues,
+  shouldUnregister: true,          // IMPORTANT: removes hidden fields from form state
+  mode: "onChange",
+});
+
+// When user clicks "New Incident" or route indicates a fresh start:
+const startNewIncident = () => {
+  form.reset(defaultValues);       // hard reset values
+  setFormKey(Date.now());          // force remount to clear internal RHF state
+  // Clear any persisted draft (see #2)
+};
+
+// In JSX:
+<FormProvider {...form} key={formKey}>
+  {/* fields */}
+</FormProvider>
+Disable/clear any auto-draft that reloads old values
+If you persist a draft in localStorage/IndexedDB or via react-query, clear it on successful create and skip loading it when route says “new”.
+// On submit success:
+localStorage.removeItem("incidentDraft");
+queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false });
+
+// On mount for a NEW incident route:
+const isNew = !params.incidentId;
+useEffect(() => {
+  if (isNew) {
+    localStorage.removeItem("incidentDraft");
+    form.reset(defaultValues);
+  }
+}, [isNew]);
+Make cascading resets bullet-proof (no stale children)
+When parent changes, immediately clear children via setValue(null) and don’t allow undefined.
+const onChangeType = (v: string) => {
+  const next = v === "" ? null : Number(v);
+  form.setValue("equipmentTypeId", next, { shouldValidate: true, shouldDirty: true });
+  form.setValue("equipmentSubtypeId", null, { shouldValidate: false, shouldDirty: true });
+};
+
+// Controlled Selects:
+<Select
+  value={field.value == null ? "" : String(field.value)}
+  onValueChange={(v) => field.onChange(v === "" ? null : Number(v))}
+/>
+Enable shouldUnregister: true (already shown above)
+Ensures fields that are temporarily hidden/unmounted don’t keep old values in the submission payload.
+Reset after successful navigation (belt & suspenders)
+After you get the incidentId and call navigate, immediately reset(defaultValues) so if the component briefly remains, it shows a blank slate.
+const res = await createIncident.mutateAsync(values);
+const incidentId = getIncidentId(res); // your existing helper
+if (!incidentId) {
+  toast.error("Failed to get incident ID from server response.");
+  return;
+}
+navigate(`/incidents/${incidentId}/equipment`);
+form.reset(defaultValues);
+localStorage.removeItem("incidentDraft");
+Block double-submits
+Disable the submit/next button while the mutation is pending so you don’t race reinitialization.
+<Button type="submit" disabled={createIncident.isPending}>
+  {createIncident.isPending ? "Creating…" : "Proceed to Equipment"}
+</Button>
+Acceptance criteria
+Starting a new incident shows a blank form (no values carried over).
+Changing Type → Subtype is cleared and required (no lingering red on Type when Type actually changed).
+After submit: navigates with the new ID, and the original form does not retain any previous values if you return.
+If issues persist, log these at submit time
+console.debug("RHF values on submit:", form.getValues());
+console.debug("Draft in localStorage:", localStorage.getItem("incidentDraft"));
+If either shows non-empty data on a NEW incident page load, the draft loader or form mount isn’t gated by the “new” route guard.
