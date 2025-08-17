@@ -5,7 +5,7 @@ compile = "make"
 
 [nix]
 channel = "stable-25_05"
-packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libxcrypt", "pkg-config", "qhull", "tcl", "tk", "xsimd", "lsof", "psmisc", "imagemagick_light"]
+packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libxcrypt", "pkg-config", "qhull", "tcl", "tk", "xsimd", "lsof", "psmisc", "imagemagick_light", "jq"]
 
 [deployment]
 deploymentTarget = "autoscale"

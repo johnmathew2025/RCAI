@@ -51,7 +51,6 @@ import * as os from "os";
 import * as crypto from "crypto";
 
 // Import new incident management API modules
-import incidentsRouter from '../src/api/incidents.js';
 import workflowsRouter from '../src/api/workflows.js';
 import cronRouter from '../src/api/cron.js';
 import evidenceRouter from '../src/api/evidence.js';
@@ -6449,8 +6448,7 @@ JSON array only:`;
     console.warn("[INCIDENT_MANAGEMENT] Continuing with default configuration");
   }
   
-  // Register new API routes
-  app.use('/api/incidents', incidentsRouter);
+  // Register new API routes (incidents already handled in main routes)
   app.use('/api/workflows', workflowsRouter);
   app.use('/api/evidence', evidenceRouter);
   app.use('/internal/cron', cronRouter);
