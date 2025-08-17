@@ -359,13 +359,14 @@ export default function IncidentReporting() {
       let incidentId;
       
       // Handle response - expect string incident ID (no hardcoding)
-      if (typeof response === "object" && response.data?.id) {
+      if (typeof response === "object" && response?.data?.id) {
         incidentId = response.data.id; // Keep as string
-      } else if (typeof response === "object" && response.success && response.data?.id) {
-        incidentId = response.data.id; // Alternative response format
+        console.log('✅ Found incident ID at response.data.id:', incidentId);
       } else {
-        console.error("Unexpected response format", response);
+        console.error("❌ Unexpected response format", response);
         console.error("Response keys:", response ? Object.keys(response) : "null");
+        console.error("Response.data:", response?.data);
+        console.error("Response.success:", response?.success);
         throw new Error("Failed to get incident ID for navigation");
       }
       
@@ -662,8 +663,8 @@ export default function IncidentReporting() {
                             const groupId = value ? parseInt(value) : undefined;
                             field.onChange(groupId);
                             // Reset dependent fields when group changes  
-                            form.setValue("equipment_type_id", undefined);
-                            form.setValue("equipment_subtype_id", undefined);
+                            form.setValue("equipment_type_id", undefined, { shouldValidate: false });
+                            form.setValue("equipment_subtype_id", undefined, { shouldValidate: false });
                           }} 
                           value={field.value?.toString() ?? ""}
                           disabled={groupsLoading}
@@ -698,7 +699,7 @@ export default function IncidentReporting() {
                             const typeId = value ? parseInt(value) : undefined;
                             field.onChange(typeId);
                             // Reset subtype when type changes
-                            form.setValue("equipment_subtype_id", undefined);
+                            form.setValue("equipment_subtype_id", undefined, { shouldValidate: false });
                           }} 
                           value={field.value?.toString() ?? ""}
                           disabled={!selectedGroupId || typesLoading}
@@ -737,13 +738,15 @@ export default function IncidentReporting() {
                       <FormItem>
                         <FormLabel>Equipment Subtype (Level 3)</FormLabel>
                         <Select 
-                          value={form.watch("equipment_subtype_id")?.toString() ?? ""}
-                          onValueChange={(v) =>
-                            form.setValue("equipment_subtype_id", v ? Number(v) : undefined, {
+                          value={field.value?.toString() ?? ""}
+                          onValueChange={(v) => {
+                            const subtypeId = v ? Number(v) : undefined;
+                            field.onChange(subtypeId);
+                            form.setValue("equipment_subtype_id", subtypeId, {
                               shouldValidate: true,
                               shouldDirty: true
-                            })
-                          }
+                            });
+                          }}
                           disabled={!selectedGroupId || !selectedTypeId || subtypesLoading}
                         >
                           <FormControl>
