@@ -347,15 +347,19 @@ export default function IncidentReporting() {
       }
       
       const result = await response.json();
-      console.log('Raw API response:', result);
-      console.log('Response type:', typeof result);
-      console.log('Response has data:', 'data' in result);
-      console.log('Response data has id:', result.data && 'id' in result.data);
+      console.log('🔍 CRITICAL DEBUG - Raw API response:', result);
+      console.log('🔍 Response type:', typeof result);
+      console.log('🔍 Response has success:', 'success' in result, result.success);
+      console.log('🔍 Response has data:', 'data' in result, result.data);
+      console.log('🔍 Response data has id:', result.data && 'id' in result.data, result.data?.id);
+      console.log('🔍 Full response structure:', JSON.stringify(result, null, 2));
       return result;
     },
     onSuccess: (response: any) => {
-      console.log('Incident created successfully:', response);
-      console.log('Full response object:', JSON.stringify(response, null, 2));
+      console.log('🎯 MUTATION SUCCESS HANDLER CALLED');
+      console.log('🎯 Response received in onSuccess:', response);
+      console.log('🎯 Response type check:', typeof response);
+      console.log('🎯 Response structure:', JSON.stringify(response, null, 2));
       let incidentId;
       
       // Handle response - expect string incident ID (no hardcoding)
