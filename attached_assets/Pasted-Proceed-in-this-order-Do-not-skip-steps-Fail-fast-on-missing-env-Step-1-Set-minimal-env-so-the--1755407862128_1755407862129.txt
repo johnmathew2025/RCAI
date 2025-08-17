@@ -1,0 +1,78 @@
+Proceed in this order. Do not skip steps. Fail fast on missing env.
+Step 1 — Set minimal env so the app can boot
+# Core
+APP_BASE_URL=<your repl URL>
+PORT=3000
+JWT_SECRET=<32+ char random>
+ROLES=Reporter,Analyst,Approver,Admin
+
+# Database (pick one)
+DATABASE_URL=<postgres url>  # preferred
+# or for dev with SQLite (if supported by your ORM):
+# DATABASE_URL=file:./dev.db
+
+# Mail (for now use a test SMTP inbox)
+SMTP_HOST=<smtp host>
+SMTP_PORT=587
+SMTP_USER=<user>
+SMTP_PASS=<pass>
+MAIL_FROM=incidents@your-org.example
+
+# Queue
+REDIS_URL=<redis url>        # required for reminders
+
+# SLA + storage policy
+SLA_PROFILE_STANDARD_HOURS=24
+DEFAULT_STORAGE_MODE=pointer
+ALLOW_POINTER=true
+ALLOW_MANAGED_COPY=true
+CACHE_TTL_SECONDS=0
+BYO_STORAGE_PROVIDER=none
+
+# Dashboard integration (can stub)
+DASHBOARD_URL=
+DASHBOARD_API_KEY=
+Step 2 — Database migrations
+If using Drizzle: generate & push SQL migrations (don’t only push). Commit the migration files.
+If using Prisma: prisma migrate dev --name init_incident_workflow.
+Tables must support Step-8 fields (type Standard (24h), documentation/analysis depth, priority, approval, stakeholders, notifications, due_at) and Step-1 fields (priority, observations, sequence, regulatory flag). See your PDFs for exact UI knobs: Step-8 has workflow type, documentation level, analysis depth, priority, approval, symptoms, stakeholders, toggles, initiate button 
+; Step-1 captures incident details, priority, observations, equipment/location, sequence of events, regulatory flag 
+.
+Step 3 — Finish APIs (Node/TS)
+POST /api/incidents → create Step-1 incident; return id/INC_*. 
+POST /api/incidents/:id/symptoms → add “Observed Symptoms”. 
+POST /api/incidents/:id/evidence → mode=pointer|managed; stream+hash; no disk writes.
+POST /api/workflows/initiate (Analyst|Admin)
+Validate incident exists & open.
+due_at = now + SLA_PROFILE_STANDARD_HOURS (no hardcoding “24”).
+Persist stakeholders.
+Enqueue notifications (email/stakeholder/dashboard) and milestone reminders if toggles are on. 
+POST /api/workflows/:id/notifications/preview → dry-run list of recipients/subjects (no sends). 
+POST /api/workflows/:id/approve (Approver|Admin).
+POST /internal/cron/process-reminders (token-guarded) → process due jobs.
+Step 4 — Queue + worker
+Install and wire BullMQ (or your chosen queue) with REDIS_URL.
+Define jobs: milestone_reminder, sla_breach_warning.
+Add a lightweight worker process (or in the same repl if that’s your pattern).
+Step 5 — Move Step-8 out of Admin and wire UI
+New route: /workflow/integration (guarded Analyst+).
+Incident selector must query /api/incidents and validate the chosen ID (not free-text).
+Show Due by (computed from SLA) after initiation, plus approval status when enabled. 
+Add notification preview button before enabling the big “Initiate Workflow Process”. 
+Evidence list on the page shows badges POINTER/MANAGED.
+Step 6 — Tests (minimum)
+Create incident (Step-1) → select in Step-8 (priority maps 1:1). 
+Initiate workflow → due_at set from env-driven SLA; reminders queued. 
+Approval-required path blocks until approve. 
+Evidence pointer: no bytes stored, hash computed, refresh access works.
+Evidence managed: copy stored in org storage, hash matches.
+Notification preview doesn’t send; notifications send when confirmed.
+RBAC: Reporter cannot initiate; Analyst can; Approver can approve.
+Quick acceptance checklist (what “done” looks like)
+Step-8 tab accessible to Analyst+ outside Admin; respects RBAC.
+Incident from Step-1 appears in Step-8 selector; priority and fields align (no retyping). 
+Initiate creates a workflow with type Standard (24h) (from env), stakeholders/notifications, and shows “Due by …”. 
+Observed Symptoms added in Step-8 actually append to the incident record. 
+Evidence supports pointer and managed modes as designed (default pointer).
+Cron endpoint processes milestones & SLA warnings.
+No hardcoded secrets/URLs/roles/SLA values.

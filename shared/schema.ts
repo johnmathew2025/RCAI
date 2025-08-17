@@ -30,6 +30,9 @@ import {
   date,
   serial,
   unique,
+  uuid,
+  bigint,
+  char,
 } from "drizzle-orm/pg-core";
 import { sql } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
@@ -707,3 +710,187 @@ export const ECFA_COMPONENTS = {
     "External Factors", "Latent Conditions"
   ]
 } as const;
+
+// =======================
+// NEW INCIDENT MANAGEMENT SYSTEM TABLES
+// Step 1 → Step 8 workflow implementation
+// =======================
+
+// Enhanced incidents table with Step 1 → Step 8 workflow support
+export const incidentsNew = pgTable("incidents_new", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  description: text("description").notNull(),
+  reporterId: uuid("reporter_id").notNull(),
+  priority: varchar("priority", { length: 20 }).notNull(), // Low, Medium, High, Critical
+  regulatoryRequired: boolean("regulatory_required").default(false),
+  equipmentId: varchar("equipment_id"),
+  location: varchar("location"),
+  incidentDateTime: timestamp("incident_date_time"),
+  immediateActions: text("immediate_actions"),
+  safetyImplications: text("safety_implications"),
+  operatingParameters: text("operating_parameters"),
+  status: varchar("status", { length: 20 }).default("open"), // open, investigating, closed
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("incidents_new_reporter_idx").on(table.reporterId),
+  index("incidents_new_status_idx").on(table.status),
+]);
+
+export const insertIncidentNewSchema = createInsertSchema(incidentsNew).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type IncidentNew = typeof incidentsNew.$inferSelect;
+export type InsertIncidentNew = z.infer<typeof insertIncidentNewSchema>;
+
+// Symptoms table for Step 8 observed symptoms
+export const symptoms = pgTable("symptoms", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: uuid("incident_id").references(() => incidentsNew.id).notNull(),
+  text: text("text").notNull(),
+  observedAt: timestamp("observed_at"),
+  severity: varchar("severity", { length: 20 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("symptoms_incident_idx").on(table.incidentId),
+]);
+
+export const insertSymptomSchema = createInsertSchema(symptoms).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Symptom = typeof symptoms.$inferSelect;
+export type InsertSymptom = z.infer<typeof insertSymptomSchema>;
+
+// Workflows table for Step 8 workflow management
+export const workflows = pgTable("workflows", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: uuid("incident_id").references(() => incidentsNew.id).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // Standard (24h), Expedited, etc.
+  documentationLevel: varchar("documentation_level", { length: 50 }).notNull(),
+  analysisDepth: varchar("analysis_depth", { length: 50 }).notNull(),
+  priority: varchar("priority", { length: 20 }).notNull(),
+  approvalRequired: boolean("approval_required").default(false),
+  dueAt: timestamp("due_at").notNull(),
+  status: varchar("status", { length: 20 }).default("draft"), // draft, active, paused, closed
+  createdBy: uuid("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("workflows_incident_idx").on(table.incidentId),
+  index("workflows_status_idx").on(table.status),
+  index("workflows_due_at_idx").on(table.dueAt),
+]);
+
+export const insertWorkflowSchema = createInsertSchema(workflows).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Workflow = typeof workflows.$inferSelect;
+export type InsertWorkflow = z.infer<typeof insertWorkflowSchema>;
+
+// Stakeholders table for workflow participants
+export const stakeholders = pgTable("stakeholders", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id).notNull(),
+  name: varchar("name").notNull(),
+  role: varchar("role", { length: 50 }).notNull(),
+  email: varchar("email").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("stakeholders_workflow_idx").on(table.workflowId),
+]);
+
+export const insertStakeholderSchema = createInsertSchema(stakeholders).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Stakeholder = typeof stakeholders.$inferSelect;
+export type InsertStakeholder = z.infer<typeof insertStakeholderSchema>;
+
+// Approvals table for approval workflow
+export const approvals = pgTable("approvals", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id).notNull(),
+  approverIdOrEmail: varchar("approver_id_or_email").notNull(),
+  decision: varchar("decision", { length: 20 }).default("pending"), // pending, approved, rejected
+  decidedAt: timestamp("decided_at"),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("approvals_workflow_idx").on(table.workflowId),
+  index("approvals_decision_idx").on(table.decision),
+]);
+
+export const insertApprovalSchema = createInsertSchema(approvals).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Approval = typeof approvals.$inferSelect;
+export type InsertApproval = z.infer<typeof insertApprovalSchema>;
+
+// Notifications table for communication tracking
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id).notNull(),
+  channel: varchar("channel", { length: 20 }).notNull(), // email, dashboard, stakeholder, milestone
+  payload: jsonb("payload").notNull(), // message content, recipients, etc.
+  status: varchar("status", { length: 20 }).default("queued"), // queued, sent, failed
+  scheduledFor: timestamp("scheduled_for"),
+  sentAt: timestamp("sent_at"),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("notifications_workflow_idx").on(table.workflowId),
+  index("notifications_status_idx").on(table.status),
+  index("notifications_scheduled_idx").on(table.scheduledFor),
+]);
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+// Unified evidence table supporting pointer and managed modes
+export const evidence = pgTable("evidence", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: uuid("incident_id").references(() => incidentsNew.id).notNull(),
+  storageMode: varchar("storage_mode", { length: 10 }).notNull(), // pointer, managed
+  provider: varchar("provider", { length: 20 }).notNull(), // local, s3, gdrive, sharepoint, app_bucket
+  objectRef: jsonb("object_ref").notNull(), // {bucket,key,versionId} or {fileId} 
+  contentHash: char("content_hash", { length: 64 }).notNull(),
+  sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+  mime: varchar("mime").notNull(),
+  ownerUserId: uuid("owner_user_id").notNull(),
+  retentionTtlSeconds: integer("retention_ttl_seconds"),
+  expiresAt: timestamp("expires_at"),
+  scanStatus: varchar("scan_status", { length: 20 }).default("pending"), // pending, clean, infected, error
+  scanReport: jsonb("scan_report"),
+  metadata: jsonb("metadata"), // filename, description, category, etc.
+  addedAt: timestamp("added_at").defaultNow(),
+}, (table) => [
+  index("evidence_incident_idx").on(table.incidentId),
+  index("evidence_storage_mode_idx").on(table.storageMode),
+  index("evidence_owner_idx").on(table.ownerUserId),
+  index("evidence_expires_at_idx").on(table.expiresAt),
+]);
+
+export const insertEvidenceSchema = createInsertSchema(evidence).omit({
+  id: true,
+  addedAt: true,
+});
+
+export type Evidence = typeof evidence.$inferSelect;
+export type InsertEvidence = z.infer<typeof insertEvidenceSchema>;

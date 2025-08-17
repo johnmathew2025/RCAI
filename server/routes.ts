@@ -50,6 +50,14 @@ import { requireAdmin, requireInvestigatorOrAdmin, createTestAdminUser, type Aut
 import * as os from "os";
 import * as crypto from "crypto";
 
+// Import new incident management API modules
+import incidentsRouter from '../src/api/incidents.js';
+import workflowsRouter from '../src/api/workflows.js';
+import cronRouter from '../src/api/cron.js';
+import evidenceRouter from '../src/api/evidence.js';
+import { schedulerService } from '../src/services/scheduler.js';
+import { Config, validateRequiredConfig } from '../src/core/config.js';
+
 // Configure multer for file uploads
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -6421,6 +6429,39 @@ JSON array only:`;
     }
   });
   console.log("[ROUTES] All taxonomy routes registered successfully");
+  
+  // =======================
+  // NEW INCIDENT MANAGEMENT SYSTEM API ROUTES
+  // Step 1 → Step 8 workflow with RBAC authentication
+  // =======================
+  
+  // Initialize configuration validation and scheduler
+  try {
+    await validateRequiredConfig();
+    console.log("[INCIDENT_MANAGEMENT] Configuration validation passed");
+    
+    // Start scheduler service for SLA monitoring
+    schedulerService.start();
+    console.log("[INCIDENT_MANAGEMENT] Scheduler service started for SLA monitoring");
+  } catch (error) {
+    console.error("[INCIDENT_MANAGEMENT] Configuration validation failed:", error);
+    // Don't exit in development, just warn
+    console.warn("[INCIDENT_MANAGEMENT] Continuing with default configuration");
+  }
+  
+  // Register new API routes
+  app.use('/api/incidents', incidentsRouter);
+  app.use('/api/workflows', workflowsRouter);
+  app.use('/api/evidence', evidenceRouter);
+  app.use('/internal/cron', cronRouter);
+  
+  console.log("[INCIDENT_MANAGEMENT] All new API routes registered successfully");
+  console.log("[INCIDENT_MANAGEMENT] Available endpoints:");
+  console.log("  - POST /api/incidents (Create incident)");
+  console.log("  - GET /api/incidents/:id (Get incident)");
+  console.log("  - POST /api/workflows/initiate (Step 8 workflow)");
+  console.log("  - POST /internal/cron/process-reminders (SLA monitoring)");
+  
   console.log("[ROUTES] FINAL DEBUG - About to create HTTP server and return");
 
   const httpServer = createServer(app);
