@@ -141,9 +141,9 @@ export default function IncidentReporting() {
       ...{
         title: "",
         description: "",
-        equipment_group_id: undefined,
-        equipment_type_id: undefined,
-        equipment_subtype_id: undefined,
+        equipment_group_id: null,
+        equipment_type_id: null,
+        equipment_subtype_id: null,
         equipmentId: "",
         manufacturer: "",
         model: "",
@@ -688,7 +688,7 @@ export default function IncidentReporting() {
                             form.setValue("equipment_type_id", null, { shouldValidate: false });
                             form.setValue("equipment_subtype_id", null, { shouldValidate: false });
                           }} 
-                          value={field.value?.toString() ?? ""}
+                          value={field.value ? field.value.toString() : ""}
                           disabled={groupsLoading}
                         >
                           <FormControl>
@@ -723,7 +723,7 @@ export default function IncidentReporting() {
                             // Reset subtype when type changes
                             form.setValue("equipment_subtype_id", null, { shouldValidate: false });
                           }} 
-                          value={field.value?.toString() ?? ""}
+                          value={field.value ? field.value.toString() : ""}
                           disabled={!selectedGroupId || typesLoading}
                         >
                           <FormControl>
@@ -760,7 +760,7 @@ export default function IncidentReporting() {
                       <FormItem>
                         <FormLabel>Equipment Subtype (Level 3)</FormLabel>
                         <Select 
-                          value={field.value?.toString() ?? ""}
+                          value={field.value ? field.value.toString() : ""}
                           onValueChange={(v) => {
                             const subtypeId = v ? Number(v) : null;
                             field.onChange(subtypeId);
