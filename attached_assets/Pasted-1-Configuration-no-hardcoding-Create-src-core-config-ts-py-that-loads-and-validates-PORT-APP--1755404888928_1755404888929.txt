@@ -1,0 +1,139 @@
+1) Configuration (no hardcoding)
+Create src/core/config.(ts|py) that loads and validates:
+PORT, APP_BASE_URL
+DATABASE_URL
+JWT_SECRET
+ROLES=Reporter,Analyst,Approver,Admin
+SLA_PROFILE_STANDARD_HOURS=24
+SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM
+REDIS_URL
+DASHBOARD_URL, DASHBOARD_API_KEY
+DEFAULT_STORAGE_MODE=pointer   # pointer|managed
+ALLOW_POINTER=true
+ALLOW_MANAGED_COPY=true
+CACHE_TTL_SECONDS=0
+BYO_STORAGE_PROVIDER=s3|gdrive|sharepoint|none
+Ship .env.example with all keys documented.
+2) RBAC & Auth
+Create src/core/rbac.(ts|py):
+Roles: Reporter, Analyst, Approver, Admin.
+Guards:
+Reporter: create/read incidents they reported.
+Analyst: initiate workflows, add stakeholders, toggle notifications.
+Approver: approve/deny when required.
+Admin: manage presets/integrations; not required to initiate.
+Add HTTP middleware that populates req.user with {id, role} (JWT or simple header for now) and check guards on each endpoint.
+3) Data Model & Migrations
+Add/extend schema to support Step 1 → Step 8 handshake and evidence modes.
+Tables (new or confirm exist):
+incidents — id (UUID), title, description, reporter_id, priority, regulatory_required (bool), created_at… (Step-1 fields). 
+symptoms — id, incident_id, text, observed_at. 
+workflows — id (UUID), incident_id (FK), type (enum), documentation_level (enum), analysis_depth (enum), priority (enum), approval_required (bool), due_at (timestamp), status (enum: draft|active|paused|closed), created_by, created_at… 
+stakeholders — id, workflow_id, name, role, email. 
+approvals — id, workflow_id, approver_id/email, decision (pending|approved|rejected), decided_at, comment. 
+notifications — id, workflow_id, channel (email|dashboard|stakeholder|milestone), payload json, status (queued|sent|failed), scheduled_for, sent_at, error. 
+evidence — unified model for pointer/managed:
+id uuid pk, incident_id uuid fk,
+storage_mode enum('pointer','managed'),
+provider text ('local'|'s3'|'gdrive'|'sharepoint'|'app_bucket'),
+object_ref jsonb (e.g., {bucket,key,versionId} or {fileId}),
+content_hash char(64), size_bytes bigint, mime text,
+owner_user_id uuid, retention_ttl_seconds int, expires_at timestamptz,
+scan_status text, scan_report jsonb, added_at timestamptz default now().
+Add indices on incident_id, storage_mode.
+4) API Surface
+Health
+GET /health → 200 with versions.
+Incidents (Step 1)
+POST /api/incidents (Reporter+) → create from Step-1 form (title, details, priority, etc.). 
+GET /api/incidents/:id → fetch incident with symptoms/evidence summary.
+POST /api/incidents/:id/symptoms → add symptoms from Step-8 “Observed Symptoms”. 
+POST /api/incidents/:id/evidence → see Evidence API (modes).
+Workflows (Step 8)
+POST /api/workflows/initiate (Analyst|Admin)
+Body: { incidentId, type, documentationLevel, analysisDepth, priority, approvalRequired, stakeholders:[{name,role,email}], notify:{ email, stakeholder, dashboard, milestones } }
+Behavior:
+Validate incidentId exists & is open.
+Compute due_at = now + SLA_PROFILE_STANDARD_HOURS.
+Create workflow, attach stakeholders.
+Enqueue notification + milestone jobs.
+Return workflow with due_at and status active. 
+GET /api/workflows/:id → read workflow & current approval/notification state.
+POST /api/workflows/:id/stakeholders (Analyst|Admin) → upsert stakeholders.
+POST /api/workflows/:id/notifications/preview (Analyst|Admin) → dry-run recipients/messages (no send).
+POST /api/workflows/:id/approve (Approver|Admin) → {decision, comment}.
+Scheduler/Cron (internal)
+POST /internal/cron/process-reminders (token-guarded) → send due milestone reminders & SLA breach warnings.
+Evidence (pointer + managed)
+POST /api/incidents/:id/evidence
+Body:
+{
+  "mode": "pointer|managed",
+  "source": {
+    "provider": "s3|gdrive|sharepoint|local|app_bucket",
+    "object": {"bucket":"...","key":"...","versionId":"..."} | {"fileId":"..."},
+    "access": {"presignedGet":"...","expiresAt":"..."} | {"oauthToken":"..."}
+  },
+  "metadata": {"mime":"application/pdf","sizeBytes":12345}
+}
+Behavior:
+Validate org policy (ALLOW_POINTER / ALLOW_MANAGED_COPY).
+Pointer: stream → scan/parse → compute content_hash → store metadata only (no bytes).
+Managed: copy into BYO storage (or org partition) → store stable object_ref + hash.
+Never write user bytes to local disk beyond optional encrypted cache with CACHE_TTL_SECONDS.
+POST /api/evidence/:id/pin (Analyst|Admin) → pointer → managed (copy to org storage).
+POST /api/evidence/:id/refresh-access → re-mint access (OAuth or new pre-signed GET).
+5) Services (clean layering)
+Create service modules under src/services/:
+incident_service — CRUD + validations.
+workflow_service — due date calc from config; orchestration on initiate. (Uses fields seen in Step-8 UI: type “Standard (24h)”, documentation level, analysis depth, priority.) 
+approval_service — approve/deny + audit trail.
+notification_service — email (SMTP), stakeholder updates, dashboard webhook; support preview mode. 
+scheduler — queue jobs (milestone_reminder, sla_breach_warning) + cron endpoint.
+evidence_service — streaming, hashing, AV scan, redaction; pointer/managed behaviors.
+6) Move Step 8 UI out of Admin
+Routes
+Old: /admin/workflow-integration (remove or keep as redirect).
+New: /workflow/integration (SSR page or SPA route) → guarded by RBAC (Analyst+).
+UI Behavior (wire to APIs)
+Incident selector (search existing incidents by title/id; show INC_*). 
+Workflow Settings: type (“Standard (24h)”), documentation level, analysis depth, priority; toggle Approval Required. 
+Observed Symptoms: add chips → POST to /incidents/:id/symptoms. 
+Stakeholders & Notifications: list + toggles for Email, Stakeholder, Dashboard, Milestone Reminders. 
+Preview button → calls /workflows/:id/notifications/preview.
+Initiate Workflow Process → POST /workflows/initiate and render returned due_at, status “active”, and next steps.
+Badges on evidence list: POINTER vs MANAGED.
+7) Guardrails & Security
+Fail-fast config: app refuses to boot if required env absent.
+Audit logging: record who initiated workflow, who added stakeholders, notifications sent, and timestamps (matches the “audit/compliance” tone in your UI). 
+Secrets: only server-side; never exposed to client. (Your UI already emphasizes “API keys are encrypted & stored on backend.” Keep it that way.)
+No permanent uploads unless mode=managed and policy allows; otherwise only metadata persists.
+8) Tests (increase coverage because two storage modes)
+Create ~14–18 tests across unit + integration:
+Create incident from Step-1 payload → returns INC_* fields present in Step-8. 
+Analyst can access /workflow/integration; Reporter is denied.
+POST /workflows/initiate computes due_at = now + SLA_PROFILE_STANDARD_HOURS.
+Initiation enqueues notifications/reminders when toggles set.
+Approval required → blocks “closed” until approver acts; approver can approve/deny.
+Evidence pointer upload: no bytes stored; hash calculated; re-access works with refreshed link.
+Evidence managed upload: copy to BYO storage; hash matches; retention honored.
+Pointer → managed “pin” copies and preserves original hash in audit.
+Policy enforcement: if ALLOW_MANAGED_COPY=false, API rejects mode=managed.
+Notification preview does not send emails.
+SLA breach job sets warning and sends reminder.
+Stakeholder list persists and is used for notifications.
+Incident priority aligns with workflow priority options (no mismatch).
+Symptoms added via Step-8 surface in incident detail.
+9) README (ship with repo)
+Document:
+Setup (env vars, migrations, seed users for each role).
+Routes + sample curl requests for each endpoint.
+How to run worker & cron (or ping /internal/cron/process-reminders).
+Evidence modes and org policy flags.
+10) Definition of Done
+Step-8 route available at /workflow/integration for Analyst+ with server-side RBAC.
+Creating an incident in Step-1 → selectable in Step-8 by ID/search; no free-text Incident ID.
+Initiating a workflow creates records, schedules jobs, and shows computed “Due by (24h)” based on config (no magic numbers). 
+Evidence supports pointer and managed modes; default = pointer; managed uses org storage (BYO).
+All secrets & SLA values are env-driven; grep finds no hardcoded URLs/emails/SLA hours/role names.
+Tests pass locally on Replit.
