@@ -334,14 +334,14 @@ export default function IncidentReporting() {
       let incidentId;
       
       // Handle different response formats
-      if (typeof response === 'object' && response.id) {
-        incidentId = response.id;
+      if (typeof response === "object" && response.data?.id) {
+        incidentId = response.data.id;
       } else if (typeof response === 'number') {
         incidentId = response;
       } else if (typeof response === 'string') {
         incidentId = parseInt(response);
       } else {
-        console.error('Unexpected response format:', response);
+        console.error("Unexpected response format", response);
         incidentId = null;
       }
       
