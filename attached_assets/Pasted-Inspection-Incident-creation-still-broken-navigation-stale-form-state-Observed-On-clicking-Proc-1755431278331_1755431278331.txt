@@ -1,0 +1,88 @@
+Inspection: Incident creation still broken (navigation + stale form state)
+Observed
+On clicking Proceed to Equipment, I get a red toast: “Failed to get incident ID for navigation.”
+After that, the form fields stay populated (not cleared) even though an incident attempt was made.
+This means the create incident mutation either:
+Succeeds but returns a different response shape than the UI expects (e.g., API returns id but UI looks for incidentId), or
+Fails and we’re not surfacing the error correctly, or
+Succeeds, but we try to navigate before the ID is available, and we never reset state.
+What to verify (fast checks)
+Network tab during submit:
+Status code (expect 200/201).
+JSON body key for the new ID (is it id, incidentId, incident_id, or nested under data?).
+Console: any runtime/TypeScript errors on submit or in the onSuccess handler?
+Env route: ensure the navigation path matches our router base (no trailing/leading slash bugs).
+Required fixes
+Standardize the response type and extraction of the new ID.
+Define a single place where we parse the mutation response and pull the ID defensively:
+// types.ts
+export type CreateIncidentResponse = {
+  id?: number | string;
+  incidentId?: number | string;
+  incident_id?: number | string;
+  data?: {
+    id?: number | string;
+    incidentId?: number | string;
+    incident_id?: number | string;
+  };
+};
+// utils/getIncidentId.ts
+export function getIncidentId(res: CreateIncidentResponse): string | undefined {
+  const id =
+    res?.incidentId ??
+    res?.id ??
+    res?.incident_id ??
+    res?.data?.incidentId ??
+    res?.data?.id ??
+    res?.data?.incident_id;
+
+  return id != null ? String(id) : undefined;
+}
+Fix the submit handler to use the parser above, navigate, and then reset.
+(Replace your current success path with this pattern.)
+// incident-reporting.tsx (submit)
+const onSubmit = async (values: FormValues) => {
+  setSubmitting(true);
+  try {
+    const res = await createIncident.mutateAsync(values); // keep existing mutation
+    const incidentId = getIncidentId(res);
+
+    if (!incidentId) {
+      // show *actionable* error + log the raw response for debugging
+      console.error("CreateIncident response without ID:", res);
+      toast.error("Failed to get incident ID from server response.");
+      return;
+    }
+
+    // Navigate first so the form unmounts (prevents stale state showing)
+    navigate(`/incidents/${incidentId}/equipment`);
+
+    // As a safety net, immediately reset the form as well
+    form.reset(defaultValues);   // defaultValues should set nullable fields to null
+    queryClient.invalidateQueries({ queryKey: ["incidents", incidentId] });
+  } catch (e: any) {
+    console.error("CreateIncident failed:", e);
+    toast.error(e?.message ?? "Incident creation failed.");
+  } finally {
+    setSubmitting(false);
+  }
+};
+Disable the button while submitting to prevent duplicate requests:
+<Button type="submit" disabled={isSubmitting || createIncident.isPending}>
+  {createIncident.isPending ? "Creating…" : "Proceed to Equipment"}
+</Button>
+Ensure defaults are truly null-safe so the form clears:
+defaultValues for cascading selects must be null (not undefined or "").
+After navigation, the component should unmount; but we also call form.reset(defaultValues) as a belt-and-suspenders reset.
+Harden the toast copy so it reflects the real failure:
+If response has no ID → “Failed to get incident ID from server response.”
+If network/validation error → surface server message when available.
+Acceptance criteria
+Submitting a valid incident:
+No red toast.
+Router navigates to /incidents/:id/equipment with the actual ID from the API.
+The original form does not keep old values (either because it unmounted or because we reset).
+If the server ever returns without an ID, I see a clear error and a console log with the raw response for debugging.
+Nice-to-have (optional, but recommended)
+Add a tiny unit test for getIncidentId covering {id}, {incidentId}, {incident_id}, {data:{id}}, and undefined.
+Log the exact response shape once in non-prod to catch future API changes.
