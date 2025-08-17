@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Form Field Verification</title>
+    <script>
+        setTimeout(() => {
+            const inputs = [...document.querySelectorAll('input,textarea')];
+            const manufacturerFields = inputs.filter(el => 
+                /manufacturer/i.test(el.name || el.placeholder || el.id)
+            );
+            const modelFields = inputs.filter(el => 
+                /model/i.test(el.name || el.placeholder || el.id)
+            );
+            
+            console.log('Found inputs:', inputs.length);
+            console.log('Manufacturer fields:', manufacturerFields.map(el => ({
+                name: el.name, 
+                placeholder: el.placeholder, 
+                id: el.id,
+                visible: el.offsetWidth > 0 && el.offsetHeight > 0
+            })));
+            console.log('Model fields:', modelFields.map(el => ({
+                name: el.name, 
+                placeholder: el.placeholder, 
+                id: el.id,
+                visible: el.offsetWidth > 0 && el.offsetHeight > 0
+            })));
+            
+            if (manufacturerFields.length > 0 && modelFields.length > 0) {
+                console.log('✅ MANUFACTURER AND MODEL FIELDS FOUND');
+            } else {
+                console.log('❌ MANUFACTURER OR MODEL FIELDS MISSING');
+            }
+        }, 2000);
+    </script>
+</head>
+<body>
+    <h1>Checking form fields...</h1>
+    <p>Check console for results</p>
+</body>
+</html>

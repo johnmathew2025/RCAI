@@ -1,0 +1,45 @@
+Make Manufacturer & Model (text) visible in the Incident form
+Files to modify (client):
+•	client/src/pages/incident-reporting.tsx (or the component rendering “Incident Details”)
+Requirements:
+1.	Add two controlled text inputs directly under Equipment Type:
+o	manufacturer with placeholder e.g., Siemens
+o	model with placeholder e.g., Simovert-M420
+o	maxLength={100}, trim on submit.
+2.	Wire them into whatever form library you use (react-hook-form/Formik/Zod/Yup):
+o	Ensure they are registered so values appear in the submit payload.
+o	If there’s a schema, add optional string fields manufacturer and model (≤100 chars).
+3.	Submit mapping (server already supports snapshots):
+o	POST body must include { manufacturer, model } when assetId is not provided.
+o	If assetId is provided, UI can still show the fields but should indicate “auto-filled by asset” (server will prioritize asset).
+4.	Show on read:
+o	After create, GET /api/incidents/:id should display manufacturer_snapshot and model_snapshot in the Incident Details / Step-8 header.
+Do not hide behind a feature flag or role. No hardcoding.
+ 
+Quick troubleshooting (why you don’t see them)
+•	The inputs may have been added in code but:
+o	Not imported/rendered in the current page section, or
+o	Missing form registration (so they don’t appear / get pruned), or
+o	Hidden by a conditional (feature flag/env), or
+o	Failing schema validation (schema doesn’t include the fields), or
+o	Cached bundle. Do a hard reload (Ctrl/Cmd+Shift+R).
+ 
+Fast verification steps (you/Agent)
+A) DOM check in DevTools (form open):
+[...document.querySelectorAll('input,textarea')]
+  .filter(el => /manufacturer|model/i.test(el.name || el.placeholder))
+  .map(el => ({name: el.name, placeholder: el.placeholder}))
+Expected: entries for manufacturer and model.
+B) Create via UI then read API:
+curl -s "http://localhost:5000/api/incidents/<NEW_ID>" \
+  -H "X-User: analyst@acme.test" -H "X-Role: Analyst" | jq '{manufacturer_snapshot, model_snapshot}'
+Expected (when no assetId): snapshots equal what you typed.
+C) Asset priority still holds:
+•	Create an incident with assetId and text filled → manufacturer_snapshot/model_snapshot should match the asset, not the text.
+ 
+Acceptance criteria
+•	Manufacturer & Model text boxes are visible under Equipment Type.
+•	Submitting with only text fields populates manufacturer_snapshot & model_snapshot.
+•	Submitting with assetId ignores text and snapshots from asset.
+•	Incident details & Step-8 header show Manufacturer/Model (or “Not provided”).
+

@@ -127,6 +127,8 @@ export default function IncidentReporting() {
         equipment_type_id: null,
         equipment_subtype_id: null,
         equipmentId: "",
+        manufacturer: "",
+        model: "",
         location: "",
         reportedBy: "",
         incidentDateTime: "",
