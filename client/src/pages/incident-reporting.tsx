@@ -164,6 +164,13 @@ export default function IncidentReporting() {
   const draftTTL = draftTTLDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
   const autosaveDelay = parseInt(import.meta.env.VITE_AUTOSAVE_DELAY_MS || '500'); // Configurable autosave delay
   
+  // Advanced browser autofill prevention configuration (NO HARDCODING)
+  const autofillPrevention = import.meta.env.VITE_FORM_AUTOFILL_PREVENTION || 'aggressive';
+  const dummyFieldCount = Number(import.meta.env.VITE_FORM_DUMMY_FIELD_COUNT) || 3;
+  const idRandomization = import.meta.env.VITE_FORM_ID_RANDOMIZATION !== 'false';
+  const clearDelay = Number(import.meta.env.VITE_FORM_CLEAR_DELAY) || 100;
+  const forceResetNewIncident = import.meta.env.VITE_FORM_FORCE_RESET_NEW_INCIDENT !== 'false';
+  
   // Load saved draft with TTL check (no hardcoding) - BUT ONLY FOR EXISTING INCIDENTS
   const loadSavedDraft = () => {
     if (!draftEnabled || isNewIncident) return {}; // Skip draft loading for new incidents
@@ -223,14 +230,51 @@ export default function IncidentReporting() {
     queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false });
   };
   
-  // Helper function to start a truly fresh incident (called from "Report New Incident" click)
-  const startNewIncident = () => {
-    console.debug("🆕 Starting truly fresh incident");
-    form.reset(defaultFormValues);    // hard reset values
-    setFormKey(Date.now());           // remount RHF to clear internal state
-    localStorage.removeItem(storageKey);
-    queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false });
+  // ULTIMATE BROWSER AUTOFILL PREVENTION - Environment driven (NO HARDCODING)
+  const createAntiAutofillField = (baseId: string) => {
+    if (autofillPrevention === 'aggressive') {
+      const fields = [];
+      for (let i = 0; i < dummyFieldCount; i++) {
+        fields.push(
+          <input 
+            key={`dummy-${i}-${baseId}`}
+            type="text" 
+            style={{display:'none'}} 
+            autoComplete="off"
+            tabIndex={-1}
+            value=""
+            readOnly
+          />
+        );
+      }
+      return fields;
+    }
+    return [];
   };
+  
+  // Dynamic form cleaner that runs after mount with configurable delay
+  useEffect(() => {
+    if (isNewIncident && forceResetNewIncident) {
+      const timeoutId = setTimeout(() => {
+        const formEl = document.querySelector('form[name*="incidentForm"]') as HTMLFormElement;
+        if (formEl) {
+          // Nuclear option: clear all form values via DOM manipulation
+          const inputs = formEl.querySelectorAll('input, textarea') as NodeListOf<HTMLInputElement | HTMLTextAreaElement>;
+          inputs.forEach((input) => {
+            if (input.type !== 'submit' && input.type !== 'button') {
+              input.value = '';
+              // Trigger React events to sync with form state
+              const event = new Event('input', { bubbles: true });
+              input.dispatchEvent(event);
+            }
+          });
+          console.debug(`✅ DOM-level form clear completed (${inputs.length} fields cleared)`);
+        }
+      }, clearDelay);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isNewIncident, forceResetNewIncident, clearDelay, formKey]);
 
   // ID-BASED CASCADING DROPDOWN STATE
   const selectedGroupId = form.watch("equipment_group_id");
@@ -583,11 +627,12 @@ export default function IncidentReporting() {
                       <FormLabel>Incident Details</FormLabel>
                       <FormControl>
                         <div>
-                          {/* Hidden dummy field to break browser autofill */}
-                          <input type="text" style={{display:'none'}} autoComplete="off" />
+                          {/* Environment-driven anti-autofill fields */}
+                          {createAntiAutofillField(`incidentDetails-${nonce}`)}
                           <Input 
                             {...field} 
-                            id={`incidentDetails-${nonce}`}
+                            id={idRandomization ? `incidentDetails-${nonce}` : 'incidentDetails'}
+                            name="title"
                             autoComplete="off"
                             autoCorrect="off"
                             spellCheck={false}
@@ -609,11 +654,12 @@ export default function IncidentReporting() {
                       <FormLabel>Initial Observations</FormLabel>
                       <FormControl>
                         <div>
-                          {/* Hidden dummy field to break browser autofill */}
-                          <input type="text" style={{display:'none'}} autoComplete="off" />
+                          {/* Environment-driven anti-autofill fields */}
+                          {createAntiAutofillField(`initialObservations-${nonce}`)}
                           <Textarea 
                             {...field} 
-                            id={`initialObservations-${nonce}`}
+                            id={idRandomization ? `initialObservations-${nonce}` : 'initialObservations'}
+                            name="description"
                             autoComplete="off"
                             autoCorrect="off"
                             spellCheck={false}
@@ -663,11 +709,12 @@ export default function IncidentReporting() {
                       <FormLabel>Operating Parameters at Incident Time</FormLabel>
                       <FormControl>
                         <div>
-                          {/* Hidden dummy field to break browser autofill */}
-                          <input type="text" style={{display:'none'}} autoComplete="off" />
+                          {/* Environment-driven anti-autofill fields */}
+                          {createAntiAutofillField(`operatingParameters-${nonce}`)}
                           <Textarea 
                             {...field} 
-                            id={`operatingParameters-${nonce}`}
+                            id={idRandomization ? `operatingParameters-${nonce}` : 'operatingParameters'}
+                            name="operatingParameters"
                             autoComplete="off"
                             autoCorrect="off"
                             spellCheck={false}
