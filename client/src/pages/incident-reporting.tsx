@@ -181,9 +181,12 @@ export default function IncidentReporting() {
   // REGULATORY COMPLIANCE CONDITIONAL RENDERING
   const reportableStatus = form.watch("reportableStatus");
 
-  // Auto-save form draft on changes
+  // Auto-save form draft on changes (but not during submission)
+  const [submitting, setSubmitting] = useState(false);
+  
   useEffect(() => {
     const subscription = form.watch((values) => {
+      if (submitting) return; // Don't save draft during submission
       const draftData = {
         data: values,
         timestamp: Date.now()
@@ -191,7 +194,7 @@ export default function IncidentReporting() {
       localStorage.setItem(storageKey, JSON.stringify(draftData));
     });
     return () => subscription.unsubscribe();
-  }, [form.watch, storageKey]);
+  }, [form.watch, storageKey, submitting]);
 
   // Check if form is dirty (has unsaved changes)
   const isFormDirty = form.formState.isDirty || Object.keys(form.getValues()).some(key => {
@@ -333,13 +336,9 @@ export default function IncidentReporting() {
       console.log('Full response object:', JSON.stringify(response, null, 2));
       let incidentId;
       
-      // Handle different response formats
+      // Handle response - expect string incident ID
       if (typeof response === "object" && response.data?.id) {
-        incidentId = response.data.id;
-      } else if (typeof response === 'number') {
-        incidentId = response;
-      } else if (typeof response === 'string') {
-        incidentId = parseInt(response);
+        incidentId = response.data.id; // Keep as string
       } else {
         console.error("Unexpected response format", response);
         incidentId = null;
@@ -357,22 +356,25 @@ export default function IncidentReporting() {
         return;
       }
       
-      // Clear saved draft on successful submission
-      localStorage.removeItem(storageKey);
+
       
       toast({
         title: "Incident Reported",
         description: "Moving to equipment selection and symptom input...",
       });
       
-      // Navigate immediately after toast
-      const navigationUrl = `/equipment-selection?incident=${incidentId}`;
+      // Clear saved draft on successful submission BEFORE navigation
+      localStorage.removeItem(storageKey);
+      
+      // Navigate immediately after toast with URL-encoded incident ID
+      const navigationUrl = `/equipment-selection?incident=${encodeURIComponent(incidentId)}`;
       console.log('Navigating to:', navigationUrl);
       console.log('About to call setLocation with:', navigationUrl);
       setLocation(navigationUrl);
       console.log('setLocation called successfully');
     },
     onError: (error: any) => {
+      setSubmitting(false); // Reset submission state on error
       toast({
         title: "Error",
         description: error.message || "Failed to create incident report",
@@ -382,10 +384,12 @@ export default function IncidentReporting() {
   });
 
   const onSubmit = (data: IncidentForm) => {
+    setSubmitting(true); // Stop auto-saving during submission
+    
     // Normalize payload - convert datetime to ISO and trim manufacturer/model
     const payload = {
       ...data,
-      incidentDateTime: localDatetimeToISO(data.incidentDateTime),
+      incidentDateTime: data.incidentDateTime ? localDatetimeToISO(data.incidentDateTime) : undefined,
       manufacturer: data.manufacturer?.trim() || undefined,
       model: data.model?.trim() || undefined,
     };

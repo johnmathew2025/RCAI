@@ -15,6 +15,9 @@ import { ArrowRight, ArrowLeft, Wrench, Search, FileText, AlertCircle } from "lu
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+// Incident ID validation
+const INCIDENT_ID_REGEX = /^INC-\d+$/;
+const validateIncidentId = (id: string): boolean => INCIDENT_ID_REGEX.test(id);
 
 // Form schema for equipment selection and symptom input
 const equipmentSymptomSchema = z.object({
@@ -32,30 +35,29 @@ type EquipmentSymptomForm = z.infer<typeof equipmentSymptomSchema>;
 export default function EquipmentSelection() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [error, setError] = useState<string | null>(null);
   
-  // Extract incident ID directly from URL parameters with fallback methods
-  const urlParams = new URLSearchParams(window.location.search);
-  const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-  const pathIncidentId = window.location.pathname.split('/').pop();
-  
-  let incidentId = null;
-  
-  // Try multiple methods to extract incident ID
-  if (urlParams.get('incident')) {
-    incidentId = parseInt(urlParams.get('incident')!);
-    console.log('Found incident ID in URL params:', incidentId);
-  } else if (hashParams.get('incident')) {
-    incidentId = parseInt(hashParams.get('incident')!);
-    console.log('Found incident ID in hash params:', incidentId);
-  } else if (pathIncidentId && !isNaN(parseInt(pathIncidentId))) {
-    incidentId = parseInt(pathIncidentId);
-    console.log('Found incident ID in path:', incidentId);
-  }
+  // Extract incident ID as string from URL parameters
+  const idParam = new URLSearchParams(window.location.search).get("incident") ?? "";
+  const incidentId = idParam.trim();
   
   console.log('DEBUG: Full URL:', window.location.href);
   console.log('DEBUG: Search params:', window.location.search);
-  console.log('DEBUG: Hash:', window.location.hash);
+  console.log('DEBUG: Raw incident param:', idParam);
   console.log('DEBUG: Final incident ID:', incidentId);
+  
+  // Validate incident ID format
+  useEffect(() => {
+    if (!incidentId) {
+      setError("Missing incident ID in URL");
+      return;
+    }
+    if (!validateIncidentId(incidentId)) {
+      setError("Invalid incident ID format");
+      return;
+    }
+    setError(null);
+  }, [incidentId]);
   
   const [selectedEquipmentFromLibrary, setSelectedEquipmentFromLibrary] = useState<any>(null);
   
@@ -77,7 +79,7 @@ export default function EquipmentSelection() {
     queryKey: [`/api/incidents/${incidentId}`],
     queryFn: async () => {
       console.log('Fetching incident:', incidentId);
-      const response = await fetch(`/api/incidents/${incidentId}`);
+      const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}`);
       console.log('Response status:', response.status, response.statusText);
       if (!response.ok) {
         const errorText = await response.text();
@@ -89,7 +91,7 @@ export default function EquipmentSelection() {
       console.log('Is incident valid?', !!data, 'Has equipment group?', !!data?.equipmentGroup);
       return data;
     },
-    enabled: !!incidentId,
+    enabled: !!incidentId && !error,
     retry: 1,
     retryDelay: 1000,
   });
@@ -148,7 +150,7 @@ export default function EquipmentSelection() {
         title: "Equipment & Symptoms Updated",
         description: "Proceeding to Universal RCA Analysis - AI will analyze your incident description",
       });
-      setLocation(`/evidence-checklist?incident=${incidentId}`);
+      setLocation(`/evidence-checklist?incident=${encodeURIComponent(incidentId)}`);
     },
     onError: (error: any) => {
       toast({
@@ -179,17 +181,27 @@ export default function EquipmentSelection() {
     updateIncidentMutation.mutate(payload);
   };
 
-  if (!incidentId) {
-    console.log('SHOWING NO INCIDENT ID ERROR - URL:', window.location.href);
-    console.log('URL Search:', window.location.search);
-    console.log('Incident ID parsed as:', incidentId);
+  // Show error state instead of infinite spinner
+  if (error || (!incidentId)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-lg font-medium text-red-600">Error: No Incident ID</div>
-          <div className="text-sm text-slate-600 mt-2">Please access this page from the incident reporting workflow.</div>
-          <div className="text-xs text-slate-400 mt-4">Debug: URL = {window.location.href}</div>
-        </div>
+        <Card className="max-w-md">
+          <CardContent className="text-center p-6">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-red-600 mb-2">
+              {error || "Missing Incident ID"}
+            </h2>
+            <p className="text-slate-600 mb-4">
+              Please return to the incident reporting form and submit a valid incident.
+            </p>
+            <Link href="/incident-reporting">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Incident Form
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     );
   }

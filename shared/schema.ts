@@ -38,6 +38,11 @@ import { sql } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Incident ID type definitions and validation
+export type IncidentId = string;
+export const INCIDENT_ID_REGEX = /^INC-\d+$/;
+export const validateIncidentId = (id: string): boolean => INCIDENT_ID_REGEX.test(id);
+
 // Session storage table.
 export const sessions = pgTable(
   "sessions",

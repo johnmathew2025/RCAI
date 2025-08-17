@@ -1,0 +1,57 @@
+Problem summary
+Backend returns incident IDs as strings (e.g., "INC-1755426090699").
+equipment-selection page expects a number and calls parseInt(query.incident), yielding NaN.
+Component never loads the incident → UI shows spinner forever → local draft isn’t cleared → appears “frozen”.
+Required changes (do not change backend format)
+1) Use string IncidentId app-wide
+Files to update (examples):
+shared/types.ts (or equivalent):
+export type IncidentId = string; // NOT number
+// Optional: enforce format
+export const INCIDENT_ID_REGEX = /^INC-\d+$/;
+Any component/services that typed the ID as number (e.g., equipment-selection.tsx, incident fetchers).
+2) Equipment Selection page: stop parsing as number
+File: client/src/pages/equipment-selection.tsx
+Replace any parseInt(searchParams.get('incident')) with:
+const idParam = new URLSearchParams(location.search).get("incident") ?? "";
+const incidentId = idParam.trim();
+Validate id once (no hardcoding; use regex constant if you added it):
+if (!incidentId || !INCIDENT_ID_REGEX.test(incidentId)) {
+  setError("Invalid or missing incident id");
+  return;
+}
+All fetches should pass the string ID:
+await api.get(`/api/incidents/${encodeURIComponent(incidentId)}`)
+3) Navigation after create: pass the string id and URL-encode
+File: client/src/pages/incident-reporting.tsx
+(Where the form submits and does navigate.)
+Ensure you read response.data.id (already corrected) and navigate with:
+const nextUrl = `/equipment-selection?incident=${encodeURIComponent(incidentId)}`;
+navigate(nextUrl);
+Do not coerce to number anywhere.
+4) Clear local draft only on successful handoff
+File: client/src/pages/incident-reporting.tsx
+After confirming you have a valid incidentId and after navigate(nextUrl) resolves (or at least right before navigating), clear the form draft:
+try {
+  // ... successful create
+  localStorage.removeItem("incidentDraft"); // or whatever key you use
+} catch {}
+Also add a guard to stop auto-saving the draft once the submission starts, to avoid re-writing stale values during navigation:
+const [submitting, setSubmitting] = useState(false);
+// onSubmit: setSubmitting(true)
+// auto-save effect: if (submitting) return;
+5) Show an error instead of a spinner when ID is bad
+File: client/src/pages/equipment-selection.tsx
+If incidentId is missing/invalid or fetch fails, render a small error state with a “Back to Incident Form” button, not an infinite spinner. This prevents the “frozen” feel.
+6) Acceptance checks (Agent must run)
+Create → navigate
+Submit form; confirm redirect to /equipment-selection?incident=INC-… and page loads details.
+DOM/storage
+Verify the spinner disappears and content shows; localStorage.getItem('incidentDraft') === null.
+Direct URL
+Manually visit /equipment-selection?incident=INC-<valid> → loads incident.
+Visit with an invalid id /equipment-selection?incident=123 → shows error state (not spinner).
+No numeric casts
+Grep codebase: grep -R "parseInt(.*incident" client/src should return no matches.
+No hardcoding
+No magic strings for ID; if you used a regex, keep it in one shared constant.

@@ -68,8 +68,7 @@ export default function AIAnalysis() {
   
   // Extract incident ID from URL parameter OR query string (Universal RCA - NO HARDCODING)
   const searchParams = new URLSearchParams(window.location.search);
-  const incidentId = params?.id ? parseInt(params.id) : 
-                    searchParams.get('incident') ? parseInt(searchParams.get('incident')!) : null;
+  const incidentId = params?.id || searchParams.get('incident') || null;
                     
   const [analysisPhase, setAnalysisPhase] = useState<string>("initializing");
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -84,8 +83,8 @@ export default function AIAnalysis() {
 
   // Execute Deterministic RCA Synthesis (Universal RCA Evidence Flow v2)
   const performAnalysisMutation = useMutation({
-    mutationFn: async (incidentId: number) => {
-      const response = await fetch(`/api/incidents/${incidentId}/rca-synthesis`, {
+    mutationFn: async (incidentId: string) => {
+      const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/rca-synthesis`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -204,7 +203,7 @@ export default function AIAnalysis() {
 
   const handleProceedToReview = () => {
     if (incidentId) {
-      setLocation(`/analysis-details/${incidentId}`);
+      setLocation(`/analysis-details/${encodeURIComponent(incidentId)}`);
     }
   };
 
