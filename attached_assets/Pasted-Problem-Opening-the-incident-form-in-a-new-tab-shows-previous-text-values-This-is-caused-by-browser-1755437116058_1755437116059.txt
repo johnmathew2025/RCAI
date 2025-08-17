@@ -1,0 +1,65 @@
+Problem
+Opening the incident form in a new tab shows previous text values. This is caused by browser autofill / form restore and (potentially) an early-running draft loader.
+Required fixes
+Disable browser autofill on the form and fields
+On the <form> element:
+<form autoComplete="off" name={`incidentForm-${formKey}`}>
+  {/* fields... */}
+</form>
+On every text <Input> and <Textarea> (shadcn or native), pass autoComplete="off". For the two fields that keep coming back:
+// Incident Details
+<Textarea
+  {...field}
+  id="incidentDetails"
+  autoComplete="off"
+  autoCorrect="off"
+  spellCheck={false}
+  placeholder="e.g., Pump P-101 seal leak"
+/>
+
+// Initial Observations
+<Textarea
+  {...field}
+  id="initialObservations"
+  autoComplete="off"
+  autoCorrect="off"
+  spellCheck={false}
+  placeholder="Describe what was observed..."
+/>
+Do not change RHF name paths (e.g., "incidentDetails"). If the browser still restores, add a hidden, dummy field before each text area to break heuristic autofill:
+<input type="text" style={{display:'none'}} autoComplete="off" />
+Force a truly fresh mount for NEW incidents
+Keep shouldUnregister: true and the remount key:
+const form = useForm<FormValues>({ defaultValues, shouldUnregister: true });
+<FormProvider {...form} key={formKey}>{/* … */}</FormProvider>
+When clicking “Report New Incident”, call:
+form.reset(defaultValues);
+setFormKey(Date.now());
+Guard any draft rehydration
+Ensure no draft is loaded when there’s no incidentId (brand-new route):
+const isNew = !params.incidentId;
+
+useEffect(() => {
+  if (isNew) {
+    // don’t load draft; also clear any leftovers
+    localStorage.removeItem("incidentDraft");
+    form.reset(defaultValues);
+  }
+}, [isNew]);
+If you have a loadDraft() hook, wrap it:
+if (!isNew) loadDraft();
+(Optional but helpful) Distinguish id vs name
+Browsers key autofill primarily on name. Keep RHF name stable, but you can randomize id to further discourage restore:
+const nonce = useMemo(() => Math.random().toString(36).slice(2,8), []);
+<Textarea id={`incidentDetails-${nonce}`} name="incidentDetails" autoComplete="off" />
+How to verify
+Open a new tab (not the Replit preview) to /incident-reporting.
+Confirm both “Incident Details” and “Initial Observations” are empty.
+Type something, refresh the tab—fields should remain empty (no autofill).
+In DevTools console, confirm no draft is present:
+Object.keys(localStorage).filter(k => k.toLowerCase().includes('incident'))
+// → should return []
+Acceptance criteria
+New tab → blank form, every time.
+No previous text reappears unless explicitly loaded for an existing incident.
+Changing routes or refreshing does not re-insert old text.

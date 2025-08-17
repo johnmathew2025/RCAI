@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -152,6 +152,9 @@ export default function IncidentReporting() {
   const incidentId = urlParams.get('incident');
   const isNewIncident = !incidentId;
   
+  // Generate random nonce for field IDs to break browser autofill heuristics
+  const nonce = useMemo(() => Math.random().toString(36).slice(2,8), [formKey]);
+  
   // Draft persistence configuration (no hardcoding)
   const draftEnabled = import.meta.env.FORM_DRAFT_ENABLED !== 'false';
   const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
@@ -210,6 +213,24 @@ export default function IncidentReporting() {
       console.debug("✅ Clean mount completed - form should be pristine");
     }
   }, [isNewIncident, form, storageKey]);
+  
+  // Helper function to start a truly fresh incident (called from "Report New Incident" click)
+  const startNewIncident = () => {
+    console.debug("🆕 Starting truly fresh incident");
+    form.reset(defaultFormValues);    // hard reset values
+    setFormKey(Date.now());           // remount RHF to clear internal state
+    localStorage.removeItem(storageKey);
+    queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false });
+  };
+  
+  // Helper function to start a truly fresh incident (called from "Report New Incident" click)
+  const startNewIncident = () => {
+    console.debug("🆕 Starting truly fresh incident");
+    form.reset(defaultFormValues);    // hard reset values
+    setFormKey(Date.now());           // remount RHF to clear internal state
+    localStorage.removeItem(storageKey);
+    queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false });
+  };
 
   // ID-BASED CASCADING DROPDOWN STATE
   const selectedGroupId = form.watch("equipment_group_id");
@@ -547,7 +568,12 @@ export default function IncidentReporting() {
           </CardHeader>
           <CardContent>
             <Form {...form} key={formKey}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form 
+                onSubmit={form.handleSubmit(onSubmit)} 
+                className="space-y-6"
+                autoComplete="off"
+                name={`incidentForm-${formKey}`}
+              >
                 {/* Incident Details - Field 1 */}
                 <FormField
                   control={form.control}
@@ -556,7 +582,18 @@ export default function IncidentReporting() {
                     <FormItem>
                       <FormLabel>Incident Details</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="e.g., Pump P-101 seal leak" />
+                        <div>
+                          {/* Hidden dummy field to break browser autofill */}
+                          <input type="text" style={{display:'none'}} autoComplete="off" />
+                          <Input 
+                            {...field} 
+                            id={`incidentDetails-${nonce}`}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            placeholder="e.g., Pump P-101 seal leak" 
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -571,11 +608,19 @@ export default function IncidentReporting() {
                     <FormItem>
                       <FormLabel>Initial Observations</FormLabel>
                       <FormControl>
-                        <Textarea 
-                          {...field} 
-                          placeholder="Describe what was observed, when it was observed, and any initial symptoms..."
-                          rows={4}
-                        />
+                        <div>
+                          {/* Hidden dummy field to break browser autofill */}
+                          <input type="text" style={{display:'none'}} autoComplete="off" />
+                          <Textarea 
+                            {...field} 
+                            id={`initialObservations-${nonce}`}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            placeholder="Describe what was observed, when it was observed, and any initial symptoms..."
+                            rows={4}
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -617,11 +662,19 @@ export default function IncidentReporting() {
                     <FormItem>
                       <FormLabel>Operating Parameters at Incident Time</FormLabel>
                       <FormControl>
-                        <Textarea 
-                          {...field} 
-                          placeholder="e.g., Temperature: 85°C, Pressure: 150 PSI, Flow: 200 GPM, RPM: 1750, Vibration: 2.5 mm/s"
-                          rows={2}
-                        />
+                        <div>
+                          {/* Hidden dummy field to break browser autofill */}
+                          <input type="text" style={{display:'none'}} autoComplete="off" />
+                          <Textarea 
+                            {...field} 
+                            id={`operatingParameters-${nonce}`}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            placeholder="e.g., Temperature: 85°C, Pressure: 150 PSI, Flow: 200 GPM, RPM: 1750, Vibration: 2.5 mm/s"
+                            rows={2}
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -832,6 +885,10 @@ export default function IncidentReporting() {
                         <FormControl>
                           <Input 
                             {...field} 
+                            id={`manufacturer-${nonce}`}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
                             placeholder="e.g., Siemens"
                             maxLength={100}
                             data-testid="input-manufacturer"
@@ -851,6 +908,10 @@ export default function IncidentReporting() {
                         <FormControl>
                           <Input 
                             {...field} 
+                            id={`model-${nonce}`}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
                             placeholder="e.g., Simovert-M420"
                             maxLength={100}
                             data-testid="input-model"
@@ -871,7 +932,14 @@ export default function IncidentReporting() {
                       <FormItem>
                         <FormLabel>Equipment ID/Tag</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="e.g., P-101, M-205" />
+                          <Input 
+                            {...field} 
+                            id={`equipmentId-${nonce}`}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            placeholder="e.g., P-101, M-205" 
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -891,7 +959,14 @@ export default function IncidentReporting() {
                           Location
                         </FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="e.g., Unit 1 Process Area" />
+                          <Input 
+                            {...field} 
+                            id={`location-${nonce}`}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            placeholder="e.g., Unit 1 Process Area" 
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -908,7 +983,14 @@ export default function IncidentReporting() {
                           Reported By
                         </FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Your name" />
+                          <Input 
+                            {...field} 
+                            id={`reportedBy-${nonce}`}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            placeholder="Your name" 
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -927,7 +1009,9 @@ export default function IncidentReporting() {
                         <FormControl>
                           <Input 
                             {...field} 
+                            id={`incidentDateTime-${nonce}`}
                             type="datetime-local"
+                            autoComplete="off"
                             max={new Date().toISOString().slice(0, 16)}
                           />
                         </FormControl>
@@ -949,11 +1033,18 @@ export default function IncidentReporting() {
                           Immediate Actions Taken
                         </FormLabel>
                         <FormControl>
-                          <Textarea 
-                            {...field} 
-                            placeholder="Actions taken to secure the area, isolate equipment, etc..."
-                            rows={3}
-                          />
+                          <div>
+                            <input type="text" style={{display:'none'}} autoComplete="off" />
+                            <Textarea 
+                              {...field} 
+                              id={`immediateActions-${nonce}`}
+                              autoComplete="off"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              placeholder="Actions taken to secure the area, isolate equipment, etc..."
+                              rows={3}
+                            />
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
