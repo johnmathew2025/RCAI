@@ -146,6 +146,12 @@ export default function IncidentReporting() {
   // Form key for forcing remount when starting new incident (NO HARDCODING)
   const [formKey, setFormKey] = useState(() => Date.now());
   
+  // Detect if this is a new incident (no ID in route)
+  const [location] = useLocation();
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const incidentId = urlParams.get('incident');
+  const isNewIncident = !incidentId;
+  
   // Draft persistence configuration (no hardcoding)
   const draftEnabled = import.meta.env.FORM_DRAFT_ENABLED !== 'false';
   const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
@@ -155,9 +161,9 @@ export default function IncidentReporting() {
   const draftTTL = draftTTLDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
   const autosaveDelay = parseInt(import.meta.env.VITE_AUTOSAVE_DELAY_MS || '500'); // Configurable autosave delay
   
-  // Load saved draft with TTL check (no hardcoding)
+  // Load saved draft with TTL check (no hardcoding) - BUT ONLY FOR EXISTING INCIDENTS
   const loadSavedDraft = () => {
-    if (!draftEnabled) return {};
+    if (!draftEnabled || isNewIncident) return {}; // Skip draft loading for new incidents
     try {
       const saved = localStorage.getItem(storageKey);
       if (!saved) return {};
@@ -177,11 +183,33 @@ export default function IncidentReporting() {
     resolver: zodResolver(incidentSchema),
     defaultValues: {
       ...defaultFormValues,
-      ...(loadSavedDraft() as Partial<IncidentForm>), // Merge saved draft
+      ...(loadSavedDraft() as Partial<IncidentForm>), // Merge saved draft (only for existing incidents)
     },
-    shouldUnregister: true, // Remove hidden fields from form state
+    shouldUnregister: true, // Remove hidden fields from form state - critical for clean remount
     mode: "onChange",
   });
+  
+  // CRITICAL: Clean mount effect for new incidents
+  useEffect(() => {
+    if (isNewIncident) {
+      console.debug("🆕 NEW INCIDENT DETECTED - Performing clean mount");
+      console.debug("isNew route:", isNewIncident);
+      console.debug("RHF values before reset:", form.getValues());
+      console.debug("Draft present:", !!localStorage.getItem(storageKey));
+      
+      // Clear any persisted state
+      localStorage.removeItem(storageKey);
+      queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false });
+      
+      // Force form reset to pristine defaults
+      form.reset(defaultFormValues);
+      
+      // Force remount to clear React Hook Form internal state
+      setFormKey(Date.now());
+      
+      console.debug("✅ Clean mount completed - form should be pristine");
+    }
+  }, [isNewIncident, form, storageKey]);
 
   // ID-BASED CASCADING DROPDOWN STATE
   const selectedGroupId = form.watch("equipment_group_id");
@@ -417,8 +445,11 @@ export default function IncidentReporting() {
       const navigationUrl = `${nextRoute}?incident=${encodeURIComponent(incidentId)}`;
       setLocation(navigationUrl);
       
-      // Belt-and-suspenders reset as safety net
-      form.reset(defaultFormValues);
+      // COMPREHENSIVE STATE CLEANUP after successful create
+      localStorage.removeItem(storageKey); // Clear any drafts
+      queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false }); // Clear draft queries
+      form.reset(defaultFormValues); // Reset form state
+      setFormKey(Date.now()); // Force remount for future new incidents
       queryClient.invalidateQueries({ queryKey: ["incidents", incidentId] });
       
       toast({

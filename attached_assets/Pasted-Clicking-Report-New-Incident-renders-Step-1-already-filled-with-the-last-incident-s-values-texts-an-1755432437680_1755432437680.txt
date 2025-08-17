@@ -1,0 +1,86 @@
+Clicking Report New Incident renders Step 1 already filled with the last incident’s values (texts and dropdowns).
+Likely causes
+Form component doesn’t remount → React Hook Form keeps internal state.
+Draft rehydration (localStorage / react-query cache / Redux/Zustand) repopulates on mount—even for a fresh route.
+Hidden fields stay registered so old values survive. (shouldUnregister not enabled.)
+Default values object is reused/mutated between mounts.
+Required fixes (apply all)
+Force a clean mount for a “new” incident page
+// incident-reporting.tsx
+const defaultValues: FormValues = {
+  equipmentGroupId: null,
+  equipmentTypeId: null,
+  equipmentSubtypeId: null,
+  manufacturer: "",
+  model: "",
+  equipmentTag: "",
+  location: "",
+  reportedBy: "",
+  incidentDateTime: null,
+  // ...every other field explicitly set to "" or null
+};
+
+const [formKey, setFormKey] = useState(() => Date.now());
+const form = useForm<FormValues>({
+  defaultValues,
+  shouldUnregister: true,  // critical to drop old hidden values
+  mode: "onChange",
+});
+
+// Called when starting a brand-new incident (e.g., on clicking “Report New Incident”)
+function startNewIncident() {
+  form.reset(defaultValues);    // hard reset values
+  setFormKey(Date.now());       // remount RHF to clear internal state
+}
+
+// JSX — key forces remount on startNewIncident()
+<FormProvider {...form} key={formKey}>
+  {/* fields... */}
+</FormProvider>
+Block draft rehydration for NEW
+If you persist drafts, skip loading when there is no incidentId in the route.
+const isNew = !params.incidentId;
+
+useEffect(() => {
+  if (isNew) {
+    localStorage.removeItem("incidentDraft");
+    queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false });
+    form.reset(defaultValues);
+  }
+}, [isNew]);
+After a successful create, also clear any draft:
+localStorage.removeItem("incidentDraft");
+queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false });
+If using Redux/Zustand for shared incident state, reset the store
+// store.resetIncident();  // implement to clear all incident-related slices
+useEffect(() => {
+  if (isNew) store.resetIncident();
+}, [isNew]);
+Cascading selects must clear children
+const onTypeChange = (v: string) => {
+  const next = v === "" ? null : Number(v);
+  form.setValue("equipmentTypeId", next, { shouldDirty: true, shouldValidate: true });
+  form.setValue("equipmentSubtypeId", null, { shouldDirty: true, shouldValidate: false });
+};
+// Ensure Selects use "" when value is null and never pass undefined
+Prevent double-submits and race conditions
+<Button type="submit" disabled={createIncident.isPending}>
+  {createIncident.isPending ? "Creating…" : "Proceed to Equipment"}
+</Button>
+After successful create → navigate, then reset
+const res = await createIncident.mutateAsync(values);
+const id = getIncidentId(res); // your helper
+if (!id) { toast.error("Failed to get incident ID from server response."); return; }
+
+navigate(`/incidents/${id}/equipment`);
+form.reset(defaultValues);                     // belt-and-suspenders
+localStorage.removeItem("incidentDraft");      // clear drafts
+Acceptance criteria
+Opening Report New Incident shows a fully blank form (all fields null/empty).
+No field retains previous values; dependent selects reset correctly.
+After create → navigation occurs and going back does not show old values.
+Debug once after patch
+console.debug("isNew route:", isNew);
+console.debug("RHF values on mount:", form.getValues());
+console.debug("Draft present:", !!localStorage.getItem("incidentDraft"));
+If isNew === true but values appear, a draft/source is still rehydrating—remove that loader.
