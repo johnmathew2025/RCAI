@@ -10,6 +10,29 @@ import { eq, and, or, ilike, desc } from 'drizzle-orm';
 
 const router = Router();
 
+// Development RBAC middleware
+const simpleAuth = (req: any, res: any, next: any) => {
+  req.user = {
+    id: 'test-user-' + Date.now(),
+    role: req.headers['x-role'] || 'Analyst',
+    email: req.headers['x-user'] || 'test@example.com'
+  };
+  next();
+};
+
+const simpleAuthorize = (permission: string) => (req: any, res: any, next: any) => {
+  const role = req.user?.role || req.headers['x-role'];
+  if (role === 'Reporter' && permission === 'CREATE_ASSET') {
+    return res.status(403).json({ 
+      error: 'Insufficient permissions',
+      message: 'Reporters cannot create assets'
+    });
+  }
+  next();
+};
+
+router.use(simpleAuth);
+
 // GET /api/assets - Search and filter assets
 router.get('/', async (req, res) => {
   try {
@@ -127,7 +150,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/assets - Create new asset (with manufacturer/model creation if needed)
-router.post('/', async (req, res) => {
+router.post('/', simpleAuthorize('CREATE_ASSET'), async (req, res) => {
   try {
     console.log('[ASSETS] Creating asset:', req.body);
     

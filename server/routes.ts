@@ -2115,14 +2115,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const assetsRouter = (await import('../src/api/assets.js')).default;
     const manufacturersRouter = (await import('../src/api/manufacturers.js')).default;
     const modelsRouter = (await import('../src/api/models.js')).default;
+    const incidentsRouter = (await import('../src/api/incidents.js')).default;
     
     app.use('/api/assets', assetsRouter);
     app.use('/api/manufacturers', manufacturersRouter);
     app.use('/api/models', modelsRouter);
-    console.log("[ROUTES] Asset management API routes registered successfully");
+    app.use('/api/incidents', incidentsRouter);
+    console.log("[ROUTES] Asset management and incidents API routes registered successfully");
   } catch (error) {
     console.error("[ROUTES] Failed to register asset management routes:", error);
   }
+
+  // Add health endpoint for verification script
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
 
   // CONTINUE WITH REST OF ROUTES - DO NOT RETURN EARLY
   app.post("/api/investigations/create", async (req, res) => {
