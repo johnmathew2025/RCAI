@@ -14,6 +14,27 @@ import { eq } from 'drizzle-orm';
 
 const router = Router();
 
+// Helper function: Normalize datetime strings to ISO
+function toISOOrUndefined(input?: string) {
+  if (!input) return undefined;
+  // If already ISO and parses, keep it
+  const d1 = new Date(input);
+  if (!isNaN(d1.getTime()) && /\d{2}:\d{2}:\d{2}/.test(input)) return d1.toISOString();
+
+  // If it looks like "YYYY-MM-DDTHH:mm" (no seconds), treat as local
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(input)) {
+    const [date, time] = input.split("T");
+    const [y,m,d] = date.split("-").map(Number);
+    const [hh,mm] = time.split(":").map(Number);
+    const local = new Date(y, (m??1)-1, d??1, hh??0, mm??0, 0, 0);
+    return local.toISOString();
+  }
+
+  // Last resort: try Date parse
+  const d2 = new Date(input);
+  return isNaN(d2.getTime()) ? undefined : d2.toISOString();
+}
+
 // Request validation schemas
 const createIncidentSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -25,10 +46,14 @@ const createIncidentSchema = z.object({
   manufacturer: z.string().max(100).optional(), // Free-text manufacturer field
   model: z.string().max(100).optional(), // Free-text model field
   location: z.string().optional(),
-  incidentDateTime: z.string().datetime().optional(),
+  incidentDateTime: z.string().optional(), // accept any string, normalize in handler
   immediateActions: z.string().optional(),
   safetyImplications: z.string().optional(),
   operatingParameters: z.string().optional(),
+  // equipment IDs can be optional at creation (multi-step flow)
+  equipment_group_id: z.number().int().optional(),
+  equipment_type_id: z.number().int().optional(),
+  equipment_subtype_id: z.number().int().optional(),
 });
 
 const addSymptomSchema = z.object({
@@ -134,6 +159,9 @@ router.post('/', simpleAuthorize('CREATE_INCIDENT'), async (req, res) => {
       };
     }
     
+    // Normalize datetime before storing
+    const incidentDateTimeISO = toISOOrUndefined(validatedData.incidentDateTime);
+    
     // Create incident with proper data mapping
     const incidentId = 'INC-' + Date.now();
     const incidentData = {
@@ -144,6 +172,10 @@ router.post('/', simpleAuthorize('CREATE_INCIDENT'), async (req, res) => {
       regulatoryRequired: validatedData.regulatoryRequired || false,
       equipmentId: validatedData.equipmentId || null,
       location: validatedData.location || null,
+      incidentDateTime: incidentDateTimeISO || null,
+      immediateActions: validatedData.immediateActions || null,
+      safetyImplications: validatedData.safetyImplications || null,
+      operatingParameters: validatedData.operatingParameters || null,
       ...assetSnapshots, // This includes manufacturerSnapshot, modelSnapshot, serialSnapshot, and assetId
       status: 'open',
       createdAt: new Date().toISOString(),

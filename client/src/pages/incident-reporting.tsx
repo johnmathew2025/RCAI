@@ -19,19 +19,32 @@ import { startVersionWatcher } from "@/lib/version-watch";
 import { showSmartToast, dismissToast } from "@/lib/smart-toast";
 import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
 
+// Helper function: Convert datetime-local to ISO 8601 with timezone
+function localDatetimeToISO(dtLocal: string): string | undefined {
+  if (!dtLocal) return undefined;
+  // Normalize to full local time (assume minutes precision)
+  // dtLocal: "YYYY-MM-DDTHH:mm"
+  const [date, time] = dtLocal.split("T");
+  if (!date || !time) return undefined;
+  const [y, m, d] = date.split("-").map(Number);
+  const [hh, mm] = time.split(":").map(Number);
+  const asLocal = new Date(y, (m ?? 1) - 1, d ?? 1, hh ?? 0, mm ?? 0, 0, 0);
+  return asLocal.toISOString(); // converts to UTC ISO with 'Z'
+}
+
 // Form schema for incident reporting - ID-BASED NORMALIZED EQUIPMENT SYSTEM + STRUCTURED TIMELINE + REGULATORY COMPLIANCE
 const incidentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
-  equipment_group_id: z.number().nullable().refine(val => val !== null, "Equipment group is required"),
-  equipment_type_id: z.number().nullable().refine(val => val !== null, "Equipment type is required"),
-  equipment_subtype_id: z.number().nullable().refine(val => val !== null, "Equipment subtype is required"),
+  equipment_group_id: z.number().int().optional(),
+  equipment_type_id: z.number().int().optional(),
+  equipment_subtype_id: z.number().int().optional(),
   equipmentId: z.string().min(1, "Equipment ID is required"),
   manufacturer: z.string().max(100, "Manufacturer must be 100 characters or less").optional(),
   model: z.string().max(100, "Model must be 100 characters or less").optional(),
   location: z.string().min(1, "Location is required"),
   reportedBy: z.string().min(1, "Reporter name is required"),
-  incidentDateTime: z.string().min(1, "Incident date/time is required"),
+  incidentDateTime: z.string().optional(),
   priority: z.enum(["Low", "Medium", "High", "Critical"]),
   immediateActions: z.string().optional(),
   safetyImplications: z.string().optional(),
@@ -123,9 +136,9 @@ export default function IncidentReporting() {
       ...{
         title: "",
         description: "",
-        equipment_group_id: null,
-        equipment_type_id: null,
-        equipment_subtype_id: null,
+        equipment_group_id: undefined,
+        equipment_type_id: undefined,
+        equipment_subtype_id: undefined,
         equipmentId: "",
         manufacturer: "",
         model: "",
@@ -369,7 +382,14 @@ export default function IncidentReporting() {
   });
 
   const onSubmit = (data: IncidentForm) => {
-    createIncidentMutation.mutate(data);
+    // Normalize payload - convert datetime to ISO and trim manufacturer/model
+    const payload = {
+      ...data,
+      incidentDateTime: localDatetimeToISO(data.incidentDateTime),
+      manufacturer: data.manufacturer?.trim() || undefined,
+      model: data.model?.trim() || undefined,
+    };
+    createIncidentMutation.mutate(payload);
   };
 
   return (
@@ -595,11 +615,11 @@ export default function IncidentReporting() {
                         </FormLabel>
                         <Select 
                           onValueChange={(value) => {
-                            const groupId = value ? parseInt(value) : null;
+                            const groupId = value ? parseInt(value) : undefined;
                             field.onChange(groupId);
                             // Reset dependent fields when group changes  
-                            form.setValue("equipment_type_id", undefined as any);
-                            form.setValue("equipment_subtype_id", undefined as any);
+                            form.setValue("equipment_type_id", undefined);
+                            form.setValue("equipment_subtype_id", undefined);
                           }} 
                           value={field.value?.toString() ?? ""}
                           disabled={groupsLoading}
@@ -631,10 +651,10 @@ export default function IncidentReporting() {
                         <FormLabel>Equipment Type (Level 2)</FormLabel>
                         <Select 
                           onValueChange={(value) => {
-                            const typeId = value ? parseInt(value) : null;
+                            const typeId = value ? parseInt(value) : undefined;
                             field.onChange(typeId);
                             // Reset subtype when type changes
-                            form.setValue("equipment_subtype_id", undefined as any);
+                            form.setValue("equipment_subtype_id", undefined);
                           }} 
                           value={field.value?.toString() ?? ""}
                           disabled={!selectedGroupId || typesLoading}
@@ -674,7 +694,7 @@ export default function IncidentReporting() {
                         <FormLabel>Equipment Subtype (Level 3)</FormLabel>
                         <Select 
                           onValueChange={(value) => {
-                            const subtypeId = value ? parseInt(value) : null;
+                            const subtypeId = value ? parseInt(value) : undefined;
                             field.onChange(subtypeId);
                           }} 
                           value={field.value?.toString() ?? ""}
