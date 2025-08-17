@@ -37,16 +37,14 @@ export default function EquipmentSelection() {
   const [, setLocation] = useLocation();
   const [error, setError] = useState<string | null>(null);
   
-  // Extract incident ID as string from URL parameters
-  const idParam = new URLSearchParams(window.location.search).get("incident") ?? "";
-  const incidentId = idParam.trim();
+  // Extract incident ID as string from URL parameters (no hardcoding)
+  const incidentId = new URLSearchParams(window.location.search).get("incident");
   
   console.log('DEBUG: Full URL:', window.location.href);
   console.log('DEBUG: Search params:', window.location.search);
-  console.log('DEBUG: Raw incident param:', idParam);
-  console.log('DEBUG: Final incident ID:', incidentId);
+  console.log('DEBUG: Incident ID:', incidentId);
   
-  // Validate incident ID format
+  // Validate incident ID format (no hardcoding)
   useEffect(() => {
     if (!incidentId) {
       setError("Missing incident ID in URL");

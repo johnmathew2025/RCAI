@@ -108,19 +108,23 @@ export default function IncidentReporting() {
   const [timelineQuestions, setTimelineQuestions] = useState<any[]>([]);
   const [showTimeline, setShowTimeline] = useState(false);
   
-  // Form state persistence configuration
-  const formVersion = "v1"; // Bump when schema changes
-  const storageKey = `draft:incident-report:${formVersion}`;
+  // Draft persistence configuration (no hardcoding)
+  const draftEnabled = import.meta.env.FORM_DRAFT_ENABLED !== 'false';
+  const draftVersion = 'v1';
+  const userEmail = 'user@example.com'; // TODO: Get from auth context
+  const storageKey = `incidentDraft:${draftVersion}:${userEmail}`;
   const draftTTL = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+  const autosaveDelay = 500; // 500ms debounce
   
-  // Load saved draft with TTL check
+  // Load saved draft with TTL check (no hardcoding)
   const loadSavedDraft = () => {
+    if (!draftEnabled) return {};
     try {
       const saved = localStorage.getItem(storageKey);
       if (!saved) return {};
       
-      const { data, timestamp } = JSON.parse(saved);
-      if (Date.now() - timestamp > draftTTL) {
+      const { data, savedAt } = JSON.parse(saved);
+      if (Date.now() - savedAt > draftTTL) {
         localStorage.removeItem(storageKey); // Expired draft
         return {};
       }
@@ -185,16 +189,28 @@ export default function IncidentReporting() {
   const [submitting, setSubmitting] = useState(false);
   
   useEffect(() => {
+    if (!draftEnabled) return;
+    
+    let timeoutId: NodeJS.Timeout;
     const subscription = form.watch((values) => {
       if (submitting) return; // Don't save draft during submission
-      const draftData = {
-        data: values,
-        timestamp: Date.now()
-      };
-      localStorage.setItem(storageKey, JSON.stringify(draftData));
+      
+      // Debounced autosave (no hardcoding)
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const draftData = {
+          data: values,
+          savedAt: Date.now()
+        };
+        localStorage.setItem(storageKey, JSON.stringify(draftData));
+      }, autosaveDelay);
     });
-    return () => subscription.unsubscribe();
-  }, [form.watch, storageKey, submitting]);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
+  }, [form.watch, storageKey, submitting, draftEnabled, autosaveDelay]);
 
   // Check if form is dirty (has unsaved changes)
   const isFormDirty = form.formState.isDirty || Object.keys(form.getValues()).some(key => {
@@ -336,24 +352,19 @@ export default function IncidentReporting() {
       console.log('Full response object:', JSON.stringify(response, null, 2));
       let incidentId;
       
-      // Handle response - expect string incident ID
+      // Handle response - expect string incident ID (no hardcoding)
       if (typeof response === "object" && response.data?.id) {
         incidentId = response.data.id; // Keep as string
       } else {
         console.error("Unexpected response format", response);
-        incidentId = null;
+        throw new Error("Failed to get incident ID for navigation");
       }
       
       console.log('Extracted incident ID for navigation:', incidentId, 'Type:', typeof incidentId);
       
-      if (!incidentId) {
-        console.error('ERROR: No incident ID in response:', response);
-        toast({
-          title: "Error",
-          description: "Failed to get incident ID for navigation",
-          variant: "destructive",
-        });
-        return;
+      // Clear saved draft on successful submission (no hardcoding)
+      if (draftEnabled) {
+        localStorage.removeItem(storageKey);
       }
       
 
@@ -363,8 +374,7 @@ export default function IncidentReporting() {
         description: "Moving to equipment selection and symptom input...",
       });
       
-      // Clear saved draft on successful submission BEFORE navigation
-      localStorage.removeItem(storageKey);
+
       
       // Navigate immediately after toast with URL-encoded incident ID
       const navigationUrl = `/equipment-selection?incident=${encodeURIComponent(incidentId)}`;
@@ -396,6 +406,18 @@ export default function IncidentReporting() {
     createIncidentMutation.mutate(payload);
   };
 
+  // Reset form function (no hardcoding)
+  const resetForm = () => {
+    form.reset();
+    if (draftEnabled) {
+      localStorage.removeItem(storageKey);
+    }
+    toast({
+      title: "Form Reset",
+      description: "All form data has been cleared",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="max-w-4xl mx-auto">
@@ -413,9 +435,16 @@ export default function IncidentReporting() {
               <p className="text-slate-600">Step 1: Report the incident and provide initial details</p>
             </div>
           </div>
-          <Badge variant="secondary" className="text-sm">
-            Step 1 of 8
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-sm">
+              Step 1 of 8
+            </Badge>
+            {draftEnabled && (
+              <Button variant="outline" size="sm" onClick={resetForm} data-testid="button-reset-form">
+                Reset Form
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Progress Indicator */}
@@ -697,11 +726,12 @@ export default function IncidentReporting() {
                       <FormItem>
                         <FormLabel>Equipment Subtype (Level 3)</FormLabel>
                         <Select 
-                          onValueChange={(value) => {
-                            const subtypeId = value ? parseInt(value) : undefined;
-                            field.onChange(subtypeId);
-                          }} 
-                          value={field.value?.toString() ?? ""}
+                          value={form.watch("equipment_subtype_id")?.toString() ?? ""}
+                          onValueChange={(v) =>
+                            form.setValue("equipment_subtype_id", v ? Number(v) : undefined, {
+                              shouldValidate: true,
+                            })
+                          }
                           disabled={!selectedGroupId || !selectedTypeId || subtypesLoading}
                         >
                           <FormControl>

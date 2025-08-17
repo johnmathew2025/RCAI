@@ -1,0 +1,83 @@
+1. Draft Persistence (No Hardcoding)
+Files: client/src/pages/incident-reporting.tsx and form helpers.
+•	Draft Storage Key:
+Use incidentDraft:v1:<userEmail> (include version + user).
+•	Autosave:
+Debounced (400–600ms) save to localStorage.
+Skip autosave if submitting === true.
+•	Load on Mount with TTL:
+On mount, load draft if savedAt < 7 days. Populate defaultValues.
+•	Clear on Success:
+After successful creation (when response.data.id exists) and before/after navigate(...), call:
+•	localStorage.removeItem("incidentDraft:v1:<userEmail>");
+•	Reset Option: Add “Reset Form” button to manually clear draft.
+•	Env Toggle: Add FORM_DRAFT_ENABLED=true so drafts can be disabled.
+ 
+2. Incident ID Parsing (Frontend Bug)
+File: client/src/pages/incident-reporting.tsx (around lines 335–340).
+Replace:
+if (typeof response === 'object' && response.id) {
+  incidentId = response.id;
+}
+With:
+if (typeof response === "object" && response.data?.id) {
+  incidentId = response.data.id;
+} else {
+  console.error("Unexpected response format", response);
+  throw new Error("Failed to get incident ID for navigation");
+}
+✅ Ensures correct extraction of ID (response.data.id).
+ 
+3. Equipment Selection – ID Type Mismatch
+File: client/src/pages/equipment-selection.tsx
+•	Current Bug: Component calls parseInt("INC-1755426090699") → NaN.
+•	Fix: Treat incidentId as a string everywhere.
+Remove parseInt calls; accept string IDs directly.
+Example:
+•	const incidentId = searchParams.get("incident");
+•	if (!incidentId) {
+•	  return <ErrorScreen message="Invalid incident ID" />;
+•	}
+✅ Prevents infinite spinner and stuck “frozen” form entries.
+ 
+4. Equipment Subtype Validation (“Required” Bug)
+Problem: Subtype shows “Required” even when selected.
+Cause: Value mismatch (null vs number).
+Fix in form binding:
+<FormField
+  control={form.control}
+  name="equipment_subtype_id"
+  render={({ field }) => (
+    <Select
+      value={form.watch("equipment_subtype_id")?.toString() ?? ""}
+      onValueChange={(v) =>
+        form.setValue("equipment_subtype_id", v ? Number(v) : undefined, {
+          shouldValidate: true,
+        })
+      }
+    >
+      {/* options */}
+    </Select>
+  )}
+/>
+✅ Schema aligns with actual values. ✅ Error disappears once selected.
+ 
+5. QA Acceptance Criteria
+Agent must confirm:
+1.	Incident Creation + Navigation
+o	Form submits successfully → navigates to /equipment-selection?incident=INC-...
+o	Draft is cleared.
+2.	Draft Persistence Works
+o	Type values → refresh page → values reappear.
+o	Submit → values cleared.
+o	Refresh again → empty form.
+3.	No Frozen Entries
+o	Failed navigation doesn’t “freeze” values.
+o	If ID invalid, show error screen with “Back to Form”.
+4.	Subtype Validation Correct
+o	“Required” disappears immediately when a valid subtype is selected.
+ 
+✅ No hardcoding anywhere.
+✅ All fixes localized (frontend parsing + validation).
+✅ Drafts are now intentional, not accidental.
+
