@@ -36,9 +36,9 @@ function localDatetimeToISO(dtLocal: string): string | undefined {
 const incidentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
-  equipment_group_id: z.number().int().optional(),
-  equipment_type_id: z.number().int().optional(),
-  equipment_subtype_id: z.number().int().min(1, 'Required'),
+  equipment_group_id: z.number().int().positive().nullable().optional(),
+  equipment_type_id: z.number().int().positive().nullable().optional(),
+  equipment_subtype_id: z.number().int().positive().nullable(),
   equipmentId: z.string().min(1, "Equipment ID is required"),
   manufacturer: z.string().max(100, "Manufacturer must be 100 characters or less").optional(),
   model: z.string().max(100, "Model must be 100 characters or less").optional(),
@@ -408,6 +408,17 @@ export default function IncidentReporting() {
   const onSubmit = (data: IncidentForm) => {
     setSubmitting(true); // Stop auto-saving during submission
     
+    // Strict validation before submit - ensure equipment_subtype_id is required
+    if (!data.equipment_subtype_id) {
+      toast({
+        title: "Validation Error",
+        description: "Equipment subtype is required",
+        variant: "destructive",
+      });
+      setSubmitting(false);
+      return;
+    }
+    
     // Normalize payload - convert datetime to ISO and trim manufacturer/model
     const payload = {
       ...data,
@@ -660,11 +671,11 @@ export default function IncidentReporting() {
                         </FormLabel>
                         <Select 
                           onValueChange={(value) => {
-                            const groupId = value ? parseInt(value) : undefined;
+                            const groupId = value ? parseInt(value) : null;
                             field.onChange(groupId);
                             // Reset dependent fields when group changes  
-                            form.setValue("equipment_type_id", undefined, { shouldValidate: false });
-                            form.setValue("equipment_subtype_id", undefined, { shouldValidate: false });
+                            form.setValue("equipment_type_id", null, { shouldValidate: false });
+                            form.setValue("equipment_subtype_id", null, { shouldValidate: false });
                           }} 
                           value={field.value?.toString() ?? ""}
                           disabled={groupsLoading}
@@ -696,10 +707,10 @@ export default function IncidentReporting() {
                         <FormLabel>Equipment Type (Level 2)</FormLabel>
                         <Select 
                           onValueChange={(value) => {
-                            const typeId = value ? parseInt(value) : undefined;
+                            const typeId = value ? parseInt(value) : null;
                             field.onChange(typeId);
                             // Reset subtype when type changes
-                            form.setValue("equipment_subtype_id", undefined, { shouldValidate: false });
+                            form.setValue("equipment_subtype_id", null, { shouldValidate: false });
                           }} 
                           value={field.value?.toString() ?? ""}
                           disabled={!selectedGroupId || typesLoading}
@@ -740,7 +751,7 @@ export default function IncidentReporting() {
                         <Select 
                           value={field.value?.toString() ?? ""}
                           onValueChange={(v) => {
-                            const subtypeId = v ? Number(v) : undefined;
+                            const subtypeId = v ? Number(v) : null;
                             field.onChange(subtypeId);
                             form.setValue("equipment_subtype_id", subtypeId, {
                               shouldValidate: true,
