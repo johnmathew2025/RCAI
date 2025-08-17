@@ -707,21 +707,8 @@ export default function IncidentReporting() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="equipmentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Equipment ID/Tag</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="e.g., P-101, M-205" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
+                {/* Manufacturer & Model Fields - Directly Below Equipment Type */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
                     name="manufacturer"
@@ -733,6 +720,7 @@ export default function IncidentReporting() {
                             {...field} 
                             placeholder="e.g., Siemens"
                             maxLength={100}
+                            data-testid="input-manufacturer"
                           />
                         </FormControl>
                         <FormMessage />
@@ -751,7 +739,25 @@ export default function IncidentReporting() {
                             {...field} 
                             placeholder="e.g., Simovert-M420"
                             maxLength={100}
+                            data-testid="input-model"
                           />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Equipment ID */}
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="equipmentId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Equipment ID/Tag</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="e.g., P-101, M-205" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

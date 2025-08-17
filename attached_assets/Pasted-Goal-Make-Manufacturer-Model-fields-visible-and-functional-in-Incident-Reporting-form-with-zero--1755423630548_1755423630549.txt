@@ -1,0 +1,50 @@
+Goal: Make Manufacturer & Model fields visible and functional in Incident Reporting form, with zero hardcoding, and integrated into the API persistence.
+ 
+1. UI Form Changes (client/src/pages/incident-reporting.tsx)
+•	Add two text input fields directly below Equipment Type:
+o	Manufacturer
+	name="manufacturer"
+	placeholder: "e.g., Siemens"
+	maxLength={100}
+o	Model
+	name="model"
+	placeholder: "e.g., Simovert-M420"
+	maxLength={100}
+•	Ensure they are registered in the form schema (react-hook-form or equivalent).
+•	Include them in defaultValues as "" so they render reliably.
+•	Validation: optional strings, trimmed, ≤100 chars.
+ 
+2. Backend Integration
+•	Incident creation endpoint must already accept manufacturerSnapshot and modelSnapshot.
+•	Confirm mapping:
+o	If assetId provided → ignore text values, use asset snapshots.
+o	If no assetId → store free-text values into manufacturer_snapshot and model_snapshot.
+ 
+3. API Verification
+•	After form submission with text only (no asset):
+•	curl -s http://localhost:5000/api/incidents/<NEW_ID> \
+•	  | jq '{manufacturer_snapshot, model_snapshot}'
+✅ Expect typed values.
+•	With asset + text:
+✅ Asset snapshots override, text ignored.
+ 
+4. Frontend Display
+•	In Incident Details page, show Manufacturer / Model below Equipment Type:
+o	If values exist → display them.
+o	If blank → display "Not provided".
+ 
+5. QA / Debugging
+•	Browser DOM check (DevTools console):
+•	[...document.querySelectorAll("input,textarea")]
+•	  .filter(el => /manufacturer|model/i.test(el.name || el.placeholder))
+•	  .map(el => ({name: el.name, placeholder: el.placeholder}))
+✅ Expect two entries for manufacturer and model.
+•	Clear build cache and do a hard reload (Ctrl+Shift+R) to verify.
+ 
+6. Non-Functional Requirements
+•	No hardcoding of manufacturer/model lists.
+•	No conditional hiding unless RBAC dictates. (All reporters/analysts must see these fields.)
+•	Keep asset-priority override logic intact.
+ 
+👉 Please implement exactly as above and confirm with screenshots of the form showing the two new text fields.
+
