@@ -2110,6 +2110,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ASSET MANAGEMENT API ROUTES (NEW) - Universal Protocol Standard compliant
+  try {
+    const assetsRouter = (await import('../src/api/assets.js')).default;
+    const manufacturersRouter = (await import('../src/api/manufacturers.js')).default;
+    const modelsRouter = (await import('../src/api/models.js')).default;
+    
+    app.use('/api/assets', assetsRouter);
+    app.use('/api/manufacturers', manufacturersRouter);
+    app.use('/api/models', modelsRouter);
+    console.log("[ROUTES] Asset management API routes registered successfully");
+  } catch (error) {
+    console.error("[ROUTES] Failed to register asset management routes:", error);
+  }
+
   // CONTINUE WITH REST OF ROUTES - DO NOT RETURN EARLY
   app.post("/api/investigations/create", async (req, res) => {
     try {

@@ -1,18 +1,14 @@
 /**
- * Database Connection Setup
- * PostgreSQL connection using Drizzle ORM
+ * Database connection for new incident management system
  */
 
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
-import { Config } from '../core/config.js';
 import * as schema from '../../shared/schema.js';
 
-// Create neon connection
-const sql = neon(Config.DATABASE_URL);
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
 
-// Create drizzle instance with schema
+const sql = neon(process.env.DATABASE_URL);
 export const db = drizzle(sql, { schema });
-
-// Export for type inference
-export type Database = typeof db;

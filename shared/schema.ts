@@ -519,6 +519,12 @@ export const incidents = pgTable("incidents", {
   similarIncidentPatterns: jsonb("similar_incident_patterns"), // Links to similar historical incidents
   historicalLearningApplied: jsonb("historical_learning_applied"), // Patterns applied from previous RCAs
   
+  // Asset linkage and snapshots (NEW - Asset Management Integration)
+  assetId: uuid("asset_id"), // FK to assets.id
+  manufacturerSnapshot: text("manufacturer_snapshot"), // Manufacturer name at incident time
+  modelSnapshot: text("model_snapshot"), // Model name at incident time  
+  serialSnapshot: text("serial_snapshot"), // Serial number at incident time
+  
   // Workflow tracking
   currentStep: integer("current_step").default(1), // 1-8 step tracking
   workflowStatus: varchar("workflow_status").default("incident_reported"), // incident_reported, equipment_selected, evidence_collected, ai_analyzed, finalized
@@ -715,6 +721,84 @@ export const ECFA_COMPONENTS = {
 // NEW INCIDENT MANAGEMENT SYSTEM TABLES
 // Step 1 → Step 8 workflow implementation
 // =======================
+
+// =======================
+// ASSET MANAGEMENT TABLES (NEW)
+// =======================
+
+// Manufacturers table - normalized manufacturer data
+export const manufacturers = pgTable("manufacturers", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertManufacturerSchema = createInsertSchema(manufacturers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertManufacturer = z.infer<typeof insertManufacturerSchema>;
+export type Manufacturer = typeof manufacturers.$inferSelect;
+
+// Models table - normalized model data linked to manufacturers
+export const models = pgTable("models", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  manufacturerId: uuid("manufacturer_id").notNull(),
+  name: text("name").notNull(),
+  variant: text("variant"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  // Unique constraint on manufacturer_id, name, variant
+  uniqueModel: unique("unique_manufacturer_model_variant").on(
+    table.manufacturerId, 
+    table.name, 
+    table.variant
+  ),
+  // Index for performance
+  manufacturerIdx: index("models_manufacturer_idx").on(table.manufacturerId),
+}));
+
+export const insertModelSchema = createInsertSchema(models).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertModel = z.infer<typeof insertModelSchema>;
+export type Model = typeof models.$inferSelect;
+
+// Assets registry table - central asset management
+export const assets = pgTable("assets", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tagCode: text("tag_code").notNull().unique(), // Plant asset tag (e.g., P-1203A)
+  manufacturerId: uuid("manufacturer_id"),
+  modelId: uuid("model_id"), 
+  serialNumber: text("serial_number"),
+  equipmentGroup: text("equipment_group"), // FK to equipment groups
+  equipmentType: text("equipment_type"), // FK to equipment types
+  commissioningDate: date("commissioning_date"),
+  criticality: text("criticality"), // High/Med/Low
+  location: text("location"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  // Indexes for performance
+  manufacturerModelIdx: index("assets_manufacturer_model_idx").on(table.manufacturerId, table.modelId),
+  equipmentIdx: index("assets_equipment_idx").on(table.equipmentGroup, table.equipmentType),
+}));
+
+export const insertAssetSchema = createInsertSchema(assets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAsset = z.infer<typeof insertAssetSchema>;
+export type Asset = typeof assets.$inferSelect;
 
 // Enhanced incidents table with Step 1 → Step 8 workflow support
 export const incidentsNew = pgTable("incidents_new", {
