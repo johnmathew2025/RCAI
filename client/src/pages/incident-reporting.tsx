@@ -340,11 +340,16 @@ export default function IncidentReporting() {
       });
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API request failed:', response.status, errorText);
         throw new Error(`Failed to create incident: ${response.status}`);
       }
       
       const result = await response.json();
       console.log('Raw API response:', result);
+      console.log('Response type:', typeof result);
+      console.log('Response has data:', 'data' in result);
+      console.log('Response data has id:', result.data && 'id' in result.data);
       return result;
     },
     onSuccess: (response: any) => {
@@ -355,8 +360,11 @@ export default function IncidentReporting() {
       // Handle response - expect string incident ID (no hardcoding)
       if (typeof response === "object" && response.data?.id) {
         incidentId = response.data.id; // Keep as string
+      } else if (typeof response === "object" && response.success && response.data?.id) {
+        incidentId = response.data.id; // Alternative response format
       } else {
         console.error("Unexpected response format", response);
+        console.error("Response keys:", response ? Object.keys(response) : "null");
         throw new Error("Failed to get incident ID for navigation");
       }
       
