@@ -729,7 +729,7 @@ export default function IncidentReporting() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            placeholder="e.g., Grundfos, Siemens, Emerson"
+                            placeholder="e.g., Siemens"
                             maxLength={100}
                           />
                         </FormControl>
@@ -747,7 +747,7 @@ export default function IncidentReporting() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            placeholder="e.g., CR64-2-2, 1LE1003-1CB23"
+                            placeholder="e.g., Simovert-M420"
                             maxLength={100}
                           />
                         </FormControl>
