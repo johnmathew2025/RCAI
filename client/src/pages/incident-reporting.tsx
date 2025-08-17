@@ -396,6 +396,9 @@ export default function IncidentReporting() {
       console.log('setLocation called successfully');
     },
     onError: (error: any) => {
+      console.error('❌ MUTATION ERROR:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       setSubmitting(false); // Reset submission state on error
       toast({
         title: "Error",
@@ -411,13 +414,15 @@ export default function IncidentReporting() {
     // Strict validation before submit - ensure equipment_subtype_id is required
     if (!data.equipment_subtype_id) {
       toast({
-        title: "Validation Error",
+        title: "Validation Error", 
         description: "Equipment subtype is required",
         variant: "destructive",
       });
       setSubmitting(false);
       return;
     }
+    
+    console.log('🚀 Submitting incident with data:', JSON.stringify(data, null, 2));
     
     // Normalize payload - convert datetime to ISO and trim manufacturer/model
     const payload = {
@@ -426,6 +431,8 @@ export default function IncidentReporting() {
       manufacturer: data.manufacturer?.trim() || undefined,
       model: data.model?.trim() || undefined,
     };
+    
+    console.log('📤 Final payload being sent to API:', JSON.stringify(payload, null, 2));
     createIncidentMutation.mutate(payload);
   };
 
