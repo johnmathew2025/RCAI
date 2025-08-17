@@ -1,0 +1,161 @@
+1) Data Model (migrations)
+Create normalized assets tables and link incidents to an asset. Also snapshot manufacturer/model on the incident.
+1.1 Tables (PostgreSQL / generic SQL)
+-- Manufacturers & Models (normalized)
+create table manufacturers (
+  id uuid primary key,
+  name text not null unique
+);
+
+create table models (
+  id uuid primary key,
+  manufacturer_id uuid not null references manufacturers(id) on delete restrict,
+  name text not null,
+  variant text,
+  unique (manufacturer_id, name, coalesce(variant,''))
+);
+
+-- Assets registry
+create table assets (
+  id uuid primary key,
+  tag_code text not null unique,           -- plant asset tag (e.g., P-1203A)
+  manufacturer_id uuid references manufacturers(id),
+  model_id uuid references models(id),
+  serial_number text,
+  equipment_group text,                    -- optional FK to your equipment group table
+  equipment_type text,                     -- optional FK to your equipment type table
+  commissioning_date date,
+  criticality text,                        -- e.g. High/Med/Low
+  location text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Incidents: link & snapshot
+alter table incidents
+  add column asset_id uuid references assets(id),
+  add column manufacturer_snapshot text,
+  add column model_snapshot text,
+  add column serial_snapshot text;
+If you’re using Prisma: create Manufacturer, Model, Asset models with the relations above; add assetId, manufacturerSnapshot, modelSnapshot, serialSnapshot fields to Incident.
+If you’re using Drizzle/Knex/SQLAlchemy: mirror the same structure.
+1.2 Indexing
+create index on assets (manufacturer_id, model_id);
+create index on assets (equipment_group, equipment_type);
+create index on incidents (asset_id);
+1.3 Seed (optional)
+•	Seed a few manufacturers (e.g., Siemens, ABB, GE) and associated models that match your existing equipment groups/types.
+•	Keep seeds in migrations/seed scripts only (never in UI code).
+ 
+2) API Surface (extensions)
+2.1 Assets (new)
+GET  /api/assets?query=<text>&manufacturerId=&modelId=&group=&type=
+GET  /api/assets/:id
+POST /api/assets          { tagCode, manufacturerId|name, modelId|{manufacturerId,name,variant}, serialNumber, group, type, location }
+•	POST /api/assets must accept either existing IDs or new names (create manufacturer/model if not found).
+•	RBAC: Reporter+ can read/search; Analyst+ can create assets; Admin can update.
+2.2 Manufacturers & Models (new, read-only for now)
+GET  /api/manufacturers?query=<text>
+GET  /api/models?manufacturerId=<id>&query=<text>
+•	Used by typeahead selectors in UI.
+2.3 Incidents (augment existing)
+•	Create: POST /api/incidents accepts either:
+o	assetId OR
+o	{ manufacturerName|manufacturerId, modelName|modelId, serialNumber?, tagCode? }
+•	On create:
+o	If assetId provided → load asset & snapshot manufacturer_snapshot, model_snapshot, serial_snapshot.
+o	If asset details provided without assetId → create asset (if permitted) → link & snapshot.
+•	Read: GET /api/incidents/:id returns:
+o	asset (id, tag, manufacturer, model, serial)
+o	manufacturer_snapshot, model_snapshot, serial_snapshot
+2.4 Evidence (no change to endpoints, but add linkage)
+•	When posting evidence to /api/incidents/:id/evidence, store asset_id alongside incident_id to enable asset-scoped retrieval later.
+ 
+3) UI Changes
+3.1 Step-1: Incident Reporting
+Add an Asset section above equipment:
+•	Asset Tag (search-select from /api/assets?query=).
+•	Manufacturer (typeahead from /api/manufacturers).
+•	Model (typeahead filtered by selected manufacturer /api/models?manufacturerId=).
+•	Serial Number (optional).
+•	If Asset Tag selected → auto-fill manufacturer/model/serial and lock fields (read-only).
+•	If no asset found → “Create new asset” modal (permission: Analyst/Admin).
+Validation: Must have (Asset Tag) or (Manufacturer + Model). No hardcoded options.
+3.2 Step-8: Workflow Integration
+•	Show asset badge with Manufacturer / Model / Serial next to Incident ID.
+•	Use these fields to filter suggestions, evidence, and AI findings.
+ 
+4) AI-RCA Integration
+4.1 Retrieval filters
+In evidence_retriever_service:
+•	Filter by incident.asset_id when present.
+•	If absent, filter by manufacturer_snapshot + model_snapshot.
+•	Include prior RCAs for the same model or manufacturer (descending recency).
+4.2 Hypothesis priors
+In hypothesis_service:
+•	Load cause priors for this model (or manufacturer fallback) from historical RCAs or a static YAML (if you have none yet). Keep YAML in repo but never bind it in UI.
+4.3 Rationale & reporting
+In ai_findings.rationale:
+•	Encourage the model to ground statements like:
+“This failure is consistent with historical incidents on {manufacturer} {model} involving {cause_code}…”
+4.4 Confidence policy (unchanged)
+•	Still require ≥ MIN_SUPPORTING_EVIDENCE and no strong contradictions to auto-commit, even when model priors are high.
+ 
+5) Tests (add to existing suite)
+1.	Create incident with existing assetId → snapshots are populated.
+2.	Create incident with new manufacturer/model → creates manufacturer/model/asset, snapshots set.
+3.	Assets search returns expected records; models filtered by manufacturer.
+4.	AI retrieval includes same-model prior evidence and excludes unrelated models.
+5.	AI findings rationale includes manufacturer/model context.
+6.	RBAC: Reporter cannot create assets; Analyst+ can.
+ 
+6) Acceptance Checks (curl; append to your current script)
+# === ASSETS ===
+BASE=${BASE:-http://localhost:5000}
+AN=("-H" "X-User: analyst@acme.test" "-H" "X-Role: Analyst")
+JQ=jq
+
+# 1) Create Manufacturer & Model via asset create
+ASSET_BODY='{
+  "tagCode":"P-1203A",
+  "manufacturerName":"Siemens",
+  "model":{"manufacturerName":"Siemens","name":"Simovert-M420","variant":"VFD-75kW"},
+  "serialNumber":"SN-88921",
+  "group":"Electrical",
+  "type":"VFD",
+  "location":"Plant A"
+}'
+ASSET_RES=$(curl -sSf -X POST "$BASE/api/assets" -H "Content-Type: application/json" "${AN[@]}" -d "$ASSET_BODY")
+ASSET_ID=$(echo "$ASSET_RES" | $JQ -r '.id')
+
+# 2) Incident create with assetId (snapshots should be set)
+INC_RES=$(curl -sSf -X POST "$BASE/api/incidents" -H "Content-Type: application/json" "${AN[@]}" \
+  -d "{\"title\":\"VFD overtemp trip\",\"description\":\"Trip on start\",\"priority\":\"High\",\"assetId\":\"$ASSET_ID\"}")
+INC_ID=$(echo "$INC_RES" | $JQ -r '.id')
+
+# 3) Incident shows snapshots + asset fields
+SHOW=$(curl -sSf "$BASE/api/incidents/$INC_ID" "${AN[@]}")
+echo "$SHOW" | $JQ -e '.manufacturer_snapshot | test("Siemens")' >/dev/null
+echo "$SHOW" | $JQ -e '.model_snapshot | test("Simovert-M420")' >/dev/null
+
+# 4) Models filtered by manufacturer
+curl -sSf "$BASE/api/models?manufacturerId=$(echo "$ASSET_RES" | $JQ -r '.manufacturerId')" | $JQ -e 'all(.manufacturerId!=null)'
+Expected: snapshots contain Siemens / Simovert-M420, and models endpoint filters correctly.
+ 
+7) AI Prompt Update (system prompt addendum)
+Add to the AI system prompt:
+•	“Use the incident’s manufacturer/model to bias hypotheses and retrieval. Prefer evidence and RCA precedents from the same model. If you rely on priors, state it in the rationale and still require supporting evidence before calling a conclusion conclusive.”
+ 
+8) UI Copy (tooltips)
+•	Manufacturer / Model: “Used to load model-specific failure modes, manuals, and prior RCAs. Improves accuracy.”
+•	Asset Tag: “Plant-unique identifier; auto-fills manufacturer/model when known.”
+ 
+9) Non-goals / guardrails
+•	No OEM API scraping in this task. Just provide endpoints to store/search manufacturer/model. (You can integrate OEM bulletin feeds later via a background job.)
+ 
+10) Definition of Done (extra items)
+•	Step-1 form shows Asset selector + Manufacturer/Model fields with search-select; no hardcoded lists.
+•	Incident create links to asset and snapshots mnfr/model/serial.
+•	AI uses mnfr/model to fetch prior evidence and reflects it in rationale.
+•	Tests for asset flows & snapshots pass.
+
