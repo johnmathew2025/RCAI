@@ -38,7 +38,7 @@ export default function EquipmentSelection() {
   const [error, setError] = useState<string | null>(null);
   
   // Extract incident ID as string from URL parameters (no hardcoding)
-  const incidentId = new URLSearchParams(window.location.search).get("incident");
+  const incidentId = new URLSearchParams(window.location.search).get("incident")?.trim() ?? '';
   
   console.log('DEBUG: Full URL:', window.location.href);
   console.log('DEBUG: Search params:', window.location.search);
@@ -192,7 +192,7 @@ export default function EquipmentSelection() {
             <p className="text-slate-600 mb-4">
               Please return to the incident reporting form and submit a valid incident.
             </p>
-            <Link href="/incident-reporting">
+            <Link href={import.meta.env.VITE_INCIDENT_FORM_ROUTE || '/'}>
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Incident Form

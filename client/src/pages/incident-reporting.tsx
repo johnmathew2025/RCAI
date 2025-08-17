@@ -38,7 +38,7 @@ const incidentSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters"),
   equipment_group_id: z.number().int().optional(),
   equipment_type_id: z.number().int().optional(),
-  equipment_subtype_id: z.number().int().optional(),
+  equipment_subtype_id: z.number().int().min(1, 'Required'),
   equipmentId: z.string().min(1, "Equipment ID is required"),
   manufacturer: z.string().max(100, "Manufacturer must be 100 characters or less").optional(),
   model: z.string().max(100, "Model must be 100 characters or less").optional(),
@@ -110,11 +110,12 @@ export default function IncidentReporting() {
   
   // Draft persistence configuration (no hardcoding)
   const draftEnabled = import.meta.env.FORM_DRAFT_ENABLED !== 'false';
-  const draftVersion = 'v1';
-  const userEmail = 'user@example.com'; // TODO: Get from auth context
+  const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
+  const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com'; // TODO: Get from auth context
   const storageKey = `incidentDraft:${draftVersion}:${userEmail}`;
-  const draftTTL = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-  const autosaveDelay = 500; // 500ms debounce
+  const draftTTLDays = parseInt(import.meta.env.VITE_DRAFT_TTL_DAYS || '7');
+  const draftTTL = draftTTLDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+  const autosaveDelay = parseInt(import.meta.env.VITE_AUTOSAVE_DELAY_MS || '500'); // Configurable autosave delay
   
   // Load saved draft with TTL check (no hardcoding)
   const loadSavedDraft = () => {
@@ -384,8 +385,10 @@ export default function IncidentReporting() {
       
 
       
-      // Navigate immediately after toast with URL-encoded incident ID
-      const navigationUrl = `/equipment-selection?incident=${encodeURIComponent(incidentId)}`;
+      // Navigate immediately after toast with URL-encoded incident ID (no hardcoding)
+      const nextRoute = import.meta.env.VITE_NEXT_ROUTE || '/equipment-selection';
+      const navigationUrl = `${nextRoute}?incident=${encodeURIComponent(incidentId)}`;
+      console.log('incidentId used for navigation:', incidentId);
       console.log('Navigating to:', navigationUrl);
       console.log('About to call setLocation with:', navigationUrl);
       setLocation(navigationUrl);
@@ -738,6 +741,7 @@ export default function IncidentReporting() {
                           onValueChange={(v) =>
                             form.setValue("equipment_subtype_id", v ? Number(v) : undefined, {
                               shouldValidate: true,
+                              shouldDirty: true
                             })
                           }
                           disabled={!selectedGroupId || !selectedTypeId || subtypesLoading}

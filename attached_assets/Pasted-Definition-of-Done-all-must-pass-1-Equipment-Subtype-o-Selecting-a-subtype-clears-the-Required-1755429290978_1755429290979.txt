@@ -1,0 +1,94 @@
+Definition of Done (all must pass)
+1.	Equipment Subtype
+o	Selecting a subtype clears the “Required” error immediately.
+o	Form submits without subtype validation noise when a valid subtype is chosen.
+2.	Incident ID (string) end-to-end
+o	Create returns {"success":true,"data":{"id":"INC-…" }}.
+o	Frontend uses response.data.id and treats incidentId as a string everywhere (no parseInt), including /equipment-selection?incident=INC-….
+o	If the ID is invalid/missing, the next page shows a friendly error, not a perpetual spinner.
+3.	Draft lifecycle (no “frozen” entries)
+o	Draft autosaves while typing.
+o	Draft doesn’t save while submitting === true.
+o	Draft clears after a successful create + navigate.
+o	Refresh during editing restores the draft; refresh after success does not.
+4.	No hardcoding anywhere (IDs, labels, URLs, thresholds).
+ 
+Implementation Notes (what to change)
+A) Subtype binding & schema
+•	In the Incident form component (e.g. client/src/pages/incident-reporting.tsx):
+// value must be a number in form state
+<Select
+  value={form.watch('equipment_subtype_id')?.toString() ?? ''}
+  onValueChange={(v) =>
+    form.setValue('equipment_subtype_id', v ? Number(v) : undefined, {
+      shouldValidate: true,
+      shouldDirty: true
+    })
+  }
+>
+  {/* <SelectItem value={String(id)}>{label}</SelectItem> */}
+</Select>
+•	Form defaults: use undefined, not null:
+defaultValues: {
+  equipment_group_id: undefined,
+  equipment_type_id: undefined,
+  equipment_subtype_id: undefined,
+  // …
+}
+•	Validation schema expects a number (or optional until the step it’s required):
+equipment_subtype_id: z.number().int().min(1, 'Required')
+B) Incident ID handling & navigation
+•	After create: read the ID as response.data.id (already adjusted).
+•	Navigate with the raw string:
+const nextUrl = `/equipment-selection?incident=${encodeURIComponent(incidentId)}`;
+navigate(nextUrl);
+•	In equipment-selection.tsx, stop parsing as number:
+const incidentId = new URLSearchParams(location.search).get('incident')?.trim() ?? '';
+if (!incidentId /* or fails format check */) { /* show error UI */ }
+// fetch(`/api/incidents/${encodeURIComponent(incidentId)}`)
+C) Draft persistence (intentional + reliable)
+•	Key: incidentDraft:v1:<userEmail>
+•	Autosave: debounce 400–600ms; skip when submitting === true.
+•	Load on mount: apply draft if savedAt ≤ 7 days.
+•	Clear on success: when you have a valid incidentId and before/after navigate:
+localStorage.removeItem(`incidentDraft:v1:${userEmail}`);
+•	Optional env flag: FORM_DRAFT_ENABLED=true to toggle without code edits.
+D) Bad-ID experience
+•	If incidentId missing/invalid or fetch 404s, show a small error with a “Back to Incident Form” button. No infinite spinner.
+ 
+QA Checklist (agent must run and share outputs)
+1) Subtype “Required” disappears on select
+•	Open form → pick Group→Type→Subtype.
+•	Confirm the red “Required” under Subtype is gone instantly.
+2) Draft behavior
+•	Type several fields → refresh → values reappear (draft present).
+•	Submit successfully → redirected to /equipment-selection?incident=INC-….
+•	Check localStorage (DevTools → Application): no incidentDraft… key remains.
+Console snippet (with form open):
+Object.entries(localStorage).filter(([k]) => /incidentDraft/i.test(k))
+Expected: [] after a successful submit.
+3) No numeric casts of incidentId
+Repo grep:
+grep -R "parseInt(.*incident" client/src || true
+Expected: no matches.
+4) Network payload verification
+•	In the Network tab on submit, confirm:
+o	equipment_subtype_id is a number in the JSON request.
+o	Response includes {"success":true,"data":{"id":"INC-…"}}.
+o	Router lands on /equipment-selection?incident=INC-….
+5) Bad ID path (no frozen UI)
+•	Manually visit /equipment-selection?incident=123 → see an error screen (not a spinner) with a “Back to form” action.
+ 
+Troubleshooting hooks (run in browser console if needed)
+•	Inspect what the form control is holding:
+({
+  subtypeValue: document.querySelector('[name="equipment_subtype_id"]')?.value,
+  subtypeType: typeof document.querySelector('[name="equipment_subtype_id"]')?.value
+})
+•	Confirm incidentId captured after submit (place a console.log right after parsing):
+console.log('incidentId used for navigation:', incidentId);
+ 
+When you’re done, provide:
+•	a short screen recording of selecting subtype → submit → navigation, and
+•	the outputs for the localStorage and grep checks above.
+
