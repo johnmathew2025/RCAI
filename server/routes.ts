@@ -2120,6 +2120,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.use('/api/assets', assetsRouter);
     app.use('/api/manufacturers', manufacturersRouter);
     app.use('/api/models', modelsRouter);
+    // V1 incidents API (canonical)
+    const incidentsRouterV1 = (await import('./src/api/v1/incidents.js')).default;
+    app.use('/api/v1/incidents', incidentsRouterV1);
+    
     app.use('/api/incidents', incidentsRouter);
     console.log("[ROUTES] Asset management and incidents API routes registered successfully");
   } catch (error) {
@@ -2518,24 +2522,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // INCIDENT ROUTES - New RCA workflow
-  // Create new incident (Step 1)
-  app.post("/api/incidents", async (req, res) => {
-    try {
-      console.log("[RCA] Creating incident with data:", req.body);
-      
-      // Convert incidentDateTime to proper Date object
-      const incidentData = {
-        ...req.body,
-        incidentDateTime: req.body.incidentDateTime ? new Date(req.body.incidentDateTime) : new Date(),
-      };
-      
-      const incident = await investigationStorage.createIncident(incidentData);
-      res.json(incident);
-    } catch (error) {
-      console.error("[RCA] Error creating incident:", error);
-      res.status(500).json({ message: "Failed to create incident" });
-    }
+  // Legacy incident creation endpoint - DEPRECATED
+  // TODO: Remove after frontend migration complete
+  app.post("/api/incidents", (_req, res) => {
+    res.status(410).json({
+      error: {
+        code: "DEPRECATED",
+        message: "Use POST /api/v1/incidents",
+      },
+    });
   });
 
   // Get incident by ID

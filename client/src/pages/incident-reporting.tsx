@@ -18,7 +18,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { startVersionWatcher } from "@/lib/version-watch";
 import { showSmartToast, dismissToast } from "@/lib/smart-toast";
 import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
-import { getIncidentId } from "@/utils/getIncidentId";
+import { createIncident } from "@/api/incidents";
 import type { CreateIncidentResponse } from '@/../../shared/types';
 import { FORM_NAME_PREFIX, LOCALSTORAGE_DRAFT_PREFIX, EDIT_PARAM, REACT_QUERY_KEYS, DEFAULTS } from "@/config/incidentForm";
 import { purgeAllDrafts } from "@/utils/storage";
@@ -279,24 +279,13 @@ export default function IncidentReporting() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isFormDirty]);
 
-  // Create incident mutation
+  // Create incident mutation (V1 API)
   const createIncidentMutation = useMutation({
-    mutationFn: async (data: IncidentForm): Promise<CreateIncidentResponse> => {
-      const response = await fetch("/api/incidents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(errorData || `HTTP ${response.status}`);
-      }
-      
-      return response.json();
+    mutationFn: async (data: IncidentForm): Promise<string> => {
+      return await createIncident(data);
     },
-    onSuccess: (response) => {
-      console.log("Incident created successfully:", response);
+    onSuccess: (incidentId) => {
+      console.log("Incident created successfully with ID:", incidentId);
       queryClient.invalidateQueries({ queryKey: ["incidents"] });
     }
   });
@@ -314,8 +303,7 @@ export default function IncidentReporting() {
       
       console.log("Submitting incident data:", data);
       
-      const response = await createIncidentMutation.mutateAsync(data);
-      const incidentId = getIncidentId(response);
+      const incidentId = await createIncidentMutation.mutateAsync(data);
       
       const nextRoute = import.meta.env.VITE_NEXT_ROUTE || '/equipment-selection';
       const navigationUrl = `${nextRoute}?incident=${encodeURIComponent(incidentId || '')}`;
