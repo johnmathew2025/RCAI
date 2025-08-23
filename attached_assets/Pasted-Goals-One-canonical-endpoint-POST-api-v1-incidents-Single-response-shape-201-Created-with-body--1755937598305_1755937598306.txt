@@ -1,0 +1,193 @@
+Goals
+One canonical endpoint: POST /api/v1/incidents
+Single response shape: 201 Created with body { id: string } and Location: /api/v1/incidents/:id
+Runtime validation (zod) + TS types shared across FE/BE
+Legacy POST /api/incidents explicitly deprecated (410 Gone) to prevent accidental use
+Frontend calls the v1 route with typed response (no “guess the shape” helpers)
+0) Shared contract (types) — new file
+shared/contracts/incidents.ts
+// Shared FE/BE contract
+export interface IncidentCreateReq {
+  // add only required fields to create an incident
+  // examples:
+  // title: string;
+  // description?: string;
+  // reporterId: string;
+}
+
+export interface IncidentCreateRes {
+  id: string; // stable, may be "INC-..." or UUID; FE treats as opaque string
+}
+Keep this file minimal and stable; extend as needed.
+1) Server schema & router (v1) — new files
+server/src/schemas/incidents.ts
+import { z } from "zod";
+
+export const IncidentCreateReqSchema = z.object({
+  // adjust to your minimum valid payload
+  // title: z.string().min(1),
+  // reporterId: z.string().min(1),
+}).strict();
+
+export const IncidentCreateResSchema = z.object({
+  id: z.string().min(1),
+});
+server/src/api/v1/incidents.ts
+import { Router } from "express";
+import type { Request, Response } from "express";
+import { IncidentCreateReqSchema, IncidentCreateResSchema } from "../../schemas/incidents";
+import type { IncidentCreateReq, IncidentCreateRes } from "../../../../shared/contracts/incidents";
+import { investigationStorage } from "../../storage"; // adjust import to your storage module
+
+const router = Router();
+
+/**
+ * POST /api/v1/incidents
+ * 201 Created
+ * Location: /api/v1/incidents/:id
+ * Body: { id: string }
+ */
+router.post("/", async (req: Request, res: Response) => {
+  const parsed = IncidentCreateReqSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(422).json({
+      error: { code: "INVALID_REQUEST", message: "Invalid incident payload", issues: parsed.error.issues },
+    });
+  }
+
+  const payload: IncidentCreateReq = parsed.data as IncidentCreateReq;
+
+  // Create incident in storage; must return an ID (string)
+  const incidentId: string = await investigationStorage.createIncident(payload);
+
+  const body: IncidentCreateRes = { id: incidentId };
+  // runtime assert
+  const ok = IncidentCreateResSchema.safeParse(body);
+  if (!ok.success) {
+    return res.status(500).json({ error: { code: "INVALID_RESPONSE", message: "Server response invalid" } });
+  }
+
+  return res
+    .status(201)
+    .setHeader("Location", `/api/v1/incidents/${incidentId}`)
+    .json(body);
+});
+
+export default router;
+2) Wire the v1 router, deprecate legacy
+server/src/app.ts (or wherever you create the Express app)
+-import incidentsRouter from "../api/incidents"; // old mixed router if present
++import incidentsRouterV1 from "./api/v1/incidents";
+
+ // … existing app setup …
+
+-// Old mount (remove it if present)
+-// app.use("/api/incidents", incidentsRouter);
+
++// Canonical v1 route
++app.use("/api/v1/incidents", incidentsRouterV1);
+
++// (Optional) Temporary, explicit deprecation guard for legacy path
++app.post("/api/incidents", (_req, res) => {
++  res.status(410).json({
++    error: {
++      code: "DEPRECATED",
++      message: "Use POST /api/v1/incidents",
++    },
++  });
++});
+server/routes.ts (if your project registers routes in this file)
+-// REMOVE or comment out any legacy duplicates such as:
+-// app.post("/api/incidents", async (req, res) => {
+-//   const incident = await investigationStorage.createIncident(incidentData);
+-//   res.json(incident);
+-// });
+
+-// REMOVE or change:
+-// app.use("/api/incidents", incidentsRouter);
++// DO NOT register non-versioned incidents handlers here anymore.
++// Incidents are served only under /api/v1/incidents via app.ts.
+Make sure there is no other app.post("/api/incidents", …) anywhere else. The deprecation guard above is your only allowed legacy handler.
+3) Server test to lock the contract (prevents regressions)
+server/test/incidents.create.spec.ts
+import request from "supertest";
+import { app } from "../src/app"; // adjust path
+
+describe("POST /api/v1/incidents", () => {
+  it("creates an incident and returns 201 + {id} + Location", async () => {
+    const res = await request(app)
+      .post("/api/v1/incidents")
+      .send({ /* minimal valid payload per schema */ });
+
+    expect(res.status).toBe(201);
+    expect(res.headers.location).toMatch(/^\/api\/v1\/incidents\/.+/);
+    expect(res.body).toEqual({ id: expect.any(String) });
+  });
+
+  it("rejects invalid payloads with 422", async () => {
+    const res = await request(app)
+      .post("/api/v1/incidents")
+      .send({ nonsense: true });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error?.code).toBe("INVALID_REQUEST");
+  });
+
+  it("legacy POST /api/incidents returns 410", async () => {
+    const res = await request(app).post("/api/incidents").send({});
+    expect(res.status).toBe(410);
+  });
+});
+4) Frontend: typed client and usage
+Remove any “tolerant” helpers like getIncidentId() that try multiple shapes.
+client/src/lib/http.ts (tiny wrapper, optional)
+export async function postJson<TBody extends object, TRes>(url: string, body: TBody): Promise<TRes> {
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    credentials: "include",
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw data;
+  return data as TRes;
+}
+client/src/api/incidents.ts
+import { postJson } from "../lib/http";
+import type { IncidentCreateReq, IncidentCreateRes } from "../../../shared/contracts/incidents";
+
+const API_PREFIX = "/api/v1"; // centralize if you already have one
+
+export async function createIncident(payload: IncidentCreateReq): Promise<string> {
+  const data = await postJson<IncidentCreateReq, IncidentCreateRes>(`${API_PREFIX}/incidents`, payload);
+  return data.id; // single, typed source of truth
+}
+Where you submit the form (e.g., client/src/pages/incident-reporting.tsx)
+import { createIncident } from "../api/incidents";
+
+async function onSubmit(formValues: IncidentCreateReq) {
+  const id = await createIncident(formValues);
+  // navigate to equipment step using the returned id
+  navigate(`/incident-reporting/equipment?incident=${encodeURIComponent(id)}`);
+}
+This removes all ambiguity. If the server ever returns the wrong shape, the FE breaks loudly (and your server test will catch it first).
+5) Delete legacy parsing & route duplicates
+Search/Remove any getIncidentId( helpers and call sites.
+Search/Remove all other POST /api/incidents registrations and router uses.
+Keep only /api/v1/incidents on the server and in the frontend client.
+Commands to sanity-check:
+rg -n "getIncidentId\\(" client server
+rg -n "POST\\s*/api/incidents" server
+rg -n "app\\.post\\(\\\"/api/incidents" server
+rg -n "/api/v1/incidents" # should show the new router + FE calls
+6) Acceptance criteria (Definition of Done)
+ There is exactly one handler for incident creation: POST /api/v1/incidents.
+ Response is always 201 with body { id: string } and Location header.
+ server/test/incidents.create.spec.ts passes.
+ Frontend uses createIncident() (typed) and never tries to parse legacy formats.
+ Hitting legacy POST /api/incidents returns 410 across environments (until you fully remove it).
+ The “Failed to get incident ID for navigation” error cannot occur unless the server genuinely fails to create — in which case the FE shows a real error message from { error }.
+7) Optional niceties (still best-practice)
+Add an Idempotency-Key header in createIncident so retries don’t double-create.
+Emit a request-id header on the server and log it with the created id.
+Publish a tiny OpenAPI (or zod-to-OpenAPI) for /api/v1/incidents; generate TS types from it to keep contracts in lock-step.
