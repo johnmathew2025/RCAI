@@ -120,7 +120,7 @@ export default function EngineerReview() {
     },
     onSuccess: (data) => {
       // Download or navigate to final report
-      window.open(data.reportUrl, '_blank');
+      window.open(data.reportUrl, '_blank', 'noopener');
     },
   });
 

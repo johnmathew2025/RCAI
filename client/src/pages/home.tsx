@@ -65,7 +65,7 @@ function NewAnalysisSection() {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
-            <Link href="/incident-reporting" className="flex-1">
+            <Link href="/incident-reporting" className="flex-1" rel="noopener noreferrer">
               <Button className="w-full flex items-center gap-2" size="lg">
                 <FileText className="h-5 w-5" />
                 Report New Incident

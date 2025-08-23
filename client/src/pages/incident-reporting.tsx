@@ -21,7 +21,7 @@ import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
 import { getIncidentId } from "@/utils/getIncidentId";
 import type { CreateIncidentResponse } from '@/../../shared/types';
 import { FORM_NAME_PREFIX, LOCALSTORAGE_DRAFT_PREFIX, EDIT_PARAM, REACT_QUERY_KEYS, DEFAULTS } from "@/config/incidentForm";
-import { removeLocalStorageByPrefix } from "@/utils/storage";
+import { purgeAllDrafts } from "@/utils/storage";
 
 // Helper function: Convert datetime-local to ISO 8601 with timezone
 function localDatetimeToISO(dtLocal: string): string | undefined {
@@ -120,32 +120,35 @@ export default function IncidentReporting() {
     mode: "onChange",
   });
 
-  // Prefix-based draft purge (no enumerated keys)
+  // Prefix-based draft purge (no enumerated keys) - both storages
   const purgeDraftsByPrefix = useCallback((prefix: string) => {
-    removeLocalStorageByPrefix(prefix);
+    purgeAllDrafts(prefix);
   }, []);
 
   // Single reset path: runs BEFORE paint to beat session/form restore
   useLayoutEffect(() => {
-    if (isEditMode) return;
+    const isEdit = new URLSearchParams(search).has(EDIT_PARAM);
+    if (isEdit) return;
 
-    // 1) Clear drafts/cache
-    purgeDraftsByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
+    // purge both storages before first paint
+    purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
+
+    // clear caches
     queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
     queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
 
-    // 2) Reset native form & RHF to pristine
-    formRef.current?.reset(); // clears any pre-populated DOM values
+    // reset native + RHF and remount
+    formRef.current?.reset();
     form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
-
-    // 3) Fresh mount to break autofill heuristics
     setFormKey(Date.now());
-  }, [isEditMode, purgeDraftsByPrefix, form.reset]);
+  }, [search, queryClient, form.reset]);
 
   // Handle BFCache / page cache restores (new tab, back/forward)
   useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {
-      if (!isEditMode && e.persisted) {
+      const isEdit = new URLSearchParams(search).has(EDIT_PARAM);
+      if (!isEdit && e.persisted) {
+        purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
         formRef.current?.reset();
         form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
         setFormKey(Date.now());
@@ -153,7 +156,7 @@ export default function IncidentReporting() {
     };
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
-  }, [isEditMode, form.reset]);
+  }, [search, form.reset]);
 
   // Optional: disable BFCache for Safari (no hardcoding)
   useEffect(() => {
@@ -304,12 +307,12 @@ export default function IncidentReporting() {
       const incidentId = getIncidentId(response);
       
       const nextRoute = import.meta.env.VITE_NEXT_ROUTE || '/equipment-selection';
-      const navigationUrl = `${nextRoute}?incident=${encodeURIComponent(incidentId)}`;
+      const navigationUrl = `${nextRoute}?incident=${encodeURIComponent(incidentId || '')}`;
       setLocation(navigationUrl);
       
       // Post-submit cleanup
       purgeDraftsByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
-      queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft }, { exact: false });
+      queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
       form.reset(DEFAULTS);
       setFormKey(Date.now());
       queryClient.invalidateQueries({ queryKey: ["incidents", incidentId] });

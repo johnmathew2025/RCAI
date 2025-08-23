@@ -73,7 +73,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           {/* Navigation Toggle */}
           <div className="space-y-2">
             {canAccessWorkflow() && (
-              <Link href="/incident-reporting">
+              <Link href="/incident-reporting" rel="noopener noreferrer">
                 <Button 
                   variant={!isAdminRoute ? "default" : "ghost"} 
                   size="sm" 
