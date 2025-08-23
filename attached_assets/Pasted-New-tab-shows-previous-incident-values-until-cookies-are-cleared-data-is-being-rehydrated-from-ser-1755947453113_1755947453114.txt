@@ -1,0 +1,84 @@
+New tab shows previous incident values until cookies are cleared ⇒ data is being rehydrated from server/session (cookie-keyed) or a client bootstrap request, not from browser autofill.
+Non-negotiables:
+❌ No hardcoded field contents/IDs/routes/keys.
+✅ Use centralized config (prefixes/flags).
+✅ Provide proof (logs/HAR) that identifies the exact writer.
+1) Capture proof on first load (must attach evidence)
+A. Export a HAR of opening /incident-reporting in a brand-new tab (no query params). Filter XHR/Fetch/Doc.
+In the HAR, find any response containing non-empty incidentDetails / initialObservations / priority. That response is the writer. Attach the HAR.
+B. Add a pre-bundle “sniffer” script (no hardcoding of contents)
+Place this at the top of index.html, before the app bundle. It logs any response JSON that contains non-empty Step-1 fields (by key names only).
+<script>
+(function () {
+  function sniff(body, url){
+    try {
+      const j = JSON.parse(body);
+      const val = (k) => {
+        const v = j?.[k];
+        return typeof v === 'string' ? v.trim() : (v ?? '');
+      };
+      const hits = ['incidentDetails','initialObservations','priority','operatingParams']
+        .filter(k => val(k));
+      if (hits.length) {
+        console.warn('[BOOT-RESP WRITER]', url, 'keys=', hits);
+      }
+    } catch(_) {}
+  }
+
+  // fetch
+  const ofetch = window.fetch;
+  window.fetch = async function(input, init){
+    const res = await ofetch(input, init);
+    try {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const clone = res.clone();
+        const text = await clone.text();
+        sniff(text, (typeof input === 'string') ? input : input?.url || '');
+      }
+    } catch(_) {}
+    return res;
+  };
+
+  // XHR
+  const O = window.XMLHttpRequest;
+  window.XMLHttpRequest = function(){
+    const x = new O();
+    const open = x.open, send = x.send;
+    let url = '';
+    x.open = function(m,u){ url = u; return open.apply(x, arguments); };
+    x.send = function(){
+      x.addEventListener('load', function(){
+        try {
+          const ct = x.getResponseHeader('content-type') || '';
+          if (ct.includes('application/json')) sniff(x.responseText, url);
+        } catch(_) {}
+      });
+      return send.apply(x, arguments);
+    };
+    return x;
+  };
+})();
+</script>
+If the Console shows [BOOT-RESP WRITER] …, paste the URL(s) and attach the HAR. This is the exact source of the old values.
+2) Kill server/session rehydrate for create (contract change)
+No SSR/HTML injection of last incident for /incident-reporting (no __INITIAL_STATE__, res.locals, or cookie-driven templating).
+Any “context”/“me”/“draft”/“latest” endpoints must require explicit opt-in only: ?draft=1 or header X-Restore-Draft: 1.
+Without opt-in ⇒ 204 No Content (empty body).
+Config flags (centralized; no literals):
+export const PERSIST_DRAFTS_SERVER = false; // default
+export const DRAFT_PREFIX = 'incident:';     // if used server-side
+Implement DELETE /api/v1/incidents/draft (session-scoped) and call it on Start New Incident.
+Add Cache-Control: no-store, no-cache, must-revalidate to the create route response.
+3) Client gating (keep strict)
+const isEdit = !!searchParams.get('id');
+const wantsDraft = searchParams.get('draft') === '1';
+If !isEdit && !wantsDraft && !PERSIST_DRAFTS ⇒ do not call any endpoint that can return previous incident/draft/context. Remove eager prefetches.
+Keep Step-1 inputs controlled via RHF Controller with empty DEFAULTS from config.
+Keep pageshow handler; no timers/decoys.
+4) Prove the fix (Definition of Done)
+HAR from brand-new tab shows no response containing Step-1 fields unless ?draft=1 is present.
+Console has no [BOOT-RESP WRITER] logs on create route (without ?draft=1).
+Behavior: new tab / refresh / back-forward → blank form in create; ?draft=1 explicitly loads draft; removing ?draft=1 returns to blank.
+“Start New Incident” triggers DELETE /api/v1/incidents/draft; subsequent new tab is blank.
+No hardcoded field contents/IDs/keys/routes—only centralized config.

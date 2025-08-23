@@ -6,6 +6,58 @@
     <meta name="app-ls-prefix" content="incident:">
     <script>
 (function () {
+  function sniff(body, url){
+    try {
+      const j = JSON.parse(body);
+      const val = (k) => {
+        const v = j?.[k];
+        return typeof v === 'string' ? v.trim() : (v ?? '');
+      };
+      const hits = ['incidentDetails','initialObservations','priority','operatingParams','title','description','equipmentId','manufacturer','model','location','immediateActions','safetyImplications']
+        .filter(k => val(k));
+      if (hits.length) {
+        console.warn('[BOOT-RESP WRITER]', url, 'keys=', hits, 'values=', hits.map(k => j[k]));
+      }
+    } catch(_) {}
+  }
+
+  // fetch
+  const ofetch = window.fetch;
+  window.fetch = async function(input, init){
+    const res = await ofetch(input, init);
+    try {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const clone = res.clone();
+        const text = await clone.text();
+        sniff(text, (typeof input === 'string') ? input : input?.url || '');
+      }
+    } catch(_) {}
+    return res;
+  };
+
+  // XHR
+  const O = window.XMLHttpRequest;
+  window.XMLHttpRequest = function(){
+    const x = new O();
+    const open = x.open, send = x.send;
+    let url = '';
+    x.open = function(m,u){ url = u; return open.apply(x, arguments); };
+    x.send = function(){
+      x.addEventListener('load', function(){
+        try {
+          const ct = x.getResponseHeader('content-type') || '';
+          if (ct.includes('application/json')) sniff(x.responseText, url);
+        } catch(_) {}
+      });
+      return send.apply(x, arguments);
+    };
+    return x;
+  };
+})();
+    </script>
+    <script>
+(function () {
   try {
     var p = (document.querySelector('meta[name="app-ls-prefix"]')?.content) || '';
     // localStorage
