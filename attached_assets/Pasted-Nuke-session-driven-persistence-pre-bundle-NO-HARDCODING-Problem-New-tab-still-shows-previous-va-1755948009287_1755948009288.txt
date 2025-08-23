@@ -1,0 +1,67 @@
+Nuke session-driven persistence pre-bundle (NO HARDCODING)
+Problem: New tab still shows previous values until cookies are cleared ⇒ data is being restored from IndexedDBand/or Cache Storage/Service Worker, not just localStorage/sessionStorage.
+Do this before React loads (pre-bundle, in index.html, above the app script):
+<!-- Optional: keep your prefix meta if you want -->
+<meta name="app-ls-prefix" content="incident:">
+
+<script>
+/* Runs BEFORE any framework or persist lib */
+(async function () {
+  try {
+    // 1) Purge localStorage & sessionStorage by prefix (kept, no hardcoded keys)
+    var p = (document.querySelector('meta[name="app-ls-prefix"]')?.content) || '';
+    try {
+      var rm=[]; for (var i=0;i<localStorage.length;i++){var k=localStorage.key(i); if(k&&k.indexOf(p)===0) rm.push(k)}
+      rm.forEach(function(k){ localStorage.removeItem(k) });
+    } catch(e){}
+    try {
+      var rm2=[]; for (var j=0;j<sessionStorage.length;j++){var k2=sessionStorage.key(j); if(k2&&k2.indexOf(p)===0) rm2.push(k2)}
+      rm2.forEach(function(k){ sessionStorage.removeItem(k) });
+    } catch(e){}
+
+    // 2) Unregister ALL Service Workers (prevents offline cache rehydrate)
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+    } catch(e){}
+
+    // 3) Delete ALL Cache Storage entries (no names hardcoded)
+    try {
+      if ('caches' in window) {
+        const names = await caches.keys();
+        await Promise.all(names.map(n => caches.delete(n)));
+      }
+    } catch(e){}
+
+    // 4) Delete ALL IndexedDB databases (best-effort, no names hardcoded)
+    try {
+      if (indexedDB && indexedDB.databases) {
+        const dbs = await indexedDB.databases();   // not in all browsers; ignore if missing
+        await Promise.all((dbs || []).map(db => {
+          if (db && db.name) return new Promise(res => { const req = indexedDB.deleteDatabase(db.name); req.onsuccess=req.onerror=req.onblocked=() => res(); });
+          return Promise.resolve();
+        }));
+      }
+    } catch(e){}
+
+  } catch (e) {
+    /* ignore */
+  }
+})();
+</script>
+Then keep the existing guards you already claim to have:
+•	No SSR/HTML injection of last incident for create route.
+•	Draft/last endpoints require explicit opt-in (?draft=1 or X-Restore-Draft: 1); otherwise 204 No Content.
+•	Client does not fetch draft/last in create mode (!isEdit && !wantsDraft && !PERSIST_DRAFTS).
+•	Step-1 inputs are controlled via RHF Controller with empty DEFAULTS.
+Verification (must attach evidence):
+1.	In a brand-new tab → DevTools → Application:
+o	Service Workers: none registered.
+o	Cache Storage: 0 caches.
+o	IndexedDB: no databases (or all deleted on first load).
+o	Local/Session Storage: no keys with your prefix before the app bundle runs.
+2.	Network panel on first load: no response body contains prior incident text unless ?draft=1.
+3.	Behavior: new tab, refresh, back/forward → blank form in create mode.
+Forbidden: any timers/decoys or hardcoded field names/values/IDs/routes. Use only centralized config (prefix/flags).
