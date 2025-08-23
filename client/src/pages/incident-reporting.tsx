@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -20,9 +20,8 @@ import { showSmartToast, dismissToast } from "@/lib/smart-toast";
 import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
 import { getIncidentId } from "@/utils/getIncidentId";
 import type { CreateIncidentResponse } from '@/../../shared/types';
-import { FORM_NAME_PREFIX, LOCALSTORAGE_DRAFT_PREFIX, EDIT_PARAM, REACT_QUERY_KEYS, DEFAULTS, PERSIST_DRAFTS } from "@/config/incidentForm";
+import { FORM_NAME_PREFIX, LOCALSTORAGE_DRAFT_PREFIX, EDIT_PARAM, REACT_QUERY_KEYS, DEFAULTS } from "@/config/incidentForm";
 import { removeLocalStorageByPrefix } from "@/utils/storage";
-import { withWriteLock, initWriteLock } from "@/forms/safeRHF";
 
 // Helper function: Convert datetime-local to ISO 8601 with timezone
 function localDatetimeToISO(dtLocal: string): string | undefined {
@@ -96,6 +95,7 @@ const incidentSchema = z.object({
 });
 
 type IncidentForm = z.infer<typeof incidentSchema>;
+type FormValues = typeof DEFAULTS;
 
 export default function IncidentReporting() {
   const { toast } = useToast();
@@ -103,91 +103,76 @@ export default function IncidentReporting() {
   const [timelineQuestions, setTimelineQuestions] = useState<any[]>([]);
   const [showTimeline, setShowTimeline] = useState(false);
   
-  // Form instance key for forcing remount
-  const [formInstanceKey, setFormInstanceKey] = useState(() => Date.now());
+  // Form instance key for forcing remount and form ref for native reset
+  const [formKey, setFormKey] = useState(() => Date.now());
+  const formRef = useRef<HTMLFormElement>(null);
   
-  // Route/state hygiene - detect edit mode via param
+  // Route/state hygiene - detect edit mode via param  
   const [location] = useLocation();
-  const urlParams = new URLSearchParams(location.split('?')[1] || '');
-  const editId = urlParams.get(EDIT_PARAM);
-  const isEditMode = !!editId;
-  
-  // Load saved draft with TTL check - ONLY IN EDIT MODE AND IF PERSIST_DRAFTS
-  const loadSavedDraft = () => {
-    if (!PERSIST_DRAFTS || !isEditMode) return {};
-    try {
-      const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
-      const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com';
-      const storageKey = `${LOCALSTORAGE_DRAFT_PREFIX}${draftVersion}:${userEmail}`;
-      const saved = localStorage.getItem(storageKey);
-      if (!saved) return {};
-      
-      const { data, savedAt } = JSON.parse(saved);
-      const draftTTLDays = parseInt(import.meta.env.VITE_DRAFT_TTL_DAYS || '7');
-      const draftTTL = draftTTLDays * 24 * 60 * 60 * 1000;
-      if (Date.now() - savedAt > draftTTL) {
-        localStorage.removeItem(storageKey);
-        return {};
-      }
-      return data;
-    } catch {
-      return {};
-    }
-  };
-  
-  // Initialize form with write lock wrapper
-  const rhf = useForm<IncidentForm>({
+  const search = location.split('?')[1] || '';
+  const isEditMode = useMemo(() => new URLSearchParams(search).has(EDIT_PARAM), [search]);
+
+  // Initialize form - all uncontrolled inputs via register()
+  const form = useForm<IncidentForm>({
     resolver: zodResolver(incidentSchema),
-    defaultValues: {
-      ...DEFAULTS,
-      ...(loadSavedDraft() as Partial<IncidentForm>),
-    },
+    defaultValues: DEFAULTS, // all empty
     shouldUnregister: true,
     mode: "onChange",
   });
-  
-  const form = withWriteLock(rhf); // Protected form interface
-  
-  // Main write control effect - SINGLE SOURCE OF TRUTH
-  useEffect(() => {
-    const params = new URLSearchParams(location.split('?')[1] || '');
-    const isEdit = params.has(EDIT_PARAM);
-    
-    if (!isEdit) {
-      // Create mode: reset and lock writes
-      removeLocalStorageByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
-      queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
-      queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
-      form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
-      initWriteLock(false); // ⛔ no further setValue in create mode
-      setFormInstanceKey(Date.now());
-    } else {
-      // Edit mode: allow writes for loading data
-      initWriteLock(true);
-    }
-  }, [location]);
 
-  // Session restore handler - new tab/back/forward
+  // Prefix-based draft purge (no enumerated keys)
+  const purgeDraftsByPrefix = useCallback((prefix: string) => {
+    removeLocalStorageByPrefix(prefix);
+  }, []);
+
+  // Single reset path: runs BEFORE paint to beat session/form restore
+  useLayoutEffect(() => {
+    if (isEditMode) return;
+
+    // 1) Clear drafts/cache
+    purgeDraftsByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
+    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+
+    // 2) Reset native form & RHF to pristine
+    formRef.current?.reset(); // clears any pre-populated DOM values
+    form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
+
+    // 3) Fresh mount to break autofill heuristics
+    setFormKey(Date.now());
+  }, [isEditMode, purgeDraftsByPrefix, form.reset]);
+
+  // Handle BFCache / page cache restores (new tab, back/forward)
   useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {
-      const params = new URLSearchParams(location.split('?')[1] || '');
-      const isEdit = params.has(EDIT_PARAM);
-      if (e.persisted && !isEdit) {
+      if (!isEditMode && e.persisted) {
+        formRef.current?.reset();
         form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
-        initWriteLock(false);
-        setFormInstanceKey(Date.now());
+        setFormKey(Date.now());
       }
     };
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
-  }, [location]);
+  }, [isEditMode, form.reset]);
+
+  // Optional: disable BFCache for Safari (no hardcoding)
+  useEffect(() => {
+    const noop = () => {};
+    window.addEventListener("unload", noop); // disables bfcache on Safari
+    return () => window.removeEventListener("unload", noop);
+  }, []);
+
+  // Optional: strip accidental edit param when starting a brand-new report
+  const startNewIncident = useCallback(() => {
+    if (isEditMode) setLocation('/incident-reporting', { replace: true });
+  }, [isEditMode, setLocation]);
 
   // ID-BASED CASCADING DROPDOWN STATE
   const selectedGroupId = form.watch("equipment_group_id");
   const selectedTypeId = form.watch("equipment_type_id");
   const selectedSubtypeId = form.watch("equipment_subtype_id");
 
-  // Phase 3.3: Normalized Equipment API Hooks
+  // Equipment API Hooks
   const { data: equipmentGroups = [], isLoading: groupsLoading } = useGroups();
   const { data: equipmentTypes = [], isLoading: typesLoading } = useTypes(selectedGroupId || undefined);
   const { data: equipmentSubtypes = [], isLoading: subtypesLoading } = useSubtypes(selectedTypeId || undefined);
@@ -195,17 +180,17 @@ export default function IncidentReporting() {
   // REGULATORY COMPLIANCE CONDITIONAL RENDERING
   const reportableStatus = form.watch("reportableStatus");
 
-  // Guarded cascading resets - only in edit mode
+  // Cascading resets - only in edit mode 
   useEffect(() => {
     if (!isEditMode) return; // Hard guard
     form.setValue("equipment_type_id", null, { shouldValidate: false });
     form.setValue("equipment_subtype_id", null, { shouldValidate: false });
-  }, [selectedGroupId, isEditMode]);
+  }, [selectedGroupId, isEditMode, form.setValue]);
 
   useEffect(() => {
     if (!isEditMode) return; // Hard guard
     form.setValue("equipment_subtype_id", null, { shouldValidate: false });
-  }, [selectedTypeId, isEditMode]);
+  }, [selectedTypeId, isEditMode, form.setValue]);
 
   // Generate timeline questions when equipment selection is complete
   useEffect(() => {
@@ -240,74 +225,6 @@ export default function IncidentReporting() {
       console.error('Error generating timeline questions:', error);
     }
   };
-
-  // Guarded multi-tab draft synchronization - only in edit mode
-  useEffect(() => {
-    if (!isEditMode || !PERSIST_DRAFTS) return; // Hard guard
-    
-    const channel = new BroadcastChannel('incident-draft');
-    
-    channel.onmessage = (event) => {
-      const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
-      const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com';
-      const storageKey = `${LOCALSTORAGE_DRAFT_PREFIX}${draftVersion}:${userEmail}`;
-      
-      if (event.data.type === 'draft-updated' && event.data.storageKey === storageKey) {
-        const updatedDraft = loadSavedDraft();
-        if (Object.keys(updatedDraft).length > 0) {
-          form.reset(updatedDraft);
-        }
-      }
-    };
-    
-    const subscription = form.watch(() => {
-      const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
-      const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com';
-      const storageKey = `${LOCALSTORAGE_DRAFT_PREFIX}${draftVersion}:${userEmail}`;
-      
-      channel.postMessage({
-        type: 'draft-updated',
-        storageKey: storageKey,
-        timestamp: Date.now()
-      });
-    });
-    
-    return () => {
-      channel.close();
-      subscription.unsubscribe();
-    };
-  }, [isEditMode]);
-
-  // Auto-save form draft on changes - only in edit mode
-  const [submitting, setSubmitting] = useState(false);
-  
-  useEffect(() => {
-    if (!PERSIST_DRAFTS || !isEditMode) return; // Hard guard
-    
-    let timeoutId: NodeJS.Timeout;
-    const subscription = form.watch((values) => {
-      if (submitting) return;
-      
-      const autosaveDelay = parseInt(import.meta.env.VITE_AUTOSAVE_DELAY_MS || '500');
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
-        const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com';
-        const storageKey = `${LOCALSTORAGE_DRAFT_PREFIX}${draftVersion}:${userEmail}`;
-        
-        const draftData = {
-          data: values,
-          savedAt: Date.now()
-        };
-        localStorage.setItem(storageKey, JSON.stringify(draftData));
-      }, autosaveDelay);
-    });
-    
-    return () => {
-      clearTimeout(timeoutId);
-      subscription.unsubscribe();
-    };
-  }, [form.watch, submitting, isEditMode]);
 
   // Check if form is dirty (has unsaved changes)
   const isFormDirty = form.formState.isDirty || Object.keys(form.getValues()).some(key => {
@@ -370,6 +287,9 @@ export default function IncidentReporting() {
     }
   });
 
+  // Submitting state
+  const [submitting, setSubmitting] = useState(false);
+
   const onSubmit = async (data: IncidentForm) => {
     setSubmitting(true);
     
@@ -387,14 +307,12 @@ export default function IncidentReporting() {
       const navigationUrl = `${nextRoute}?incident=${encodeURIComponent(incidentId)}`;
       setLocation(navigationUrl);
       
-      // Post-submit cleanup (write lock temporarily enabled for cleanup)
-      initWriteLock(true);
-      removeLocalStorageByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
+      // Post-submit cleanup
+      purgeDraftsByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
       queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft }, { exact: false });
       form.reset(DEFAULTS);
-      setFormInstanceKey(Date.now());
+      setFormKey(Date.now());
       queryClient.invalidateQueries({ queryKey: ["incidents", incidentId] });
-      initWriteLock(false);
       
       toast({
         title: "Incident Reported",
@@ -415,16 +333,15 @@ export default function IncidentReporting() {
 
   // Reset form function
   const resetForm = () => {
-    initWriteLock(true);
-    removeLocalStorageByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
+    purgeDraftsByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
     queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
     queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+    formRef.current?.reset();
     form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
-    setFormInstanceKey(Date.now());
-    if (editId) {
+    setFormKey(Date.now());
+    if (isEditMode) {
       setLocation('/incident-reporting', { replace: true });
     }
-    initWriteLock(false);
     
     toast({
       title: "Form Reset",
@@ -495,15 +412,17 @@ export default function IncidentReporting() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Form {...form} key={formInstanceKey}>
+            <Form {...form}>
               <form 
+                key={formKey}
+                ref={formRef}
                 onSubmit={form.handleSubmit(onSubmit)} 
                 className="space-y-6"
                 autoComplete="off"
                 noValidate
-                name={`${FORM_NAME_PREFIX}-${formInstanceKey}`}
+                name={`${FORM_NAME_PREFIX}-${formKey}`}
               >
-                {/* Incident Details - Field 1 */}
+                {/* Incident Details - Field 1 - UNCONTROLLED via register() */}
                 <FormField
                   control={form.control}
                   name="title"
@@ -512,7 +431,7 @@ export default function IncidentReporting() {
                       <FormLabel>Incident Details</FormLabel>
                       <FormControl>
                         <Input 
-                          {...field} 
+                          {...form.register("title")}
                           autoComplete="new-password"
                           placeholder="e.g., Pump P-101 seal leak" 
                           data-testid="input-incidentDetails"
@@ -523,7 +442,7 @@ export default function IncidentReporting() {
                   )}
                 />
 
-                {/* Initial Observations - Field 2 */}
+                {/* Initial Observations - Field 2 - UNCONTROLLED via register() */}
                 <FormField
                   control={form.control}
                   name="description"
@@ -532,7 +451,7 @@ export default function IncidentReporting() {
                       <FormLabel>Initial Observations</FormLabel>
                       <FormControl>
                         <Textarea 
-                          {...field} 
+                          {...form.register("description")}
                           autoComplete="new-password"
                           placeholder="Describe what was observed, when it was observed, and any initial symptoms..."
                           rows={4}
@@ -650,7 +569,7 @@ export default function IncidentReporting() {
                     )}
                   />
 
-                  {/* Equipment Details */}
+                  {/* Equipment Details - UNCONTROLLED via register() */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField
                       control={form.control}
@@ -660,7 +579,7 @@ export default function IncidentReporting() {
                           <FormLabel>Manufacturer</FormLabel>
                           <FormControl>
                             <Input 
-                              {...field} 
+                              {...form.register("manufacturer")}
                               autoComplete="new-password"
                               placeholder="e.g., Siemens"
                               maxLength={100}
@@ -680,7 +599,7 @@ export default function IncidentReporting() {
                           <FormLabel>Model</FormLabel>
                           <FormControl>
                             <Input 
-                              {...field} 
+                              {...form.register("model")}
                               autoComplete="new-password"
                               placeholder="e.g., Simovert-M420"
                               maxLength={100}
@@ -702,7 +621,7 @@ export default function IncidentReporting() {
                           <FormLabel>Equipment ID</FormLabel>
                           <FormControl>
                             <Input 
-                              {...field} 
+                              {...form.register("equipmentId")}
                               autoComplete="new-password"
                               placeholder="e.g., P-101, M-205" 
                             />
@@ -723,7 +642,7 @@ export default function IncidentReporting() {
                           </FormLabel>
                           <FormControl>
                             <Input 
-                              {...field} 
+                              {...form.register("location")}
                               autoComplete="new-password"
                               placeholder="e.g., Unit 1 Process Area" 
                             />
@@ -737,7 +656,7 @@ export default function IncidentReporting() {
 
                 <Separator />
 
-                {/* Basic Incident Information */}
+                {/* Basic Incident Information - UNCONTROLLED via register() */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
@@ -750,7 +669,7 @@ export default function IncidentReporting() {
                         </FormLabel>
                         <FormControl>
                           <Input 
-                            {...field} 
+                            {...form.register("reportedBy")}
                             autoComplete="new-password"
                             placeholder="Your name" 
                           />
@@ -771,7 +690,7 @@ export default function IncidentReporting() {
                         </FormLabel>
                         <FormControl>
                           <Input 
-                            {...field} 
+                            {...form.register("incidentDateTime")}
                             type="datetime-local"
                             autoComplete="new-password"
                             max={new Date().toISOString().slice(0, 16)}
@@ -794,7 +713,7 @@ export default function IncidentReporting() {
                       </FormLabel>
                       <FormControl>
                         <Textarea 
-                          {...field} 
+                          {...form.register("immediateActions")}
                           autoComplete="new-password"
                           placeholder="Actions taken to secure the area, isolate equipment, etc..."
                           rows={3}
@@ -805,7 +724,7 @@ export default function IncidentReporting() {
                   )}
                 />
 
-                {/* Operating Parameters at Incident Time - Field 4 */}
+                {/* Operating Parameters at Incident Time - Field 4 - UNCONTROLLED via register() */}
                 <FormField
                   control={form.control}
                   name="operatingParameters"
@@ -814,7 +733,7 @@ export default function IncidentReporting() {
                       <FormLabel>Operating Parameters at Incident Time</FormLabel>
                       <FormControl>
                         <Textarea 
-                          {...field} 
+                          {...form.register("operatingParameters")}
                           autoComplete="new-password"
                           placeholder="e.g., Temperature: 85°C, Pressure: 150 PSI, Flow: 200 GPM, RPM: 1750, Vibration: 2.5 mm/s"
                           rows={2}
@@ -913,7 +832,7 @@ export default function IncidentReporting() {
                         <FormLabel>Safety Implications</FormLabel>
                         <FormControl>
                           <Textarea 
-                            {...field} 
+                            {...form.register("safetyImplications")}
                             autoComplete="new-password"
                             placeholder="Describe any safety concerns, potential hazards, or safety measures taken..."
                             rows={3}
@@ -960,7 +879,7 @@ export default function IncidentReporting() {
                             <FormLabel>Regulatory Authority Name</FormLabel>
                             <FormControl>
                               <Input 
-                                {...field} 
+                                {...form.register("regulatoryAuthorityName")}
                                 autoComplete="new-password"
                                 placeholder="e.g., EPA, OSHA, Local Fire Department..." 
                               />
@@ -978,7 +897,7 @@ export default function IncidentReporting() {
                             <FormLabel>Date Reported</FormLabel>
                             <FormControl>
                               <Input 
-                                {...field} 
+                                {...form.register("dateReported")}
                                 type="date"
                                 autoComplete="new-password"
                               />
@@ -996,7 +915,7 @@ export default function IncidentReporting() {
                             <FormLabel>Report Reference ID (Optional)</FormLabel>
                             <FormControl>
                               <Input 
-                                {...field} 
+                                {...form.register("reportReferenceId")}
                                 autoComplete="new-password"
                                 placeholder="Reference number provided by authority..." 
                               />
@@ -1014,7 +933,7 @@ export default function IncidentReporting() {
                             <FormLabel>Compliance Impact Summary</FormLabel>
                             <FormControl>
                               <Textarea 
-                                {...field} 
+                                {...form.register("complianceImpactSummary")}
                                 autoComplete="new-password"
                                 placeholder="Summarize the regulatory compliance implications..."
                                 rows={3}
@@ -1039,7 +958,7 @@ export default function IncidentReporting() {
                             <FormLabel>Planned Date of Reporting</FormLabel>
                             <FormControl>
                               <Input 
-                                {...field} 
+                                {...form.register("plannedDateOfReporting")}
                                 type="date"
                                 autoComplete="new-password"
                                 min={new Date().toISOString().split('T')[0]}
@@ -1058,7 +977,7 @@ export default function IncidentReporting() {
                             <FormLabel>Reason for Delay</FormLabel>
                             <FormControl>
                               <Textarea 
-                                {...field} 
+                                {...form.register("delayReason")}
                                 autoComplete="new-password"
                                 placeholder="Explain why reporting is delayed..."
                                 rows={2}
@@ -1077,7 +996,7 @@ export default function IncidentReporting() {
                             <FormLabel>Intended Regulatory Authority</FormLabel>
                             <FormControl>
                               <Input 
-                                {...field} 
+                                {...form.register("intendedRegulatoryAuthority")}
                                 autoComplete="new-password"
                                 placeholder="e.g., EPA, OSHA, Local Authority..." 
                               />
@@ -1094,10 +1013,10 @@ export default function IncidentReporting() {
                 <div className="flex justify-end pt-6">
                   <Button 
                     type="submit" 
-                    disabled={submitting || !form.formState.isValid}
+                    disabled={createIncidentMutation.isPending || !form.formState.isValid}
                     className="min-w-[200px]"
                   >
-                    {submitting ? "Creating Incident..." : "Create Incident & Continue"}
+                    {createIncidentMutation.isPending ? "Creating Incident..." : "Create Incident & Continue"}
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>

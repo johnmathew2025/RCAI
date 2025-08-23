@@ -1,0 +1,108 @@
+1) Use useLayoutEffect + form.reset() before paint
+// incident-reporting.tsx
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { DEFAULTS, EDIT_PARAM, FORM_NAME_PREFIX, REACT_QUERY_KEYS, LOCALSTORAGE_DRAFT_PREFIX } from "@/config/incidentForm";
+
+type FormValues = typeof DEFAULTS;
+
+export default function IncidentReportingPage() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { search } = useLocation();
+
+  const [formKey, setFormKey] = useState(() => Date.now());
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const isEditMode = useMemo(() => new URLSearchParams(search).has(EDIT_PARAM), [search]);
+
+  const { register, reset } = useForm<FormValues>({
+    defaultValues: DEFAULTS,          // all empty
+    shouldUnregister: true,
+    mode: "onSubmit",
+  });
+
+  // prefix-based draft purge (no enumerated keys)
+  const purgeDraftsByPrefix = useCallback((prefix: string) => {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix)) keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+  }, []);
+
+  // Single reset path: runs BEFORE paint to beat session/form restore
+  useLayoutEffect(() => {
+    if (isEditMode) return;
+
+    // 1) Clear drafts/cache
+    purgeDraftsByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
+    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+
+    // 2) Reset native form & RHF to pristine
+    formRef.current?.reset(); // clears any pre-populated DOM values
+    reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
+
+    // 3) Fresh mount to break autofill heuristics
+    setFormKey(Date.now());
+  }, [isEditMode, purgeDraftsByPrefix, queryClient, reset]);
+
+  // Handle BFCache / page cache restores (new tab, back/forward)
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!isEditMode && e.persisted) {
+        formRef.current?.reset();
+        reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
+        setFormKey(Date.now());
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [isEditMode, reset]);
+
+  // Optional: strip accidental edit param when starting a brand-new report
+  const startNewIncident = useCallback(() => {
+    if (isEditMode) navigate("/incident-reporting", { replace: true }); // use your route map if you have one
+  }, [isEditMode, navigate]);
+
+  return (
+    <form
+      key={formKey}
+      ref={formRef}
+      autoComplete="off"
+      noValidate
+      name={`${FORM_NAME_PREFIX}-${formKey}`}
+    >
+      <input {...register("incidentDetails")} autoComplete="new-password" placeholder="Describe the incident…" />
+      <textarea {...register("initialObservations")} autoComplete="new-password" placeholder="What did you observe?" />
+      <select {...register("priority")} autoComplete="new-password">
+        <option value="">Select priority</option>
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+      </select>
+      <textarea {...register("operatingParams")} autoComplete="new-password" placeholder="Operating parameters…" />
+      {/* ...rest of fields... */}
+    </form>
+  );
+}
+Why this works
+useLayoutEffect executes synchronously before paint. It resets the native form and RHF defaults so the browser’s session restore cannot “win” the first frame.
+The pageshow handler covers cloned/duplicated tabs and back/forward cached pages (where e.persisted === true).
+key={formKey} forces a true remount; name={FORM_NAME_PREFIX-…} breaks autofill heuristics.
+No hardcoded values—only constants and empty DEFAULTS.
+2) Make sure inputs are uncontrolled by anything except RHF
+No value=... or defaultValue=... from external state on Step-1 inputs.
+If your UI lib requires controlled inputs, wrap with RHF Controller and use RHF’s value/onChange only (no extra state that could re-hydrate old values).
+3) (Optional but effective for Safari) Disable BFCache without timers
+If you keep hitting Safari’s duplicate-tab behavior, add this once at app root (it’s tiny and has no hardcoding):
+useEffect(() => {
+  const noop = () => {};
+  window.addEventListener("unload", noop); // disables bfcache on Safari
+  return () => window.removeEventListener("unload", noop);
+}, []);
+Use only if strictly necessary; the useLayoutEffect + pageshow combo usually suffices.
