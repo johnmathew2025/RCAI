@@ -3,6 +3,10 @@ import type { Request, Response } from "express";
 import { IncidentCreateReqSchema, IncidentCreateResSchema } from "../../schemas/incidents";
 import type { IncidentCreateReq, IncidentCreateRes } from "../../../../shared/contracts/incidents";
 import { investigationStorage } from "../../../storage";
+import { getRcaRecommendation, mapFrequencyToRecurrence } from "../../../../client/src/lib/rca/decision";
+import type { Severity, Recurrence } from "../../../../client/src/lib/rca/decision";
+import { rcaTriage, insertRcaTriageSchema } from "../../../../shared/schema";
+import { z } from "zod";
 
 const router = Router();
 
@@ -78,6 +82,93 @@ router.post("/", async (req: Request, res: Response) => {
       error: { 
         code: "CREATION_FAILED", 
         message: error instanceof Error ? error.message : "Failed to create incident" 
+      }
+    });
+  }
+});
+
+/**
+ * POST /api/incidents/:id/triage
+ * Create or update RCA triage recommendation
+ * Body: { severity: 'Low'|'Medium'|'High', recurrence: 'Low'|'Medium'|'High' }
+ */
+router.post("/:id/triage", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const triageSchema = z.object({
+      severity: z.enum(['Low', 'Medium', 'High']),
+      recurrence: z.enum(['Low', 'Medium', 'High'])
+    });
+
+    const parsed = triageSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(422).json({
+        error: { 
+          code: "INVALID_REQUEST", 
+          message: "Invalid triage payload", 
+          issues: parsed.error.issues 
+        }
+      });
+    }
+
+    const { severity, recurrence } = parsed.data;
+    
+    // Get RCA recommendation from decision matrix
+    const rec = getRcaRecommendation(severity as Severity, recurrence as Recurrence);
+    
+    // Upsert triage data
+    const triageData = {
+      incidentId: String(id),
+      severity,
+      recurrence,
+      level: rec.level,
+      label: rec.label,
+      method: rec.method,
+      timebox: rec.timebox
+    };
+
+    // Use investigationStorage to handle database operations
+    // Note: Since this is a new table, we'll need to extend the storage interface
+    const saved = await investigationStorage.upsertRcaTriage(triageData);
+    
+    return res.json({ ...rec, saved: true });
+  } catch (error) {
+    console.error("[V1_INCIDENTS] Error creating/updating triage:", error);
+    return res.status(500).json({ 
+      error: { 
+        code: "TRIAGE_OPERATION_FAILED", 
+        message: "Failed to create/update triage" 
+      }
+    });
+  }
+});
+
+/**
+ * GET /api/incidents/:id/triage
+ * Retrieve RCA triage recommendation for incident
+ */
+router.get("/:id/triage", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const triage = await investigationStorage.getRcaTriage(String(id));
+    
+    if (!triage) {
+      return res.status(404).json({ 
+        error: { 
+          code: "TRIAGE_NOT_FOUND", 
+          message: "Triage not found for this incident" 
+        }
+      });
+    }
+    
+    return res.json(triage);
+  } catch (error) {
+    console.error("[V1_INCIDENTS] Error fetching triage:", error);
+    return res.status(500).json({ 
+      error: { 
+        code: "TRIAGE_FETCH_FAILED", 
+        message: "Failed to fetch triage" 
       }
     });
   }

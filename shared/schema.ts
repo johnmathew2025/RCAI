@@ -541,6 +541,29 @@ export const incidents = pgTable("incidents", {
 export type Incident = typeof incidents.$inferSelect;
 export type InsertIncident = typeof incidents.$inferInsert;
 
+// RCA Triage table - RCA Level Determination feature
+export const rcaTriage = pgTable("rca_triage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id").notNull().unique(),
+  severity: varchar("severity").notNull(), // 'Low', 'Medium', 'High'
+  recurrence: varchar("recurrence").notNull(), // 'Low', 'Medium', 'High'
+  level: integer("level").notNull(), // 1-5
+  label: text("label").notNull(),
+  method: text("method").notNull(),
+  timebox: text("timebox").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertRcaTriageSchema = createInsertSchema(rcaTriage).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertRcaTriage = z.infer<typeof insertRcaTriageSchema>;
+export type RcaTriage = typeof rcaTriage.$inferSelect;
+
 export const insertIncidentSchema = createInsertSchema(incidents).omit({
   id: true,
   createdAt: true,

@@ -376,7 +376,7 @@ export default function EvidenceChecklist() {
         evidenceItems 
       }, {
         onSuccess: () => {
-          setLocation(`/evidence-collection?incident=${incidentId}`);
+          setLocation(`/incidents/${incidentId}/rca-triage`);
         }
       });
     }

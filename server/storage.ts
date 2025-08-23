@@ -50,6 +50,9 @@ import {
   auditLogs,
   type AuditLog,
   type InsertAuditLog,
+  rcaTriage,
+  type RcaTriage,
+  type InsertRcaTriage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, like, and, or, sql } from "drizzle-orm";
@@ -197,6 +200,10 @@ export interface IInvestigationStorage {
   createHistoricalPattern(data: any): Promise<any>;
   findHistoricalPatterns(criteria: any): Promise<any[]>;
   updateHistoricalPattern(id: number, data: any): Promise<any>;
+  
+  // RCA Triage operations
+  upsertRcaTriage(data: InsertRcaTriage): Promise<RcaTriage>;
+  getRcaTriage(incidentId: string): Promise<RcaTriage | undefined>;
 }
 
 export class DatabaseInvestigationStorage implements IInvestigationStorage {
@@ -2667,6 +2674,51 @@ export class DatabaseInvestigationStorage implements IInvestigationStorage {
       
       console.log(`[DELETE AUDIT] AI setting ${settingId} permanently deleted`);
     });
+  }
+
+  // RCA Triage operations
+  async upsertRcaTriage(data: InsertRcaTriage): Promise<RcaTriage> {
+    try {
+      // First, try to find existing triage for this incident
+      const existing = await this.getRcaTriage(data.incidentId);
+      
+      if (existing) {
+        // Update existing record
+        const [updated] = await db
+          .update(rcaTriage)
+          .set({
+            ...data,
+            updatedAt: new Date()
+          })
+          .where(eq(rcaTriage.incidentId, data.incidentId))
+          .returning();
+        return updated;
+      } else {
+        // Insert new record
+        const [created] = await db
+          .insert(rcaTriage)
+          .values(data)
+          .returning();
+        return created;
+      }
+    } catch (error) {
+      console.error("[STORAGE] Error upserting RCA triage:", error);
+      throw error;
+    }
+  }
+
+  async getRcaTriage(incidentId: string): Promise<RcaTriage | undefined> {
+    try {
+      const [triage] = await db
+        .select()
+        .from(rcaTriage)
+        .where(eq(rcaTriage.incidentId, incidentId));
+      
+      return triage;
+    } catch (error) {
+      console.error("[STORAGE] Error fetching RCA triage:", error);
+      return undefined;
+    }
   }
 }
 
