@@ -1,0 +1,79 @@
+Non Negotiable Rules
+1.	❌ No hardcoded values (no fixed field contents, IDs, incident text, route strings, or storage keys).
+2.	✅ Use config/constants only for names, prefixes, and query keys. Put them in a single file and import everywhere.
+3.	✅ Reset logic must be deterministic and idempotent (safe to call multiple times).
+4.	✅ All changes must include automated and manual verification steps below.
+ 
+0) Centralize constants (single source of truth)
+Create client/src/config/incidentForm.ts:
+•	FORM_NAME_PREFIX = "incident-form" (string)
+•	LOCALSTORAGE_DRAFT_PREFIX = "incident:" (prefix only; do not enumerate keys)
+•	REACT_QUERY_KEYS = { incident: ["incident"], incidentDraft: ["incident-draft"] }
+•	DEFAULTS = { … } with empty values only (no user text, no examples)
+•	Export everything from this file; import wherever used.
+Rationale: prefixes and query keys come from one place; no scattered literals.
+ 
+1) Ensure a single startNewIncident (remove duplicates)
+•	In client/src/pages/incident-reporting.tsx, there must be one (1) exported startNewIncident function (or one local useCallback)—no re declarations.
+•	If a duplicate exists, delete it.
+Function responsibilities (no hardcoding):
+function startNewIncident() {
+  // A) Clear draft storage by PREFIX
+  // iterate localStorage keys; remove keys starting with LOCALSTORAGE_DRAFT_PREFIX
+
+  // B) Clear react-query caches using REACT_QUERY_KEYS
+  // removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+  // removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+
+  // C) Reset React Hook Form to DEFAULTS (empty)
+  // reset(DEFAULTS, { keepDirty:false, keepTouched:false, keepValues:false });
+
+  // D) Force a remount of the form subtree by bumping a stateful key
+  // setFormInstanceKey(Date.now());
+
+  // E) If the URL contains an edit identifier, strip it (replace to base route)
+  // (Use current location; do NOT hardcode strings—import route from a routes map if available)
+}
+Prohibitions: No explicit field names outside RHF registration, no fixed route strings in code (imported route map only), no enumerating localStorage keys (use prefix scan).
+ 
+2) Form must be resistant to browser auto restore (no data “sticking”)
+In the form component:
+•	RHF: shouldUnregister: true, defaultValues: DEFAULTS.
+•	<form> props:
+o	key={formInstanceKey} (from state bumped in startNewIncident)
+o	autoComplete="off", noValidate
+o	name={${FORM_NAME_PREFIX}-${formInstanceKey}}
+•	For all inputs/textarea/select: autoComplete="new-password" (standard neutral token).
+•	No default text anywhere—only placeholders and empty defaults.
+ 
+3) Route/state hygiene
+•	Detect edit mode strictly via a param (e.g., id) without hardcoding the param name: export EDIT_PARAM = "id"from the config or route layer.
+•	On mount:
+o	If no id: call startNewIncident() once.
+o	If id present: do not fetch in create flow; only edit flow fetches.
+ 
+4) Storage cleanup by prefix (no key lists)
+Implement a utility (no literals) in client/src/utils/storage.ts:
+export function removeLocalStorageByPrefix(prefix: string) {
+  const keys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(prefix)) keys.push(k);
+  }
+  keys.forEach((k) => localStorage.removeItem(k));
+}
+Use this inside startNewIncident() with LOCALSTORAGE_DRAFT_PREFIX.
+ 
+5) React Query: remove by imported keys only
+queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+No inline arrays or strings.
+ 
+6) Acceptance Tests (must pass)
+Automated (add a lightweight test where possible)
+•	Unit: removeLocalStorageByPrefix removes only matching keys.
+•	Component (JSDOM):
+o	Mount page → type values → call startNewIncident() → assert all fields === "".
+o	Assert <form name> contains FORM_NAME_PREFIX-<timestamp> and changes after each startNewIncident() call.
+o	Assert shouldUnregister removes inputs from DOM on unmount (query selectors return null after remount).
+

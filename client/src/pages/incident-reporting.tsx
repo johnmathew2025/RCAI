@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -20,6 +20,8 @@ import { showSmartToast, dismissToast } from "@/lib/smart-toast";
 import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
 import { getIncidentId } from "@/utils/getIncidentId";
 import type { CreateIncidentResponse } from '@/../../shared/types';
+import { FORM_NAME_PREFIX, LOCALSTORAGE_DRAFT_PREFIX, EDIT_PARAM, REACT_QUERY_KEYS, DEFAULTS } from "@/config/incidentForm";
+import { removeLocalStorageByPrefix } from "@/utils/storage";
 
 // Helper function: Convert datetime-local to ISO 8601 with timezone
 function localDatetimeToISO(dtLocal: string): string | undefined {
@@ -50,26 +52,20 @@ const incidentSchema = z.object({
   priority: z.enum(["Low", "Medium", "High", "Critical"]),
   immediateActions: z.string().optional(),
   safetyImplications: z.string().optional(),
-  // Enhanced AI Context Fields for better hypothesis generation
   operatingParameters: z.string().optional(),
   issueFrequency: z.enum(["First", "Recurring", "Unknown"]).optional(),
   issueSeverity: z.enum(["Low", "Medium", "High", "Critical"]).optional(),
   initialContextualFactors: z.string().optional(),
-  // Sequence of Events fields (NO HARDCODING)
   sequenceOfEvents: z.string().optional(),
   sequenceOfEventsFiles: z.array(z.string()).optional(),
-  // Regulatory/Compliance Impact fields (NO HARDCODING)
   reportableStatus: z.enum(["not_reportable", "reported", "not_yet_reported"]),
-  // Fields for "reported" status
   regulatoryAuthorityName: z.string().optional(),
   dateReported: z.string().optional(),
   reportReferenceId: z.string().optional(),
   complianceImpactSummary: z.string().optional(),
-  // Fields for "not_yet_reported" status
   plannedDateOfReporting: z.string().optional(),
   delayReason: z.string().optional(),
   intendedRegulatoryAuthority: z.string().optional(),
-  // Structured Timeline Data (NEW)
   timelineData: z.record(z.string()).optional(),
 }).refine((data) => {
   // Conditional validation for "reported" status
@@ -104,83 +100,40 @@ const incidentSchema = z.object({
 
 type IncidentForm = z.infer<typeof incidentSchema>;
 
-// Default form values - explicit null for equipment IDs (NO HARDCODING)
-const defaultFormValues: IncidentForm = {
-  title: "",
-  description: "",
-  equipment_group_id: null,
-  equipment_type_id: null,
-  equipment_subtype_id: null,
-  equipmentId: "",
-  manufacturer: "",
-  model: "",
-  location: "",
-  reportedBy: "",
-  incidentDateTime: "",
-  priority: "Medium",
-  immediateActions: "",
-  safetyImplications: "",
-  operatingParameters: "",
-  issueFrequency: undefined,
-  issueSeverity: undefined,
-  initialContextualFactors: "",
-  sequenceOfEvents: "",
-  sequenceOfEventsFiles: [],
-  reportableStatus: "not_reportable",
-  regulatoryAuthorityName: "",
-  dateReported: "",
-  reportReferenceId: "",
-  complianceImpactSummary: "",
-  plannedDateOfReporting: "",
-  delayReason: "",
-  intendedRegulatoryAuthority: "",
-  timelineData: {},
-};
-
 export default function IncidentReporting() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [timelineQuestions, setTimelineQuestions] = useState<any[]>([]);
   const [showTimeline, setShowTimeline] = useState(false);
   
-  // Form key for forcing remount when starting new incident (NO HARDCODING)
-  const [formKey, setFormKey] = useState(() => Date.now());
+  // Form instance key for forcing remount
+  const [formInstanceKey, setFormInstanceKey] = useState(() => Date.now());
   
-  // Detect if this is a new incident (no ID in route)
+  // Route/state hygiene - detect edit mode via param without hardcoding
   const [location] = useLocation();
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
-  const incidentId = urlParams.get('incident');
-  const isNewIncident = !incidentId;
+  const editId = urlParams.get(EDIT_PARAM);
+  const isNewIncident = !editId;
   
-  // Generate random nonce for field IDs to break browser autofill heuristics
-  const nonce = useMemo(() => Math.random().toString(36).slice(2,8), [formKey]);
-  
-  // Draft persistence configuration (no hardcoding)
+  // Draft persistence configuration
   const draftEnabled = import.meta.env.FORM_DRAFT_ENABLED !== 'false';
   const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
-  const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com'; // TODO: Get from auth context
-  const storageKey = `incidentDraft:${draftVersion}:${userEmail}`;
+  const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com';
+  const storageKey = `${LOCALSTORAGE_DRAFT_PREFIX}${draftVersion}:${userEmail}`;
   const draftTTLDays = parseInt(import.meta.env.VITE_DRAFT_TTL_DAYS || '7');
-  const draftTTL = draftTTLDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
-  const autosaveDelay = parseInt(import.meta.env.VITE_AUTOSAVE_DELAY_MS || '500'); // Configurable autosave delay
+  const draftTTL = draftTTLDays * 24 * 60 * 60 * 1000;
+  const autosaveDelay = parseInt(import.meta.env.VITE_AUTOSAVE_DELAY_MS || '500');
   
-  // Advanced browser autofill prevention configuration (NO HARDCODING)
-  const autofillPrevention = import.meta.env.VITE_FORM_AUTOFILL_PREVENTION || 'aggressive';
-  const dummyFieldCount = Number(import.meta.env.VITE_FORM_DUMMY_FIELD_COUNT) || 3;
-  const idRandomization = import.meta.env.VITE_FORM_ID_RANDOMIZATION !== 'false';
-  const clearDelay = Number(import.meta.env.VITE_FORM_CLEAR_DELAY) || 100;
-  const forceResetNewIncident = import.meta.env.VITE_FORM_FORCE_RESET_NEW_INCIDENT !== 'false';
-  
-  // Load saved draft with TTL check (no hardcoding) - BUT ONLY FOR EXISTING INCIDENTS
+  // Load saved draft with TTL check - BUT ONLY FOR EXISTING INCIDENTS
   const loadSavedDraft = () => {
-    if (!draftEnabled || isNewIncident) return {}; // Skip draft loading for new incidents
+    if (!draftEnabled || isNewIncident) return {};
     try {
       const saved = localStorage.getItem(storageKey);
       if (!saved) return {};
       
       const { data, savedAt } = JSON.parse(saved);
       if (Date.now() - savedAt > draftTTL) {
-        localStorage.removeItem(storageKey); // Expired draft
+        localStorage.removeItem(storageKey);
         return {};
       }
       return data;
@@ -189,92 +142,43 @@ export default function IncidentReporting() {
     }
   };
   
+  // Single startNewIncident function - deterministic and idempotent
+  const startNewIncident = useCallback(() => {
+    // A) Clear draft storage by PREFIX
+    removeLocalStorageByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
+    
+    // B) Clear react-query caches using REACT_QUERY_KEYS
+    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+    
+    // C) Reset React Hook Form to DEFAULTS (empty)
+    form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
+    
+    // D) Force a remount of the form subtree by bumping a stateful key
+    setFormInstanceKey(Date.now());
+    
+    // E) If the URL contains an edit identifier, strip it (replace to base route)
+    if (editId) {
+      setLocation('/incident-reporting');
+    }
+  }, [editId, setLocation]);
+  
   const form = useForm<IncidentForm>({
     resolver: zodResolver(incidentSchema),
     defaultValues: {
-      ...defaultFormValues,
-      ...(loadSavedDraft() as Partial<IncidentForm>), // Merge saved draft (only for existing incidents)
+      ...DEFAULTS,
+      ...(loadSavedDraft() as Partial<IncidentForm>),
     },
-    shouldUnregister: true, // Remove hidden fields from form state - critical for clean remount
+    shouldUnregister: true,
     mode: "onChange",
   });
   
-  // CRITICAL: Clean mount effect for new incidents
+  // On mount: detect edit mode strictly and call startNewIncident if new
   useEffect(() => {
     if (isNewIncident) {
-      console.debug("🆕 NEW INCIDENT DETECTED - Performing clean mount");
-      console.debug("isNew route:", isNewIncident);
-      console.debug("RHF values before reset:", form.getValues());
-      console.debug("Draft present:", !!localStorage.getItem(storageKey));
-      
-      // Clear any persisted state
-      localStorage.removeItem(storageKey);
-      queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false });
-      
-      // Force form reset to pristine defaults
-      form.reset(defaultFormValues);
-      
-      // Force remount to clear React Hook Form internal state
-      setFormKey(Date.now());
-      
-      console.debug("✅ Clean mount completed - form should be pristine");
+      startNewIncident();
     }
-  }, [isNewIncident, form, storageKey]);
-  
-  // Helper function to start a truly fresh incident (called from "Report New Incident" click)
-  const startNewIncident = () => {
-    console.debug("🆕 Starting truly fresh incident");
-    form.reset(defaultFormValues);    // hard reset values
-    setFormKey(Date.now());           // remount RHF to clear internal state
-    localStorage.removeItem(storageKey);
-    queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false });
-  };
-  
-  // ULTIMATE BROWSER AUTOFILL PREVENTION - Environment driven (NO HARDCODING)
-  const createAntiAutofillField = (baseId: string) => {
-    if (autofillPrevention === 'aggressive') {
-      const fields = [];
-      for (let i = 0; i < dummyFieldCount; i++) {
-        fields.push(
-          <input 
-            key={`dummy-${i}-${baseId}`}
-            type="text" 
-            style={{display:'none'}} 
-            autoComplete="off"
-            tabIndex={-1}
-            value=""
-            readOnly
-          />
-        );
-      }
-      return fields;
-    }
-    return [];
-  };
-  
-  // Dynamic form cleaner that runs after mount with configurable delay
-  useEffect(() => {
-    if (isNewIncident && forceResetNewIncident) {
-      const timeoutId = setTimeout(() => {
-        const formEl = document.querySelector('form[name*="incidentForm"]') as HTMLFormElement;
-        if (formEl) {
-          // Nuclear option: clear all form values via DOM manipulation
-          const inputs = formEl.querySelectorAll('input, textarea') as NodeListOf<HTMLInputElement | HTMLTextAreaElement>;
-          inputs.forEach((input) => {
-            if (input.type !== 'submit' && input.type !== 'button') {
-              input.value = '';
-              // Trigger React events to sync with form state
-              const event = new Event('input', { bubbles: true });
-              input.dispatchEvent(event);
-            }
-          });
-          console.debug(`✅ DOM-level form clear completed (${inputs.length} fields cleared)`);
-        }
-      }, clearDelay);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isNewIncident, forceResetNewIncident, clearDelay, formKey]);
+  }, [isNewIncident, startNewIncident]);
 
   // ID-BASED CASCADING DROPDOWN STATE
   const selectedGroupId = form.watch("equipment_group_id");
@@ -384,14 +288,6 @@ export default function IncidentReporting() {
     };
   }, [form, storageKey]);
 
-  // Fresh form initialization for new incidents (NO HARDCODING)
-  const startNewIncident = () => {
-    form.reset(defaultFormValues);
-    setFormKey(Date.now()); // Force remount to clear internal RHF state
-    if (draftEnabled) {
-      localStorage.removeItem(storageKey);
-    }
-  };
   
   // Bullet-proof cascading resets (NO HARDCODING)
   useEffect(() => {
@@ -513,8 +409,8 @@ export default function IncidentReporting() {
       // COMPREHENSIVE STATE CLEANUP after successful create
       localStorage.removeItem(storageKey); // Clear any drafts
       queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false }); // Clear draft queries
-      form.reset(defaultFormValues); // Reset form state
-      setFormKey(Date.now()); // Force remount for future new incidents
+      form.reset(DEFAULTS); // Reset form state
+      setFormInstanceKey(Date.now()); // Force remount for future new incidents
       queryClient.invalidateQueries({ queryKey: ["incidents", incidentId] });
       
       toast({
@@ -534,12 +430,9 @@ export default function IncidentReporting() {
     }
   };
 
-  // Reset form function (no hardcoding)
+  // Reset form function
   const resetForm = () => {
-    form.reset();
-    if (draftEnabled) {
-      localStorage.removeItem(storageKey);
-    }
+    startNewIncident();
     toast({
       title: "Form Reset",
       description: "All form data has been cleared",
@@ -611,12 +504,13 @@ export default function IncidentReporting() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Form {...form} key={formKey}>
+            <Form {...form} key={formInstanceKey}>
               <form 
                 onSubmit={form.handleSubmit(onSubmit)} 
                 className="space-y-6"
                 autoComplete="off"
-                name={`incidentForm-${formKey}`}
+                noValidate
+                name={`${FORM_NAME_PREFIX}-${formInstanceKey}`}
               >
                 {/* Incident Details - Field 1 */}
                 <FormField
@@ -626,19 +520,11 @@ export default function IncidentReporting() {
                     <FormItem>
                       <FormLabel>Incident Details</FormLabel>
                       <FormControl>
-                        <div>
-                          {/* Environment-driven anti-autofill fields */}
-                          {createAntiAutofillField(`incidentDetails-${nonce}`)}
-                          <Input 
-                            {...field} 
-                            id={idRandomization ? `incidentDetails-${nonce}` : 'incidentDetails'}
-                            name="title"
-                            autoComplete="off"
-                            autoCorrect="off"
-                            spellCheck={false}
-                            placeholder="e.g., Pump P-101 seal leak" 
-                          />
-                        </div>
+                        <Input 
+                          {...field} 
+                          autoComplete="new-password"
+                          placeholder="e.g., Pump P-101 seal leak" 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -653,20 +539,12 @@ export default function IncidentReporting() {
                     <FormItem>
                       <FormLabel>Initial Observations</FormLabel>
                       <FormControl>
-                        <div>
-                          {/* Environment-driven anti-autofill fields */}
-                          {createAntiAutofillField(`initialObservations-${nonce}`)}
-                          <Textarea 
-                            {...field} 
-                            id={idRandomization ? `initialObservations-${nonce}` : 'initialObservations'}
-                            name="description"
-                            autoComplete="off"
-                            autoCorrect="off"
-                            spellCheck={false}
-                            placeholder="Describe what was observed, when it was observed, and any initial symptoms..."
-                            rows={4}
-                          />
-                        </div>
+                        <Textarea 
+                          {...field} 
+                          autoComplete="new-password"
+                          placeholder="Describe what was observed, when it was observed, and any initial symptoms..."
+                          rows={4}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -708,20 +586,12 @@ export default function IncidentReporting() {
                     <FormItem>
                       <FormLabel>Operating Parameters at Incident Time</FormLabel>
                       <FormControl>
-                        <div>
-                          {/* Environment-driven anti-autofill fields */}
-                          {createAntiAutofillField(`operatingParameters-${nonce}`)}
-                          <Textarea 
-                            {...field} 
-                            id={idRandomization ? `operatingParameters-${nonce}` : 'operatingParameters'}
-                            name="operatingParameters"
-                            autoComplete="off"
-                            autoCorrect="off"
-                            spellCheck={false}
-                            placeholder="e.g., Temperature: 85°C, Pressure: 150 PSI, Flow: 200 GPM, RPM: 1750, Vibration: 2.5 mm/s"
-                            rows={2}
-                          />
-                        </div>
+                        <Textarea 
+                          {...field} 
+                          autoComplete="new-password"
+                          placeholder="e.g., Temperature: 85°C, Pressure: 150 PSI, Flow: 200 GPM, RPM: 1750, Vibration: 2.5 mm/s"
+                          rows={2}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -932,10 +802,7 @@ export default function IncidentReporting() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            id={`manufacturer-${nonce}`}
-                            autoComplete="off"
-                            autoCorrect="off"
-                            spellCheck={false}
+                            autoComplete="new-password"
                             placeholder="e.g., Siemens"
                             maxLength={100}
                             data-testid="input-manufacturer"
@@ -955,10 +822,7 @@ export default function IncidentReporting() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            id={`model-${nonce}`}
-                            autoComplete="off"
-                            autoCorrect="off"
-                            spellCheck={false}
+                            autoComplete="new-password"
                             placeholder="e.g., Simovert-M420"
                             maxLength={100}
                             data-testid="input-model"
@@ -981,10 +845,7 @@ export default function IncidentReporting() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            id={`equipmentId-${nonce}`}
-                            autoComplete="off"
-                            autoCorrect="off"
-                            spellCheck={false}
+                            autoComplete="new-password"
                             placeholder="e.g., P-101, M-205" 
                           />
                         </FormControl>
@@ -1008,10 +869,7 @@ export default function IncidentReporting() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            id={`location-${nonce}`}
-                            autoComplete="off"
-                            autoCorrect="off"
-                            spellCheck={false}
+                            autoComplete="new-password"
                             placeholder="e.g., Unit 1 Process Area" 
                           />
                         </FormControl>
@@ -1032,10 +890,7 @@ export default function IncidentReporting() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            id={`reportedBy-${nonce}`}
-                            autoComplete="off"
-                            autoCorrect="off"
-                            spellCheck={false}
+                            autoComplete="new-password"
                             placeholder="Your name" 
                           />
                         </FormControl>
@@ -1056,9 +911,8 @@ export default function IncidentReporting() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            id={`incidentDateTime-${nonce}`}
                             type="datetime-local"
-                            autoComplete="off"
+                            autoComplete="new-password"
                             max={new Date().toISOString().slice(0, 16)}
                           />
                         </FormControl>
@@ -1080,18 +934,12 @@ export default function IncidentReporting() {
                           Immediate Actions Taken
                         </FormLabel>
                         <FormControl>
-                          <div>
-                            <input type="text" style={{display:'none'}} autoComplete="off" />
-                            <Textarea 
-                              {...field} 
-                              id={`immediateActions-${nonce}`}
-                              autoComplete="off"
-                              autoCorrect="off"
-                              spellCheck={false}
-                              placeholder="Actions taken to secure the area, isolate equipment, etc..."
-                              rows={3}
-                            />
-                          </div>
+                          <Textarea 
+                            {...field} 
+                            autoComplete="new-password"
+                            placeholder="Actions taken to secure the area, isolate equipment, etc..."
+                            rows={3}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
