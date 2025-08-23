@@ -1,0 +1,48 @@
+Observation: Clearing cookies makes a new tab blank ⇒ the app is restoring the previous incident from server session / draft cookie / SSR. Stop all implicit server-side hydration for the create flow.
+Requirements (server)
+No implicit injection on create route
+Remove any SSR/HTML injection of last incident/draft for /incident-reporting.
+Do not set values into res.locals, __INITIAL_STATE__, or cookies that the client auto-reads on page load.
+Gate draft/last endpoints
+Endpoints that return a user’s “last incident/draft” must require explicit opt-in:
+Query ?draft=1 or header X-Restore-Draft: 1.
+Without opt-in, return 204 No Content (no payload).
+Config flags (centralized)
+In config/incidentForm.ts (or server config):
+export const PERSIST_DRAFTS_SERVER = false (default).
+Use only config values—no magic strings.
+Draft clearing endpoint
+Implement DELETE /api/v1/incidents/draft to clear any server-side draft tied to the session.
+Cache headers
+For the create route HTML/JSON: Cache-Control: no-store, no-cache, must-revalidate.
+Requirements (client)
+Create vs Edit gating
+isEdit = !!searchParams.get('id')
+wantsDraft = searchParams.get('draft') === '1'
+If !isEdit && !wantsDraft && !PERSIST_DRAFTS ⇒ do not fetch any “last/draft/me” data.
+No implicit reads
+Remove/guard any boot-time fetch that pulls server session/draft data for create mode.
+Start New Incident
+In addition to local/sessionStorage purge-by-prefix, call DELETE /api/v1/incidents/draft (fire-and-forget).
+Form control (keep)
+All Step-1 fields controlled via RHF Controller with empty DEFAULTS from config.
+Keep useLayoutEffect purge (local+session by prefix), pageshow handler, no timers/decoys.
+No hardcoded field values anywhere; only centralized config/constants.
+Forbidden
+❌ Any hardcoded field names/values/IDs/keys/routes.
+❌ Decoy inputs, timers, progressive clears.
+❌ Auto-restore of last/draft without explicit opt-in.
+Verification (must show evidence)
+Network proof (new tab → /incident-reporting)
+No response payload contains prior incident text unless ?draft=1 or X-Restore-Draft: 1.
+Share a screenshot of the Network panel with responses expanded.
+Behavior
+New tab to /incident-reporting ⇒ all fields blank immediately (no flicker).
+Refresh/back/forward ⇒ still blank (create mode).
+Add ?draft=1 ⇒ draft loads; remove it ⇒ blank again.
+Click “Start New Incident” ⇒ calls DELETE /api/v1/incidents/draft; subsequent new tab is blank.
+Grep checks (paste results)
+rg -n "draft|latest|__INITIAL_STATE__|res\\.locals|res\\.cookie|express-session" server
+rg -n "draft|latest" client
+rg -n "PERSIST_DRAFTS_SERVER|PERSIST_DRAFTS" .
+DoD: New tab to /incident-reporting shows a blank form and Network shows zero prior-incident payloads unless ?draft=1 (or X-Restore-Draft: 1) is provided. No hardcoding anywhere—only config prefixes/flags/constants.
