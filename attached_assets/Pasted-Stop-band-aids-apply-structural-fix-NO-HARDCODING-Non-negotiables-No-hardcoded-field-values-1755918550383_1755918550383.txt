@@ -1,0 +1,57 @@
+Stop band aids, apply structural fix (NO HARDCODING)
+Non negotiables
+•	❌ No hardcoded field values, IDs, routes, or localStorage keys.
+•	❌ No decoy inputs, no timed “clearers”, no interval loops.
+•	✅ Single source of truth in config, deterministic reset, fresh mount.
+1) Centralize config (one file)
+Create client/src/config/incidentForm.ts and export:
+•	FORM_NAME_PREFIX = "incident-form"
+•	LOCALSTORAGE_DRAFT_PREFIX = "incident:"
+•	EDIT_PARAM = "id"
+•	REACT_QUERY_KEYS = { incident: ["incident"], incidentDraft: ["incident-draft"] }
+•	DEFAULTS = { … } → all fields empty only.
+All literals must be imported from this file. Reject any inline duplicates.
+2) One reset path only — startNewIncident()
+In client/src/pages/incident-reporting.tsx keep exactly one startNewIncident (use useCallback). It must:
+A) Purge drafts by prefix (no key lists):
+for (let i = 0; i < localStorage.length; i++) {
+  const k = localStorage.key(i);
+  if (k && k.startsWith(LOCALSTORAGE_DRAFT_PREFIX)) localStorage.removeItem(k);
+}
+B) Clear react query caches using imported keys:
+queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+C) Reset React Hook Form to DEFAULTS (empty), with:
+reset(DEFAULTS, { keepDirty:false, keepTouched:false, keepValues:false });
+D) Force a fresh mount:
+setFormInstanceKey(Date.now());
+E) Strip edit state: if URL has EDIT_PARAM, navigate to the base create route with replace:true. Do not hardcode the path—use your route map/import.
+3) Form implementation (defeat browser restore without hacks)
+•	RHF form options: shouldUnregister:true, defaultValues:DEFAULTS.
+•	<form>: key={formInstanceKey}, autoComplete="off", noValidate, name={${FORM_NAME_PREFIX}-${formInstanceKey}}.
+•	All inputs/textarea/select: autoComplete="new-password".
+•	No default text anywhere (placeholders only).
+•	Remove any decoy inputs, timeouts, intervals, or “progressive clearing”.
+4) Mount logic and new tab/session restore
+•	On mount: if no EDIT_PARAM, call startNewIncident() once.
+•	Add a single pageshow handler (no timers) to catch session restore:
+useEffect(() => {
+  const onPageShow = (e: PageTransitionEvent) => {
+    if (e.persisted) startNewIncident();
+  };
+  window.addEventListener("pageshow", onPageShow);
+  return () => window.removeEventListener("pageshow", onPageShow);
+}, [startNewIncident]);
+5) Acceptance criteria (Definition of Done)
+•	No “Cannot redeclare … startNewIncident” or any console errors.
+•	Opening /incident-reporting in a new tab shows all fields blank immediately (no flicker, no 200ms/500ms/1s clears).
+•	Hitting refresh or navigating back/forward keeps fields blank in create mode.
+•	Edit flow (?id=<value>) loads values; switching to create (no id) clears to blank.
+•	Grep/code search shows no decoy inputs, no setTimeout/setInterval used for form clearing, no hardcoded keys or routes.
+•	Unit test for removeLocalStorageByPrefix (removes only matching keys).
+6) Deliverables
+•	config/incidentForm.ts (constants + empty DEFAULTS)
+•	Updated incident-reporting.tsx implementing steps 2–4
+•	Removal of any prior decoy/timer code
+•	Short screencap: new tab open → fields blank; edit → populated; back to create → blank
+Reject any patch that relies on timers, invisible fields, or magic strings. The fix must be structural and idempotent.
