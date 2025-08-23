@@ -1,0 +1,60 @@
+1.	Purge both storages by prefix pre-paint (not just localStorage).
+// utils/storage.ts
+export function removeByPrefix(storage: Storage, prefix: string) {
+  const rm: string[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const k = storage.key(i);
+    if (k && k.startsWith(prefix)) rm.push(k);
+  }
+  rm.forEach((k) => storage.removeItem(k));
+}
+export function purgeAllDrafts(prefix: string) {
+  try { removeByPrefix(window.localStorage, prefix); } catch {}
+  try { removeByPrefix(window.sessionStorage, prefix); } catch {}
+}
+2.	Call it before first paint and also on pageshow restores:
+// incident-reporting.tsx
+useLayoutEffect(() => {
+  if (isEditMode) return;
+  purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);                     // <-- includes sessionStorage
+  queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+  queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+
+  formRef.current?.reset();                                      // native DOM reset
+  reset(DEFAULTS, { keepDirty:false, keepTouched:false, keepValues:false });
+  setFormKey(Date.now());                                        // remount
+}, [isEditMode, reset, queryClient]);
+
+useEffect(() => {
+  const onPageShow = (e: PageTransitionEvent) => {
+    if (!isEditMode && e.persisted) {
+      purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
+      formRef.current?.reset();
+      reset(DEFAULTS, { keepDirty:false, keepTouched:false, keepValues:false });
+      setFormKey(Date.now());
+    }
+  };
+  window.addEventListener("pageshow", onPageShow);
+  return () => window.removeEventListener("pageshow", onPageShow);
+}, [isEditMode, reset]);
+3.	Prevent opener cloning wherever you open tabs from your app (Replit’s own button you can’t change, but your links/buttons should do this):
+<Link to="/incident-reporting" target="_blank" rel="noopener noreferrer">Report Incident</Link>
+// or
+window.open('/incident-reporting', '_blank', 'noopener');
+4.	Nuclear, generic DOM wipe (still no hardcoding) — belt-and-suspenders before paint:
+if (formRef.current) {
+  formRef.current.querySelectorAll('input, textarea, select').forEach((el) => {
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.value = '';
+    if (el instanceof HTMLSelectElement) el.selectedIndex = 0;
+  });
+}
+This doesn’t name any fields; it just clears whatever is present in the form.
+5.	(Optional) Add a tiny root effect to disable BFCache on Safari only:
+useEffect(() => {
+  const noop = () => {};
+  window.addEventListener('unload', noop);   // reduces Safari BFCache restores
+  return () => window.removeEventListener('unload', noop);
+}, []);
+6.	Absolutely block reads in create mode. Any code that hydrates from storage/query must be guarded:
+if (!isEditMode /* or !PERSIST_DRAFTS */) return;   // don’t read anything in create flow
+

@@ -137,6 +137,14 @@ export default function IncidentReporting() {
     queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
     queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
 
+    // nuclear, generic DOM wipe (belt-and-suspenders before paint)
+    if (formRef.current) {
+      formRef.current.querySelectorAll('input, textarea, select').forEach((el) => {
+        if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.value = '';
+        if (el instanceof HTMLSelectElement) el.selectedIndex = 0;
+      });
+    }
+
     // reset native + RHF and remount
     formRef.current?.reset();
     form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
@@ -149,6 +157,15 @@ export default function IncidentReporting() {
       const isEdit = new URLSearchParams(search).has(EDIT_PARAM);
       if (!isEdit && e.persisted) {
         purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
+        
+        // nuclear, generic DOM wipe
+        if (formRef.current) {
+          formRef.current.querySelectorAll('input, textarea, select').forEach((el) => {
+            if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.value = '';
+            if (el instanceof HTMLSelectElement) el.selectedIndex = 0;
+          });
+        }
+        
         formRef.current?.reset();
         form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
         setFormKey(Date.now());
