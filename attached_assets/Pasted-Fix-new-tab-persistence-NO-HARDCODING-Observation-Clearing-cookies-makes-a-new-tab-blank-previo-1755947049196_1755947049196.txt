@@ -1,0 +1,42 @@
+Fix new-tab persistence (NO HARDCODING)
+Observation: Clearing cookies makes a new tab blank ⇒ previous data is being restored from origin storage and/or server session. Stop all implicit rehydration in the create flow.
+1) Pre-bundle purge (runs before React or any persist lib)
+Add to index.html before your app bundle. No field names—only a configurable prefix.
+<meta name="app-ls-prefix" content="incident:">
+<script>
+(function () {
+  try {
+    var p = (document.querySelector('meta[name="app-ls-prefix"]')?.content) || '';
+    // localStorage
+    try {
+      var rm=[]; for (var i=0;i<localStorage.length;i++){var k=localStorage.key(i); if(k&&k.indexOf(p)===0) rm.push(k)}
+      rm.forEach(function(k){ localStorage.removeItem(k) });
+    } catch(e){}
+    // sessionStorage
+    try {
+      var rm2=[]; for (var j=0;j<sessionStorage.length;j++){var k2=sessionStorage.key(j); if(k2&&k2.indexOf(p)===0) rm2.push(k2)}
+      rm2.forEach(function(k){ sessionStorage.removeItem(k) });
+    } catch(e){}
+  } catch(e){}
+})();
+</script>
+2) Server: eliminate cookie/session-driven rehydrate for create
+No SSR/HTML injection of last incident for /incident-reporting.
+Draft/last endpoints require explicit opt-in: ?draft=1 or header X-Restore-Draft: 1. Without opt-in → 204 No Content.
+Config flag (centralized): PERSIST_DRAFTS_SERVER=false (default).
+Add DELETE /api/v1/incidents/draft to clear server draft tied to the session.
+Set Cache-Control: no-store, no-cache, must-revalidate on create route responses.
+3) Client: never read server state in create mode
+const isEdit = !!searchParams.get('id'); const wantsDraft = searchParams.get('draft')==='1';
+If !isEdit && !wantsDraft && !PERSIST_DRAFTS ⇒ do not fetch “last/draft/me” data.
+“Start New Incident” also calls DELETE /api/v1/incidents/draft (fire-and-forget).
+Keep Step-1 fields controlled via RHF Controller with empty DEFAULTS from config; keep pageshow handler. No timers/decoys.
+Forbidden
+❌ Any hardcoded field values/IDs/keys/routes.
+❌ Implicit draft restore on page load.
+Definition of Done (show evidence)
+Network (new tab → /incident-reporting): no response body contains prior incident text unless ?draft=1 or X-Restore-Draft: 1.
+Storage (Application panel): before the app renders, there are no keys with the configured prefix in Local/Session Storage.
+Behavior: new tab/refresh/back-forward show blank form in create; ?draft=1 loads draft; removing it returns to blank.
+Start New Incident: calls DELETE /api/v1/incidents/draft and subsequent new tab is blank.
+Zero hardcoding: only use centralized config (prefix/flags).
