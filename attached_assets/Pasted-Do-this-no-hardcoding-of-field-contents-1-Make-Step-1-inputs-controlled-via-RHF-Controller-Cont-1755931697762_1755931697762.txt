@@ -1,0 +1,75 @@
+Do this (no hardcoding of field contents)
+1) Make Step-1 inputs controlled via RHF Controller
+Controlled inputs set the DOM value on the first render, which overrides any restored value. Keep your existing purge/wipe, but make the fields controlled so React dictates the value from "" (the empty defaults), not the browser.
+// incident-reporting.tsx
+import { useForm, Controller } from "react-hook-form";
+import { DEFAULTS } from "@/config/incidentForm";
+
+type FormValues = typeof DEFAULTS;
+
+const form = useForm<FormValues>({
+  defaultValues: DEFAULTS,          // all empty strings / nulls only
+  mode: "onSubmit",
+  shouldUnregister: true,
+});
+
+// Example fields — repeat for all Step-1 inputs
+<Controller
+  name="incidentDetails"
+  control={form.control}
+  defaultValue=""                   // from DEFAULTS, not a literal inline if you prefer
+  render={({ field }) => (
+    <input {...field} autoComplete="off" placeholder="Describe the incident…" />
+  )}
+/>
+
+<Controller
+  name="initialObservations"
+  control={form.control}
+  defaultValue=""
+  render={({ field }) => (
+    <textarea {...field} autoComplete="off" placeholder="Initial observations…" />
+  )}
+/>
+
+<Controller
+  name="priority"
+  control={form.control}
+  defaultValue=""
+  render={({ field }) => (
+    <select {...field} autoComplete="off">
+      <option value="">Select priority</option>
+      <option value="Low">Low</option>
+      <option value="Medium">Medium</option>
+      <option value="High">High</option>
+    </select>
+  )}
+/>
+Why this works: with uncontrolled inputs (register), the browser’s restored value can “win” until you reset. With controlled inputs, React writes value="" on the first commit, overriding the restored value before the user sees it.
+This does not violate your no-hardcoding rule: the values come from DEFAULTS (centralized config), not literals sprinkled in the code.
+2) Keep the structural protections you already added
+•	Purge both localStorage and sessionStorage by prefix pre-paint (useLayoutEffect).
+•	pageshow handler to handle BFCache restores.
+•	key remount + unique form name.
+•	Guard all reads from storage/query in create mode (!isEditMode and/or !PERSIST_DRAFTS).
+•	Use rel="noopener noreferrer" when your app opens a new tab (you can’t control Replit’s button, but control your own links).
+3) Prove it with one quick check
+Right after the first render, log values for a controlled field:
+useLayoutEffect(() => {
+  const el = document.querySelector('[name="incidentDetails"]') as HTMLInputElement | null;
+  console.info('first-render incidentDetails value =', el?.value); // must be ''
+}, []);
+If it prints "" and the UI still shows old text, there’s another uncontrolled writer setting it. Grep and remove/guard any offenders:
+rg -n --hidden --glob '!node_modules' \
+  -e 'sessionStorage' -e 'localStorage' \
+  -e 'setValue\\(' -e 'reset\\(' -e '<Controller' -e 'value=' -e 'defaultValue=' \
+  -e 'setQueryData' -e 'zustand' -e 'redux-persist' client/src
+Anything that writes Step-1 values in create mode must be removed or wrapped with if (isEditMode) return;.
+ 
+Definition of Done 
+•	Open /incident-reporting in a brand-new tab → all fields blank immediately (no flicker).
+•	Refresh → stays blank.
+•	Back/forward → stays blank (pageshow handler + controlled values).
+•	Edit mode (?id=…) still loads data; removing ?id clears to blank.
+•	No timers, no decoys, no magic strings; defaults come from config/incidentForm.ts.
+
