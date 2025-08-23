@@ -1,0 +1,64 @@
+Final fix to stop “new tab” sticking (zero hardcoding)
+1) Purge both storages by prefix (before paint)
+Create/replace client/src/utils/storage.ts:
+export function removeByPrefix(storage: Storage, prefix: string) {
+  const rm: string[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const k = storage.key(i);
+    if (k && k.startsWith(prefix)) rm.push(k);
+  }
+  rm.forEach((k) => storage.removeItem(k));
+}
+
+export function purgeAllDrafts(prefix: string) {
+  try { removeByPrefix(window.localStorage, prefix); } catch {}
+  try { removeByPrefix(window.sessionStorage, prefix); } catch {}
+}
+Use the existing prefix from config (no literals).
+2) Call purge pre-paint on the incident page
+In incident-reporting.tsx (or equivalent), inside your current useLayoutEffect:
+import { purgeAllDrafts } from "@/utils/storage";
+import { LOCALSTORAGE_DRAFT_PREFIX, REACT_QUERY_KEYS, DEFAULTS, EDIT_PARAM } from "@/config/incidentForm";
+
+// ...
+useLayoutEffect(() => {
+  const isEdit = new URLSearchParams(search).has(EDIT_PARAM);
+  if (isEdit) return;
+
+  // purge both storages before first paint
+  purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
+
+  // clear caches
+  queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+  queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+
+  // reset native + RHF and remount
+  formRef.current?.reset();
+  reset(DEFAULTS, { keepDirty:false, keepTouched:false, keepValues:false });
+  setFormKey(Date.now());
+}, [search, queryClient, reset]);
+Keep your existing pageshow handler; call purgeAllDrafts(...) there too.
+3) Absolutely block any read from session/local storage in create mode
+Wherever drafts are hydrated, hard-guard with edit mode:
+const isEdit = params.has(EDIT_PARAM);
+if (!isEdit /* or !PERSIST_DRAFTS */) return; // do not read from any storage
+(Use your existing PERSIST_DRAFTS flag; default should be false.)
+4) Stop cloning via opener (no data copy to new tab)
+Where the app opens /incident-reporting in a new tab, ensure rel="noopener noreferrer":
+<Link to="/incident-reporting" target="_blank" rel="noopener noreferrer">Report Incident</Link>
+If you use window.open, pass 'noopener' in the features string.
+5) Prove it (quick checks)
+•	In the old tab, open DevTools → Application → Session Storage. Note any keys with your prefix.
+•	Open new tab to /incident-reporting. Before interacting, check Session Storage again:
+o	After useLayoutEffect, there should be no keys with the prefix.
+•	Console should show no write-lock errors and no setValue calls in create mode.
+6) One grep to catch stragglers
+Run and delete/guard anything that writes/reads Step-1 fields or any storage:
+rg -n --hidden --glob '!node_modules' \
+  -e 'sessionStorage' -e 'localStorage' \
+  -e 'setValue\\(' -e 'reset\\(' \
+  -e '<Controller' -e 'value=' -e 'defaultValue=' \
+  -e 'persist' -e 'zustand' -e 'redux-persist' \
+  client/src
+Any draft/persist lib configured with sessionStorage must be disabled for create mode (behind PERSIST_DRAFTS).
+
