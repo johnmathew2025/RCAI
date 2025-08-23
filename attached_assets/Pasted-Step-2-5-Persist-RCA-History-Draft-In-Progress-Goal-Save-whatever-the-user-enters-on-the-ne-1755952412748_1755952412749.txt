@@ -1,0 +1,66 @@
+Step 2.5 — Persist “RCA History” (Draft → In-Progress)
+Goal: Save whatever the user enters on the new-incident flow as a retrievable RCA History row; update it on each step and when triage begins.
+1) DB schema (Prisma; use SQL if you don’t use Prisma)
+Prisma schema.prisma
+enum RcaStatus { DRAFT IN_PROGRESS CLOSED CANCELLED }
+
+model RcaHistory {
+  id          String    @id @default(cuid())
+  incidentId  String    @unique
+  status      RcaStatus @default(DRAFT)
+  lastStep    Int       @default(1) // 1..8 based on wizard
+  summary     String?   // e.g., "Pump seal leak – P101A"
+  payload     Json      // raw snapshot of form fields (details, equipment, severity, frequency, etc.)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // optional relation if Incident model exists:
+  // incident    Incident  @relation(fields: [incidentId], references: [id])
+}
+Run: npx prisma migrate dev -n add_rca_history
+If using raw SQL instead
+CREATE TABLE IF NOT EXISTS rca_history (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  incident_id  varchar(64) NOT NULL UNIQUE,
+  status       varchar(12) NOT NULL CHECK (status IN ('DRAFT','IN_PROGRESS','CLOSED','CANCELLED')) DEFAULT 'DRAFT',
+  last_step    integer NOT NULL DEFAULT 1,
+  summary      text,
+  payload      jsonb NOT NULL,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+2) API endpoints
+UPSERT draft on each step
+PUT /api/incidents/:id/history
+body: {
+  lastStep: number,            // 1..8
+  status?: 'DRAFT'|'IN_PROGRESS'|'CLOSED'|'CANCELLED',
+  summary?: string,            // optional user-friendly title
+  payload: { ...all current form fields... } // see Step 1–3 fields
+}
+returns: { ok: true }
+Implementation: upsert by incidentId. On create, default status='DRAFT'.
+payload should include the Step 1–3 values you already collect (Incident Details, Initial Observations, Issue Severity/Frequency, Equipment group/type/subtype, tags, actions, attachments, etc.).
+Transition to IN_PROGRESS when triage starts
+POST /api/incidents/:id/triage/start
+effects:
+  - set rca_history.status = 'IN_PROGRESS'
+  - (re)compute and store rca_triage via the Step 2P endpoint
+returns: { ok: true, triage: { level, method, timebox } }
+(If you already built POST /api/incidents/:id/triage, just call that and then PUT .../history to set status='IN_PROGRESS'.)
+Get history for resume
+GET /api/incidents/:id/history
+returns: { incidentId, status, lastStep, summary, payload, updatedAt }
+3) Frontend wiring
+On each wizard step (Steps 1–3), call:
+PUT /api/incidents/:id/history on Next, Back, and a 10s autosave timer (debounced).
+Pass { lastStep, payload: formValues, summary }.
+Example summary: ${formValues.incidentDetails} – ${formValues.equipmentId || formValues.location || ''}.
+After Evidence Collection, when navigating to /incidents/:id/rca-triage, do not lose the draft:
+On “Start Recommended”, call POST /api/incidents/:id/triage (from Step 2P) then POST /api/incidents/:id/triage/start (or PUT .../history with status='IN_PROGRESS').
+Add a “RCA Cases” list (can be a simple page for now) that fetches GET /api/incidents?status=DRAFT|IN_PROGRESS or just queries rca_history and shows:
+Summary, status chip, last updated, and a Resume link to the step (/incidents/:id/step/${lastStep} or /incidents/:id/rca-triage if IN_PROGRESS).
+4) Acceptance checks
+Start a new incident; enter fields (e.g., Incident Details, Severity, Frequency, Equipment). Navigate between steps: record exists in rca_history with status='DRAFT', lastStep updates, and payload reflects entries.
+Click “Start Recommended” on RCA triage: rca_history.status becomes IN_PROGRESS and rca_triage row exists (from Step 2P).
+Refresh/reopen app: the RCA Cases list shows the case; clicking Resume restores you to the right page with the saved data.
