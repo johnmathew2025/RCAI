@@ -11,6 +11,7 @@ export const REACT_QUERY_KEYS = {
 } as const;
 
 export const PERSIST_DRAFTS = false; // Default: no draft persistence in create mode
+export const PERSIST_DRAFTS_SERVER = false; // Default: no implicit server restoration
 
 // Empty defaults only - no user text, no examples
 export const DEFAULTS = {

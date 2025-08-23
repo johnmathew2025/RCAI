@@ -18,9 +18,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { startVersionWatcher } from "@/lib/version-watch";
 import { showSmartToast, dismissToast } from "@/lib/smart-toast";
 import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
-import { createIncident } from "@/api/incidents";
+import { createIncident, clearDraft } from "@/api/incidents";
 import type { CreateIncidentResponse } from '@/../../shared/types';
-import { FORM_NAME_PREFIX, LOCALSTORAGE_DRAFT_PREFIX, EDIT_PARAM, REACT_QUERY_KEYS, DEFAULTS } from "@/config/incidentForm";
+import { FORM_NAME_PREFIX, LOCALSTORAGE_DRAFT_PREFIX, EDIT_PARAM, REACT_QUERY_KEYS, DEFAULTS, PERSIST_DRAFTS_SERVER } from "@/config/incidentForm";
 import { purgeAllDrafts } from "@/utils/storage";
 
 // Helper function: Convert datetime-local to ISO 8601 with timezone
@@ -111,6 +111,9 @@ export default function IncidentReporting() {
   // Route/state hygiene - detect edit mode via param  
   const [location] = useLocation();
   const search = location.split('?')[1] || '';
+  const searchParams = new URLSearchParams(search);
+  const isEdit = searchParams.has(EDIT_PARAM);
+  const wantsDraft = searchParams.get('draft') === '1';
   const isEditMode = useMemo(() => new URLSearchParams(search).has(EDIT_PARAM), [search]);
 
   // Initialize form - controlled inputs via Controller
@@ -128,26 +131,27 @@ export default function IncidentReporting() {
 
   // Pre-paint purge & preparation - form doesn't mount until complete
   useLayoutEffect(() => {
-    const isEdit = new URLSearchParams(search).has(EDIT_PARAM);
-    
-    // For create mode only
-    if (!isEdit) {
+    // For create mode only (no implicit draft restoration)
+    if (!isEdit && !wantsDraft && !PERSIST_DRAFTS_SERVER) {
       // 1) Purge both storages by prefix (no key lists)
       purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
 
-      // 2) Clear caches
+      // 2) Clear server-side draft (fire-and-forget)
+      clearDraft();
+
+      // 3) Clear caches
       queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
       queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
 
-      // 3) Ensure pristine values and a fresh form subtree
+      // 4) Ensure pristine values and a fresh form subtree
       formRef.current?.reset();
       form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
       setFormKey(Date.now());
     }
     
-    // 4) Only now allow the form to mount
+    // 5) Only now allow the form to mount
     setReady(true);
-  }, [search, queryClient, form.reset]);
+  }, [isEdit, wantsDraft, search, queryClient, form.reset]);
 
   // Diagnostic logging - check first render values
   useLayoutEffect(() => {
@@ -157,9 +161,9 @@ export default function IncidentReporting() {
   // BFCache / session restore
   useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {
-      const isEdit = new URLSearchParams(search).has(EDIT_PARAM);
-      if (!isEdit && e.persisted) {
+      if (!isEdit && e.persisted && !wantsDraft) {
         purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
+        clearDraft(); // Clear server draft on BFCache restore
         formRef.current?.reset();
         form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
         setFormKey(Date.now());
@@ -167,7 +171,7 @@ export default function IncidentReporting() {
     };
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
-  }, [search, form.reset]);
+  }, [isEdit, wantsDraft, search, form.reset]);
 
   // Optional: disable BFCache for Safari (no hardcoding)
   useEffect(() => {
@@ -311,6 +315,7 @@ export default function IncidentReporting() {
       
       // Post-submit cleanup
       purgeDraftsByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
+      clearDraft(); // Clear server draft after successful creation
       queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
       form.reset(DEFAULTS);
       setFormKey(Date.now());
@@ -333,9 +338,10 @@ export default function IncidentReporting() {
     }
   };
 
-  // Reset form function
+  // Reset form function (Start New Incident)
   const resetForm = () => {
     purgeDraftsByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
+    clearDraft(); // Clear server-side draft
     queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
     queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
     formRef.current?.reset();
