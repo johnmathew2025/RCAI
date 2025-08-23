@@ -12,9 +12,9 @@ export interface IncidentCreateReq {
   immediateActions?: string;
   safetyImplications?: string;
   operatingParameters?: string;
-  equipment_group_id?: number;
-  equipment_type_id?: number;
-  equipment_subtype_id?: number;
+  equipment_group_id?: number | null;
+  equipment_type_id?: number | null;
+  equipment_subtype_id?: number | null;
   reportableStatus?: string;
   intendedRegulatoryAuthority?: string;
 }
