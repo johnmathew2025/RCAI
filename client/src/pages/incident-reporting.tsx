@@ -165,7 +165,7 @@ export default function IncidentReporting() {
   
   const form = useForm<IncidentForm>({
     resolver: zodResolver(incidentSchema),
-    defaultValues: {
+    defaultValues: isNewIncident ? DEFAULTS : {
       ...DEFAULTS,
       ...(loadSavedDraft() as Partial<IncidentForm>),
     },
@@ -173,12 +173,71 @@ export default function IncidentReporting() {
     mode: "onChange",
   });
   
-  // On mount: detect edit mode strictly and call startNewIncident if new
+  // On mount: Aggressive browser form state clearing for new incidents
   useEffect(() => {
     if (isNewIncident) {
+      // Clear ALL browser form storage mechanisms immediately
+      try {
+        // Clear sessionStorage entries that might contain form data
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.includes('incident') || key.includes('form')) {
+            sessionStorage.removeItem(key);
+          }
+        });
+        
+        // Clear any browser form restoration data
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+          if (form) {
+            form.reset();
+            // Force clear all inputs
+            const inputs = form.querySelectorAll('input, textarea, select');
+            inputs.forEach(input => {
+              if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
+                input.value = '';
+                input.defaultValue = '';
+              }
+              if (input instanceof HTMLSelectElement) {
+                input.selectedIndex = -1;
+              }
+            });
+          }
+        });
+      } catch (error) {
+        console.warn('Browser form state clearing had issues:', error);
+      }
+      
       startNewIncident();
     }
   }, [isNewIncident, startNewIncident]);
+  
+  // Runtime form clearing - runs after render to catch any browser restoration
+  useEffect(() => {
+    if (isNewIncident) {
+      const timeoutId = setTimeout(() => {
+        // Force clear form values after browser has had time to restore them
+        const currentForm = document.querySelector(`form[name="${FORM_NAME_PREFIX}-${formInstanceKey}"]`);
+        if (currentForm) {
+          const realInputs = currentForm.querySelectorAll('input[name="title"], textarea[name="description"], textarea[name="operatingParameters"]');
+          realInputs.forEach(input => {
+            if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
+              if (input.value && input.value.trim()) {
+                input.value = '';
+                // Trigger React Hook Form to update
+                const event = new Event('input', { bubbles: true });
+                input.dispatchEvent(event);
+              }
+            }
+          });
+          
+          // Also force React Hook Form reset
+          form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
+        }
+      }, 100); // Small delay to let browser restoration complete first
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formInstanceKey, isNewIncident, form]);
 
   // ID-BASED CASCADING DROPDOWN STATE
   const selectedGroupId = form.watch("equipment_group_id");
@@ -511,7 +570,17 @@ export default function IncidentReporting() {
                 autoComplete="off"
                 noValidate
                 name={`${FORM_NAME_PREFIX}-${formInstanceKey}`}
+                data-lpignore="true"
+                data-form-type="other"
               >
+                {/* Anti-autofill decoy inputs - invisible to users but confuses browser */}
+                <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
+                  <input type="text" name="fake_username" tabIndex={-1} autoComplete="username" />
+                  <input type="password" name="fake_password" tabIndex={-1} autoComplete="current-password" />
+                  <input type="email" name="fake_email" tabIndex={-1} autoComplete="email" />
+                  <input type="text" name="decoy_1" tabIndex={-1} />
+                  <input type="text" name="decoy_2" tabIndex={-1} />
+                </div>
                 {/* Incident Details - Field 1 */}
                 <FormField
                   control={form.control}
