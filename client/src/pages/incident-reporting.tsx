@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -112,10 +112,10 @@ export default function IncidentReporting() {
   const search = location.split('?')[1] || '';
   const isEditMode = useMemo(() => new URLSearchParams(search).has(EDIT_PARAM), [search]);
 
-  // Initialize form - all uncontrolled inputs via register()
+  // Initialize form - controlled inputs via Controller
   const form = useForm<IncidentForm>({
     resolver: zodResolver(incidentSchema),
-    defaultValues: DEFAULTS, // all empty
+    defaultValues: DEFAULTS, // all empty strings
     shouldUnregister: true,
     mode: "onChange",
   });
@@ -150,6 +150,11 @@ export default function IncidentReporting() {
     form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
     setFormKey(Date.now());
   }, [search, queryClient, form.reset]);
+
+  // Diagnostic logging - check first render values
+  useLayoutEffect(() => {
+    console.info('first render values', form.getValues()); // every field should be ""
+  }, []);
 
   // Handle BFCache / page cache restores (new tab, back/forward)
   useEffect(() => {
@@ -442,17 +447,18 @@ export default function IncidentReporting() {
                 noValidate
                 name={`${FORM_NAME_PREFIX}-${formKey}`}
               >
-                {/* Incident Details - Field 1 - UNCONTROLLED via register() */}
-                <FormField
-                  control={form.control}
+                {/* Incident Details - Field 1 - CONTROLLED via Controller */}
+                <Controller
                   name="title"
+                  control={form.control}
+                  defaultValue={DEFAULTS.title}
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Incident Details</FormLabel>
                       <FormControl>
                         <Input 
-                          {...form.register("title")}
-                          autoComplete="new-password"
+                          {...field}
+                          autoComplete="off"
                           placeholder="e.g., Pump P-101 seal leak" 
                           data-testid="input-incidentDetails"
                         />
@@ -462,17 +468,18 @@ export default function IncidentReporting() {
                   )}
                 />
 
-                {/* Initial Observations - Field 2 - UNCONTROLLED via register() */}
-                <FormField
-                  control={form.control}
+                {/* Initial Observations - Field 2 - CONTROLLED via Controller */}
+                <Controller
                   name="description"
+                  control={form.control}
+                  defaultValue={DEFAULTS.description}
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Initial Observations</FormLabel>
                       <FormControl>
                         <Textarea 
-                          {...form.register("description")}
-                          autoComplete="new-password"
+                          {...field}
+                          autoComplete="off"
                           placeholder="Describe what was observed, when it was observed, and any initial symptoms..."
                           rows={4}
                           data-testid="textarea-initialObservations"
@@ -599,8 +606,8 @@ export default function IncidentReporting() {
                           <FormLabel>Manufacturer</FormLabel>
                           <FormControl>
                             <Input 
-                              {...form.register("manufacturer")}
-                              autoComplete="new-password"
+                              {...field}
+                              autoComplete="off"
                               placeholder="e.g., Siemens"
                               maxLength={100}
                               data-testid="input-manufacturer"
@@ -619,8 +626,8 @@ export default function IncidentReporting() {
                           <FormLabel>Model</FormLabel>
                           <FormControl>
                             <Input 
-                              {...form.register("model")}
-                              autoComplete="new-password"
+                              {...field}
+                              autoComplete="off"
                               placeholder="e.g., Simovert-M420"
                               maxLength={100}
                               data-testid="input-model"
@@ -641,8 +648,8 @@ export default function IncidentReporting() {
                           <FormLabel>Equipment ID</FormLabel>
                           <FormControl>
                             <Input 
-                              {...form.register("equipmentId")}
-                              autoComplete="new-password"
+                              {...field}
+                              autoComplete="off"
                               placeholder="e.g., P-101, M-205" 
                             />
                           </FormControl>

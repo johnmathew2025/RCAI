@@ -3,6 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <script>
+(function () {
+  try {
+    var u = new URL(window.location.href);
+    if (!u.searchParams.has('__seed')) {
+      u.searchParams.set('__seed', Date.now().toString(36));
+      history.replaceState(null, '', u.toString());
+    }
+  } catch (_) {}
+})();
+    </script>
   </head>
   <body>
     <div id="root"></div>

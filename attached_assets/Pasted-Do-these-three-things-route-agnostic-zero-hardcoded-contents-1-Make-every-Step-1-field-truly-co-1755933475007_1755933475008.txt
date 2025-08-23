@@ -1,0 +1,56 @@
+Do these three things (route-agnostic, zero hardcoded contents)
+1) Make every Step-1 field truly controlled on the first render
+Uncontrolled inputs let the restored value “win” for a frame. Controlled inputs overwrite it immediately.
+•	Use RHF Controller for every Step-1 field.
+•	defaultValues in RHF must be empty strings (not undefined/null).
+•	Example (repeat for all fields):
+const form = useForm<FormValues>({
+  defaultValues: DEFAULTS,          // all ""
+  shouldUnregister: true,
+});
+
+<Controller
+  name="incidentDetails"
+  control={form.control}
+  defaultValue={DEFAULTS.incidentDetails}
+  render={({ field }) => <input {...field} autoComplete="off" placeholder="…" />}
+/>
+If any Step-1 input still uses register(...) directly, or a custom component that doesn’t bind value from RHF, the browser can repaint the old text. Convert them all.
+Sanity check: right after render, log the DOM value once:
+useLayoutEffect(() => {
+  console.info('first render values', form.getValues()); // every field should be ""
+}, []);
+ 
+2) Add a tiny, route-agnostic anti-restore seed to the URL before your app loads
+Browsers key restore heuristics on URL + field names. Give each page view a harmless unique param so “new tab” isn’t considered the same page. No route names, no field names, no values are hardcoded.
+Add this inline script near the top of index.html, before your bundle:
+<script>
+(function () {
+  try {
+    var u = new URL(window.location.href);
+    if (!u.searchParams.has('__seed')) {
+      u.searchParams.set('__seed', Date.now().toString(36));
+      history.replaceState(null, '', u.toString());
+    }
+  } catch (_) {}
+})();
+</script>
+•	Works for every route (no path hardcoding).
+•	Your app should ignore the __seed param; it’s purely to defeat session/page restore.
+ 
+3) Keep the structural guards you already added (no band-aids)
+•	Purge both localStorage and sessionStorage by prefix in a useLayoutEffect on the page.
+•	Block all storage/query reads in create mode (e.g., if (!isEditMode || !PERSIST_DRAFTS) return;).
+•	Single pageshow handler to catch BFCache restores (no timers).
+•	rel="noopener noreferrer" on any links you control that open a new tab (Replit’s own button can’t be changed).
+ 
+If it still sticks, run this 10-second diagnostic in the Console on the new tab
+This shows who is writing to the inputs after mount.
+(function(){
+  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+  Object.defineProperty(HTMLInputElement.prototype,'value',{
+    set:function(v){ console.log('SET INPUT', this.name || this.id, '→', JSON.stringify(v)); return set.call(this,v); }
+  });
+})();
+•	If you see writes from your code on the new tab, that’s the remaining offender (e.g., a persist helper, Zustand/Redux rehydration, or a leftover setValue). Guard or remove it in create mode.
+
