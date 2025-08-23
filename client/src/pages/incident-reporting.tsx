@@ -238,6 +238,50 @@ export default function IncidentReporting() {
       return () => clearTimeout(timeoutId);
     }
   }, [formInstanceKey, isNewIncident, form]);
+  
+  // NEW TAB SPECIFIC: Additional protection against session restoration
+  useEffect(() => {
+    if (isNewIncident) {
+      // Multiple intervals to catch aggressive browser restoration
+      const intervals = [200, 500, 1000, 2000]; // Progressive delays
+      
+      const cleanupTasks = intervals.map(delay => {
+        const timeoutId = setTimeout(() => {
+          const currentForm = document.querySelector(`form[name="${FORM_NAME_PREFIX}-${formInstanceKey}"]`);
+          if (currentForm) {
+            const problematicInputs = currentForm.querySelectorAll('input[name="title"], textarea[name="description"], textarea[name="operatingParameters"]');
+            let foundValues = false;
+            
+            problematicInputs.forEach(input => {
+              if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
+                if (input.value && input.value.trim() && input.value !== input.placeholder) {
+                  console.log(`[NEW-TAB-CLEAR] Clearing restored value: "${input.value}" from ${input.name}`);
+                  input.value = '';
+                  input.defaultValue = '';
+                  foundValues = true;
+                  
+                  // Force React to see the change
+                  const changeEvent = new Event('change', { bubbles: true });
+                  const inputEvent = new Event('input', { bubbles: true });
+                  input.dispatchEvent(inputEvent);
+                  input.dispatchEvent(changeEvent);
+                }
+              }
+            });
+            
+            if (foundValues) {
+              // Force React Hook Form to sync
+              form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
+            }
+          }
+        }, delay);
+        
+        return () => clearTimeout(timeoutId);
+      });
+      
+      return () => cleanupTasks.forEach(cleanup => cleanup());
+    }
+  }, [formInstanceKey, isNewIncident, form]);
 
   // ID-BASED CASCADING DROPDOWN STATE
   const selectedGroupId = form.watch("equipment_group_id");
@@ -573,13 +617,17 @@ export default function IncidentReporting() {
                 data-lpignore="true"
                 data-form-type="other"
               >
-                {/* Anti-autofill decoy inputs - invisible to users but confuses browser */}
+                {/* Anti-autofill and anti-session-restore decoy inputs */}
                 <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
                   <input type="text" name="fake_username" tabIndex={-1} autoComplete="username" />
                   <input type="password" name="fake_password" tabIndex={-1} autoComplete="current-password" />
                   <input type="email" name="fake_email" tabIndex={-1} autoComplete="email" />
                   <input type="text" name="decoy_1" tabIndex={-1} />
                   <input type="text" name="decoy_2" tabIndex={-1} />
+                  {/* Decoy inputs with incident-related names to catch session restore */}
+                  <input type="text" name="title" tabIndex={-1} style={{display: 'none'}} value="" />
+                  <textarea name="description" tabIndex={-1} style={{display: 'none'}} value="" />
+                  <textarea name="operatingParameters" tabIndex={-1} style={{display: 'none'}} value="" />
                 </div>
                 {/* Incident Details - Field 1 */}
                 <FormField
@@ -592,7 +640,10 @@ export default function IncidentReporting() {
                         <Input 
                           {...field} 
                           autoComplete="new-password"
-                          placeholder="e.g., Pump P-101 seal leak" 
+                          placeholder="e.g., Pump P-101 seal leak"
+                          data-lpignore="true"
+                          data-form-type="other"
+                          key={`title-${formInstanceKey}`}
                         />
                       </FormControl>
                       <FormMessage />
@@ -613,6 +664,9 @@ export default function IncidentReporting() {
                           autoComplete="new-password"
                           placeholder="Describe what was observed, when it was observed, and any initial symptoms..."
                           rows={4}
+                          data-lpignore="true"
+                          data-form-type="other"
+                          key={`description-${formInstanceKey}`}
                         />
                       </FormControl>
                       <FormMessage />
@@ -660,6 +714,9 @@ export default function IncidentReporting() {
                           autoComplete="new-password"
                           placeholder="e.g., Temperature: 85°C, Pressure: 150 PSI, Flow: 200 GPM, RPM: 1750, Vibration: 2.5 mm/s"
                           rows={2}
+                          data-lpignore="true"
+                          data-form-type="other"
+                          key={`operatingParameters-${formInstanceKey}`}
                         />
                       </FormControl>
                       <FormMessage />
