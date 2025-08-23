@@ -103,7 +103,8 @@ export default function IncidentReporting() {
   const [timelineQuestions, setTimelineQuestions] = useState<any[]>([]);
   const [showTimeline, setShowTimeline] = useState(false);
   
-  // Form instance key for forcing remount and form ref for native reset
+  // Mount gate - form doesn't render until pre-paint purge is complete
+  const [ready, setReady] = useState(false);
   const [formKey, setFormKey] = useState(() => Date.now());
   const formRef = useRef<HTMLFormElement>(null);
   
@@ -125,30 +126,27 @@ export default function IncidentReporting() {
     purgeAllDrafts(prefix);
   }, []);
 
-  // Single reset path: runs BEFORE paint to beat session/form restore
+  // Pre-paint purge & preparation - form doesn't mount until complete
   useLayoutEffect(() => {
     const isEdit = new URLSearchParams(search).has(EDIT_PARAM);
-    if (isEdit) return;
+    
+    // For create mode only
+    if (!isEdit) {
+      // 1) Purge both storages by prefix (no key lists)
+      purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
 
-    // purge both storages before first paint
-    purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
+      // 2) Clear caches
+      queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+      queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
 
-    // clear caches
-    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
-    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
-
-    // nuclear, generic DOM wipe (belt-and-suspenders before paint)
-    if (formRef.current) {
-      formRef.current.querySelectorAll('input, textarea, select').forEach((el) => {
-        if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.value = '';
-        if (el instanceof HTMLSelectElement) el.selectedIndex = 0;
-      });
+      // 3) Ensure pristine values and a fresh form subtree
+      formRef.current?.reset();
+      form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
+      setFormKey(Date.now());
     }
-
-    // reset native + RHF and remount
-    formRef.current?.reset();
-    form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
-    setFormKey(Date.now());
+    
+    // 4) Only now allow the form to mount
+    setReady(true);
   }, [search, queryClient, form.reset]);
 
   // Diagnostic logging - check first render values
@@ -156,21 +154,12 @@ export default function IncidentReporting() {
     console.info('first render values', form.getValues()); // every field should be ""
   }, []);
 
-  // Handle BFCache / page cache restores (new tab, back/forward)
+  // BFCache / session restore
   useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {
       const isEdit = new URLSearchParams(search).has(EDIT_PARAM);
       if (!isEdit && e.persisted) {
         purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
-        
-        // nuclear, generic DOM wipe
-        if (formRef.current) {
-          formRef.current.querySelectorAll('input, textarea, select').forEach((el) => {
-            if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.value = '';
-            if (el instanceof HTMLSelectElement) el.selectedIndex = 0;
-          });
-        }
-        
         formRef.current?.reset();
         form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
         setFormKey(Date.now());
@@ -373,6 +362,18 @@ export default function IncidentReporting() {
       description: "All form data has been cleared",
     });
   };
+
+  // Mount gate - don't render form until purge/reset is complete
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Clock className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Preparing form...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">

@@ -14,6 +14,20 @@
   } catch (_) {}
 })();
     </script>
+    <script>
+(function(){
+  try {
+    var setIn = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+    Object.defineProperty(HTMLInputElement.prototype,'value',{ configurable:true,
+      set:function(v){ try { console.warn('SET INPUT', this.name||this.id, '→', v, new Error().stack); } catch(e){} return setIn.call(this,v); }
+    });
+    var setTa = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set;
+    Object.defineProperty(HTMLTextAreaElement.prototype,'value',{ configurable:true,
+      set:function(v){ try { console.warn('SET TEXTAREA', this.name||this.id, '→', v, new Error().stack); } catch(e){} return setTa.call(this,v); }
+    });
+  } catch(e){}
+})();
+    </script>
   </head>
   <body>
     <div id="root"></div>

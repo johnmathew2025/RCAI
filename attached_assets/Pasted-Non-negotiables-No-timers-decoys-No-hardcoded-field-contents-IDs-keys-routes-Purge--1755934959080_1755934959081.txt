@@ -1,0 +1,152 @@
+Non-negotiables
+•	❌ No timers/decoys.
+•	❌ No hardcoded field contents/IDs/keys/routes.
+•	✅ Purge by prefix only.
+•	✅ All Step-1 fields controlled via RHF Controller.
+•	✅ Form does not mount until pre-paint purge is complete.
+ 
+1) Add a mount gate so inputs aren’t in the DOM until we’ve purged/restored state
+// client/src/pages/incident-reporting.tsx
+import React, { useLayoutEffect, useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { DEFAULTS, EDIT_PARAM, FORM_NAME_PREFIX, REACT_QUERY_KEYS, LOCALSTORAGE_DRAFT_PREFIX } from "@/config/incidentForm";
+import { purgeAllDrafts } from "@/utils/storage";
+
+type FormValues = typeof DEFAULTS;
+
+export default function IncidentReportingPage() {
+  const { search } = useLocation();
+  const queryClient = useQueryClient();
+  const isEdit = useMemo(() => new URLSearchParams(search).has(EDIT_PARAM), [search]);
+
+  // 🚫 Block rendering until we’ve purged/prepared blank state
+  const [ready, setReady] = useState(false);
+  const [formKey, setFormKey] = useState(() => Date.now());
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const form = useForm<FormValues>({
+    defaultValues: DEFAULTS,      // all empty strings only
+    shouldUnregister: true,
+    mode: "onSubmit",
+  });
+
+  // Pre-paint purge & preparation
+  useLayoutEffect(() => {
+    // For create mode only
+    if (!isEdit) {
+      // 1) Purge both storages by prefix (no key lists)
+      purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
+
+      // 2) Clear caches
+      queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+      queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+
+      // 3) Ensure pristine values and a fresh form subtree
+      formRef.current?.reset();
+      form.reset(DEFAULTS, { keepDirty:false, keepTouched:false, keepValues:false });
+      setFormKey(Date.now());
+    }
+    // 4) Only now allow the form to mount
+    setReady(true);
+  }, [isEdit, queryClient, form]);
+
+  // BFCache / session restore
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!isEdit && e.persisted) {
+        purgeAllDrafts(LOCALSTORAGE_DRAFT_PREFIX);
+        formRef.current?.reset();
+        form.reset(DEFAULTS, { keepDirty:false, keepTouched:false, keepValues:false });
+        setFormKey(Date.now());
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [isEdit, form]);
+
+  if (!ready) return null; // or a skeleton placeholder
+
+  return (
+    <form
+      key={formKey}
+      ref={formRef}
+      autoComplete="off"
+      noValidate
+      name={`${FORM_NAME_PREFIX}-${formKey}`}
+    >
+      {/* All Step-1 fields controlled via Controller */}
+      <Controller
+        name="incidentDetails"
+        control={form.control}
+        defaultValue={DEFAULTS.incidentDetails}
+        render={({ field }) => <input {...field} autoComplete="off" placeholder="Describe the incident…" />}
+      />
+
+      <Controller
+        name="initialObservations"
+        control={form.control}
+        defaultValue={DEFAULTS.initialObservations}
+        render={({ field }) => <textarea {...field} autoComplete="off" placeholder="Initial observations…" />}
+      />
+
+      <Controller
+        name="priority"
+        control={form.control}
+        defaultValue={DEFAULTS.priority}
+        render={({ field }) => (
+          <select {...field} autoComplete="off">
+            <option value="">Select priority</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+          </select>
+        )}
+      />
+
+      <Controller
+        name="operatingParams"
+        control={form.control}
+        defaultValue={DEFAULTS.operatingParams}
+        render={({ field }) => <textarea {...field} autoComplete="off" placeholder="Operating parameters…" />}
+      />
+
+      {/* ...convert every remaining Step-1 field the same way... */}
+    </form>
+  );
+}
+Why this fixes your symptom: the form does not exist at first paint in create mode, so the browser cannot prefill it. When it mounts, the fields are controlled and immediately render the empty DEFAULTS.
+ 
+2) Keep existing structural protections (already in your code)
+•	Purge both localStorage + sessionStorage by prefix (use purgeAllDrafts).
+•	Guard all storage/query reads: if (!isEdit) return;
+•	Single pageshow handler (no timers).
+•	rel="noopener noreferrer" on any links you control that open new tabs.
+•	URL __seed script in index.html is fine to keep.
+ 
+3) Add a one-time writer trap to catch any rogue writes (diagnostic)
+Put this at the top of index.html, before your bundle. It logs the stack for any input value write after mount.
+<script>
+(function(){
+  try {
+    var setIn = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+    Object.defineProperty(HTMLInputElement.prototype,'value',{ configurable:true,
+      set:function(v){ try { console.warn('SET INPUT', this.name||this.id, '→', v, new Error().stack); } catch(e){} return setIn.call(this,v); }
+    });
+    var setTa = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set;
+    Object.defineProperty(HTMLTextAreaElement.prototype,'value',{ configurable:true,
+      set:function(v){ try { console.warn('SET TEXTAREA', this.name||this.id, '→', v, new Error().stack); } catch(e){} return setTa.call(this,v); }
+    });
+  } catch(e){}
+})();
+</script>
+If anything (Zustand/Redux persist, stray setValue, etc.) still writes old text, you’ll see who did it, with a stack. Remove/guard that writer in create mode.
+ 
+4) Definition of Done
+•	Open /incident-reporting in a brand-new tab → fields are blank immediately (no flicker).
+•	Refresh, back/forward → blank (create mode).
+•	Edit mode (?id=…) still hydrates; removing ?id goes blank.
+•	Console shows no writer-trap logs for create mode.
+•	No literals/hardcoded field contents; all defaults come from config/incidentForm.ts.
+
