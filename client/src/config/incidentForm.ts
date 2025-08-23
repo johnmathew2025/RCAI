@@ -10,6 +10,8 @@ export const REACT_QUERY_KEYS = {
   incidentDraft: ["incident-draft"]
 } as const;
 
+export const PERSIST_DRAFTS = false; // Default: no draft persistence in create mode
+
 // Empty defaults only - no user text, no examples
 export const DEFAULTS = {
   title: "",

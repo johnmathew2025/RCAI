@@ -1,0 +1,125 @@
+Final, Verifiable Fix (NO hardcoding, NO band aids)
+Guardrails (reject PR if any violated)
+•	❌ No decoy inputs, timeouts, intervals, or “progressive clearing”.
+•	❌ No hardcoded field contents/IDs/keys/routes.
+•	✅ Only one writer of form state.
+•	✅ Deterministic, test backed behavior on fresh tab, refresh, back/forward.
+ 
+1) Find the hidden writer (must paste results)
+Run code search and paste matches in PR:
+# RHF mutators / controlled values
+ripgrep -n --hidden --glob '!node_modules' \
+  -e 'setValue\(' -e 'reset\(' -e 'defaultValue=' -e 'value=' -e '<Controller' \
+  -e 'localStorage' -e 'sessionStorage' -e 'queryClient\.setQueryData' \
+  -e 'setFormState' -e 'setFieldsValue' \
+  client/src
+Goal: identify any code that writes into Step 1 fields after mount (including:
+•	setValue or reset calls outside startNewIncident
+•	Controlled value={something} bindings
+•	defaultValue="…", Controller with external value
+•	Any hydration from local/session storage or React Query cache)
+Deliverable: a short table in the PR with file, line, why it writes, and disposition (deleted/guarded).
+ 
+2) Enforce “Single Writer” with a wrapper (prove it)
+Create client/src/forms/safeRHF.ts:
+import { UseFormReturn } from "react-hook-form";
+
+let WRITE_ALLOWED = true; // flipped off in create mode after reset
+
+export function initWriteLock(allowed: boolean) {
+  WRITE_ALLOWED = allowed;
+}
+
+export function withWriteLock<T>(fns: UseFormReturn<T>) {
+  const { setValue, reset } = fns;
+  return {
+    ...fns,
+    setValue: (...args: Parameters<typeof setValue>) => {
+      if (!WRITE_ALLOWED) {
+        console.error("❌ Illegal setValue after reset", { field: args[0] });
+        throw new Error("Illegal form write in create mode");
+      }
+      // @ts-ignore
+      return setValue(...args);
+    },
+    reset: (...args: Parameters<typeof reset>) => {
+      // always allowed
+      // @ts-ignore
+      return reset(...args);
+    },
+  } as UseFormReturn<T>;
+}
+In incident-reporting.tsx:
+const rhf = useForm<FormValues>({ defaultValues: DEFAULTS, shouldUnregister: true });
+const f = withWriteLock(rhf); // use f.* everywhere instead of rhf.*
+
+useEffect(() => {
+  const params = new URLSearchParams(location.search);
+  const isEdit = params.has(EDIT_PARAM);
+  if (!isEdit) {
+    f.reset(DEFAULTS, { keepDirty:false, keepTouched:false, keepValues:false });
+    initWriteLock(false); // ⛔ no further setValue in create mode
+    setFormInstanceKey(Date.now());
+  } else {
+    initWriteLock(true); // edit mode can write
+  }
+}, [location.search]);
+Effect: any rogue setValue after reset will throw and surface in console—pinpointing the offender.
+ 
+3) Kill controlled bindings on Step 1 inputs
+•	Every Step 1 input must be uncontrolled via register(...) (or Controller with RHF’s value only).
+•	Remove value=… and defaultValue=… props on inputs/textarea/select that bind to external state.
+•	If a UI lib forces controlled mode, wrap with RHF Controller, and ensure the value/onChange come from RHF only—not from cached state.
+ 
+4) Remove any post mount hydration in create mode
+•	Delete or guard all effects that read from storage, query cache, or URL to populate Step 1. Pattern:
+useEffect(() => {
+  if (!isEditMode) return; // hard guard
+  // …existing edit hydration…
+}, [isEditMode]);
+•	If you persist “drafts,” introduce a feature flag PERSIST_DRAFTS=false (env var). In create mode with this flag false, do not read drafts at all. (Flag location in config/incidentForm.ts; default false.)
+ 
+5) Session restore (new tab/back/forward)
+Keep only:
+useEffect(() => {
+  const onPageShow = (e: PageTransitionEvent) => {
+    const params = new URLSearchParams(location.search);
+    const isEdit = params.has(EDIT_PARAM);
+    if (e.persisted && !isEdit) {
+      f.reset(DEFAULTS, { keepDirty:false, keepTouched:false, keepValues:false });
+      initWriteLock(false);
+      setFormInstanceKey(Date.now());
+    }
+  };
+  window.addEventListener("pageshow", onPageShow);
+  return () => window.removeEventListener("pageshow", onPageShow);
+}, [location.search]);
+No timers.
+ 
+6) E2E test (must pass locally)
+Add Playwright test e2e/incident-create.spec.ts:
+test('create flow is blank across new tab / refresh', async ({ page, context }) => {
+  await page.goto('/incident-reporting');
+  // assert blanks
+  await expect(page.locator('[name="incidentDetails"]')).toHaveValue('');
+  await expect(page.locator('[name="initialObservations"]')).toHaveValue('');
+  // open new tab
+  const page2 = await context.newPage();
+  await page2.goto('/incident-reporting');
+  await expect(page2.locator('[name="incidentDetails"]')).toHaveValue('');
+  await expect(page2.locator('[name="initialObservations"]')).toHaveValue('');
+  // back/forward
+  await page2.goBack(); await page2.goForward();
+  await expect(page2.locator('[name="incidentDetails"]')).toHaveValue('');
+});
+If this fails, the console error from write lock will show the exact offender.
+ 
+7) Definition of Done (you must demonstrate all)
+1.	Ripgrep output pasted in PR with dispositions for every hit.
+2.	Screenshots/recording:
+o	Fresh /incident-reporting → fields blank; reload → blank; open new tab → blank (no flicker).
+o	Edit mode (?id=…) loads data; removing ?id → blank immediately.
+3.	Playwright test green.
+4.	No timers, decoys, or uncontrolled writers (write lock stays off in create mode without errors).
+5.	No magic strings: keys/routes/params come from config/incidentForm.ts.
+

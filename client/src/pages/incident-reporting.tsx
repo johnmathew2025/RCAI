@@ -20,8 +20,9 @@ import { showSmartToast, dismissToast } from "@/lib/smart-toast";
 import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
 import { getIncidentId } from "@/utils/getIncidentId";
 import type { CreateIncidentResponse } from '@/../../shared/types';
-import { FORM_NAME_PREFIX, LOCALSTORAGE_DRAFT_PREFIX, EDIT_PARAM, REACT_QUERY_KEYS, DEFAULTS } from "@/config/incidentForm";
+import { FORM_NAME_PREFIX, LOCALSTORAGE_DRAFT_PREFIX, EDIT_PARAM, REACT_QUERY_KEYS, DEFAULTS, PERSIST_DRAFTS } from "@/config/incidentForm";
 import { removeLocalStorageByPrefix } from "@/utils/storage";
+import { withWriteLock, initWriteLock } from "@/forms/safeRHF";
 
 // Helper function: Convert datetime-local to ISO 8601 with timezone
 function localDatetimeToISO(dtLocal: string): string | undefined {
@@ -109,25 +110,21 @@ export default function IncidentReporting() {
   const [location] = useLocation();
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
   const editId = urlParams.get(EDIT_PARAM);
-  const isNewIncident = !editId;
+  const isEditMode = !!editId;
   
-  // Draft persistence configuration
-  const draftEnabled = import.meta.env.FORM_DRAFT_ENABLED !== 'false';
-  const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
-  const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com';
-  const storageKey = `${LOCALSTORAGE_DRAFT_PREFIX}${draftVersion}:${userEmail}`;
-  const draftTTLDays = parseInt(import.meta.env.VITE_DRAFT_TTL_DAYS || '7');
-  const draftTTL = draftTTLDays * 24 * 60 * 60 * 1000;
-  const autosaveDelay = parseInt(import.meta.env.VITE_AUTOSAVE_DELAY_MS || '500');
-  
-  // Load saved draft with TTL check - BUT ONLY FOR EXISTING INCIDENTS
+  // Load saved draft with TTL check - ONLY IN EDIT MODE AND IF PERSIST_DRAFTS
   const loadSavedDraft = () => {
-    if (!draftEnabled || isNewIncident) return {};
+    if (!PERSIST_DRAFTS || !isEditMode) return {};
     try {
+      const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
+      const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com';
+      const storageKey = `${LOCALSTORAGE_DRAFT_PREFIX}${draftVersion}:${userEmail}`;
       const saved = localStorage.getItem(storageKey);
       if (!saved) return {};
       
       const { data, savedAt } = JSON.parse(saved);
+      const draftTTLDays = parseInt(import.meta.env.VITE_DRAFT_TTL_DAYS || '7');
+      const draftTTL = draftTTLDays * 24 * 60 * 60 * 1000;
       if (Date.now() - savedAt > draftTTL) {
         localStorage.removeItem(storageKey);
         return {};
@@ -138,28 +135,8 @@ export default function IncidentReporting() {
     }
   };
   
-  // Single startNewIncident function - structural fix
-  const startNewIncident = useCallback(() => {
-    // A) Purge drafts by prefix (no key lists)
-    removeLocalStorageByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
-    
-    // B) Clear react query caches using imported keys
-    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
-    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
-    
-    // C) Reset React Hook Form to DEFAULTS (empty)
-    form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
-    
-    // D) Force a fresh mount
-    setFormInstanceKey(Date.now());
-    
-    // E) Strip edit state: if URL has EDIT_PARAM, navigate to base create route
-    if (editId) {
-      setLocation('/incident-reporting', { replace: true });
-    }
-  }, [editId, setLocation]);
-  
-  const form = useForm<IncidentForm>({
+  // Initialize form with write lock wrapper
+  const rhf = useForm<IncidentForm>({
     resolver: zodResolver(incidentSchema),
     defaultValues: {
       ...DEFAULTS,
@@ -169,28 +146,48 @@ export default function IncidentReporting() {
     mode: "onChange",
   });
   
-  // On mount: if no EDIT_PARAM, call startNewIncident once
+  const form = withWriteLock(rhf); // Protected form interface
+  
+  // Main write control effect - SINGLE SOURCE OF TRUTH
   useEffect(() => {
-    if (isNewIncident) {
-      startNewIncident();
+    const params = new URLSearchParams(location.split('?')[1] || '');
+    const isEdit = params.has(EDIT_PARAM);
+    
+    if (!isEdit) {
+      // Create mode: reset and lock writes
+      removeLocalStorageByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
+      queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+      queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+      form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
+      initWriteLock(false); // ⛔ no further setValue in create mode
+      setFormInstanceKey(Date.now());
+    } else {
+      // Edit mode: allow writes for loading data
+      initWriteLock(true);
     }
-  }, [isNewIncident, startNewIncident]);
+  }, [location]);
 
-  // Single pageshow handler to catch session restore
+  // Session restore handler - new tab/back/forward
   useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) startNewIncident();
+      const params = new URLSearchParams(location.split('?')[1] || '');
+      const isEdit = params.has(EDIT_PARAM);
+      if (e.persisted && !isEdit) {
+        form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
+        initWriteLock(false);
+        setFormInstanceKey(Date.now());
+      }
     };
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
-  }, [startNewIncident]);
+  }, [location]);
 
   // ID-BASED CASCADING DROPDOWN STATE
   const selectedGroupId = form.watch("equipment_group_id");
   const selectedTypeId = form.watch("equipment_type_id");
   const selectedSubtypeId = form.watch("equipment_subtype_id");
 
-  // Phase 3.3: Normalized Equipment API Hooks (ID-based with dependent queries)
+  // Phase 3.3: Normalized Equipment API Hooks
   const { data: equipmentGroups = [], isLoading: groupsLoading } = useGroups();
   const { data: equipmentTypes = [], isLoading: typesLoading } = useTypes(selectedGroupId || undefined);
   const { data: equipmentSubtypes = [], isLoading: subtypesLoading } = useSubtypes(selectedTypeId || undefined);
@@ -198,18 +195,106 @@ export default function IncidentReporting() {
   // REGULATORY COMPLIANCE CONDITIONAL RENDERING
   const reportableStatus = form.watch("reportableStatus");
 
-  // Auto-save form draft on changes (but not during submission)
+  // Guarded cascading resets - only in edit mode
+  useEffect(() => {
+    if (!isEditMode) return; // Hard guard
+    form.setValue("equipment_type_id", null, { shouldValidate: false });
+    form.setValue("equipment_subtype_id", null, { shouldValidate: false });
+  }, [selectedGroupId, isEditMode]);
+
+  useEffect(() => {
+    if (!isEditMode) return; // Hard guard
+    form.setValue("equipment_subtype_id", null, { shouldValidate: false });
+  }, [selectedTypeId, isEditMode]);
+
+  // Generate timeline questions when equipment selection is complete
+  useEffect(() => {
+    if (selectedGroupId && selectedTypeId && selectedSubtypeId) {
+      generateTimelineQuestions();
+    }
+  }, [selectedGroupId, selectedTypeId, selectedSubtypeId]);
+
+  const generateTimelineQuestions = async () => {
+    try {
+      const selectedGroup = equipmentGroups.find(g => g.id === selectedGroupId);
+      const selectedType = equipmentTypes.find(t => t.id === selectedTypeId);
+      const selectedSubtype = equipmentSubtypes.find(s => s.id === selectedSubtypeId);
+      
+      const response = await fetch('/api/incidents/0/generate-timeline-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          equipmentGroup: selectedGroup?.name,
+          equipmentType: selectedType?.name,
+          equipmentSubtype: selectedSubtype?.name
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setTimelineQuestions(data.timelineQuestions?.questions || []);
+        setShowTimeline(true);
+        console.log(`Generated ${data.timelineQuestions?.totalQuestions || 0} timeline questions`);
+      }
+    } catch (error) {
+      console.error('Error generating timeline questions:', error);
+    }
+  };
+
+  // Guarded multi-tab draft synchronization - only in edit mode
+  useEffect(() => {
+    if (!isEditMode || !PERSIST_DRAFTS) return; // Hard guard
+    
+    const channel = new BroadcastChannel('incident-draft');
+    
+    channel.onmessage = (event) => {
+      const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
+      const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com';
+      const storageKey = `${LOCALSTORAGE_DRAFT_PREFIX}${draftVersion}:${userEmail}`;
+      
+      if (event.data.type === 'draft-updated' && event.data.storageKey === storageKey) {
+        const updatedDraft = loadSavedDraft();
+        if (Object.keys(updatedDraft).length > 0) {
+          form.reset(updatedDraft);
+        }
+      }
+    };
+    
+    const subscription = form.watch(() => {
+      const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
+      const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com';
+      const storageKey = `${LOCALSTORAGE_DRAFT_PREFIX}${draftVersion}:${userEmail}`;
+      
+      channel.postMessage({
+        type: 'draft-updated',
+        storageKey: storageKey,
+        timestamp: Date.now()
+      });
+    });
+    
+    return () => {
+      channel.close();
+      subscription.unsubscribe();
+    };
+  }, [isEditMode]);
+
+  // Auto-save form draft on changes - only in edit mode
   const [submitting, setSubmitting] = useState(false);
   
   useEffect(() => {
-    if (!draftEnabled) return;
+    if (!PERSIST_DRAFTS || !isEditMode) return; // Hard guard
     
     let timeoutId: NodeJS.Timeout;
     const subscription = form.watch((values) => {
       if (submitting) return;
       
+      const autosaveDelay = parseInt(import.meta.env.VITE_AUTOSAVE_DELAY_MS || '500');
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
+        const draftVersion = import.meta.env.VITE_DRAFT_VERSION || 'v1';
+        const userEmail = import.meta.env.VITE_USER_EMAIL || 'user@example.com';
+        const storageKey = `${LOCALSTORAGE_DRAFT_PREFIX}${draftVersion}:${userEmail}`;
+        
         const draftData = {
           data: values,
           savedAt: Date.now()
@@ -222,7 +307,7 @@ export default function IncidentReporting() {
       clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
-  }, [form.watch, storageKey, submitting, draftEnabled, autosaveDelay]);
+  }, [form.watch, submitting, isEditMode]);
 
   // Check if form is dirty (has unsaved changes)
   const isFormDirty = form.formState.isDirty || Object.keys(form.getValues()).some(key => {
@@ -263,77 +348,6 @@ export default function IncidentReporting() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isFormDirty]);
 
-  // Multi-tab draft synchronization
-  useEffect(() => {
-    const channel = new BroadcastChannel('incident-draft');
-    
-    channel.onmessage = (event) => {
-      if (event.data.type === 'draft-updated' && event.data.storageKey === storageKey) {
-        const updatedDraft = loadSavedDraft();
-        if (Object.keys(updatedDraft).length > 0) {
-          form.reset(updatedDraft);
-        }
-      }
-    };
-    
-    const subscription = form.watch(() => {
-      channel.postMessage({
-        type: 'draft-updated',
-        storageKey: storageKey,
-        timestamp: Date.now()
-      });
-    });
-    
-    return () => {
-      channel.close();
-      subscription.unsubscribe();
-    };
-  }, [form, storageKey]);
-
-  // Cascading resets
-  useEffect(() => {
-    form.setValue("equipment_type_id", null, { shouldValidate: false });
-    form.setValue("equipment_subtype_id", null, { shouldValidate: false });
-  }, [selectedGroupId]);
-
-  useEffect(() => {
-    form.setValue("equipment_subtype_id", null, { shouldValidate: false });
-  }, [selectedTypeId]);
-
-  // Generate timeline questions when equipment selection is complete
-  useEffect(() => {
-    if (selectedGroupId && selectedTypeId && selectedSubtypeId) {
-      generateTimelineQuestions();
-    }
-  }, [selectedGroupId, selectedTypeId, selectedSubtypeId]);
-
-  const generateTimelineQuestions = async () => {
-    try {
-      const selectedGroup = equipmentGroups.find(g => g.id === selectedGroupId);
-      const selectedType = equipmentTypes.find(t => t.id === selectedTypeId);
-      const selectedSubtype = equipmentSubtypes.find(s => s.id === selectedSubtypeId);
-      
-      const response = await fetch('/api/incidents/0/generate-timeline-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          equipmentGroup: selectedGroup?.name,
-          equipmentType: selectedType?.name,
-          equipmentSubtype: selectedSubtype?.name
-        })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setTimelineQuestions(data.timelineQuestions?.questions || []);
-        setShowTimeline(true);
-        console.log(`Generated ${data.timelineQuestions?.totalQuestions || 0} timeline questions`);
-      }
-    } catch (error) {
-      console.error('Error generating timeline questions:', error);
-    }
-  };
-
   // Create incident mutation
   const createIncidentMutation = useMutation({
     mutationFn: async (data: IncidentForm): Promise<CreateIncidentResponse> => {
@@ -373,11 +387,14 @@ export default function IncidentReporting() {
       const navigationUrl = `${nextRoute}?incident=${encodeURIComponent(incidentId)}`;
       setLocation(navigationUrl);
       
-      localStorage.removeItem(storageKey);
-      queryClient.removeQueries({ queryKey: ["incidentDraft"], exact: false });
+      // Post-submit cleanup (write lock temporarily enabled for cleanup)
+      initWriteLock(true);
+      removeLocalStorageByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
+      queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft }, { exact: false });
       form.reset(DEFAULTS);
       setFormInstanceKey(Date.now());
       queryClient.invalidateQueries({ queryKey: ["incidents", incidentId] });
+      initWriteLock(false);
       
       toast({
         title: "Incident Reported",
@@ -398,7 +415,17 @@ export default function IncidentReporting() {
 
   // Reset form function
   const resetForm = () => {
-    startNewIncident();
+    initWriteLock(true);
+    removeLocalStorageByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
+    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incident });
+    queryClient.removeQueries({ queryKey: REACT_QUERY_KEYS.incidentDraft });
+    form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
+    setFormInstanceKey(Date.now());
+    if (editId) {
+      setLocation('/incident-reporting', { replace: true });
+    }
+    initWriteLock(false);
+    
     toast({
       title: "Form Reset",
       description: "All form data has been cleared",
@@ -426,11 +453,9 @@ export default function IncidentReporting() {
             <Badge variant="secondary" className="text-sm">
               Step 1 of 8
             </Badge>
-            {draftEnabled && (
-              <Button variant="outline" size="sm" onClick={resetForm} data-testid="button-reset-form">
-                Reset Form
-              </Button>
-            )}
+            <Button variant="outline" size="sm" onClick={resetForm} data-testid="button-reset-form">
+              Reset Form
+            </Button>
           </div>
         </div>
 
@@ -490,6 +515,7 @@ export default function IncidentReporting() {
                           {...field} 
                           autoComplete="new-password"
                           placeholder="e.g., Pump P-101 seal leak" 
+                          data-testid="input-incidentDetails"
                         />
                       </FormControl>
                       <FormMessage />
@@ -510,6 +536,7 @@ export default function IncidentReporting() {
                           autoComplete="new-password"
                           placeholder="Describe what was observed, when it was observed, and any initial symptoms..."
                           rows={4}
+                          data-testid="textarea-initialObservations"
                         />
                       </FormControl>
                       <FormMessage />
