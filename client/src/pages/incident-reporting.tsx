@@ -22,6 +22,7 @@ import { createIncident, clearDraft } from "@/api/incidents";
 import type { CreateIncidentResponse } from '@/../../shared/types';
 import { FORM_NAME_PREFIX, LOCALSTORAGE_DRAFT_PREFIX, EDIT_PARAM, REACT_QUERY_KEYS, DEFAULTS, PERSIST_DRAFTS_SERVER } from "@/config/incidentForm";
 import { purgeAllDrafts } from "@/utils/storage";
+import { useAutosave } from "@/hooks/use-autosave";
 
 // Helper function: Convert datetime-local to ISO 8601 with timezone
 function localDatetimeToISO(dtLocal: string): string | undefined {
@@ -249,6 +250,43 @@ export default function IncidentReporting() {
     const value = form.getValues()[key as keyof IncidentForm];
     return value !== "" && value !== undefined && value !== null;
   });
+
+  // Initialize autosave for Step 1 (Incident Reporting)
+  const [currentIncidentId, setCurrentIncidentId] = useState<string>("");
+  const autosave = useAutosave({
+    incidentId: currentIncidentId,
+    stepNumber: 1,
+    enabled: !!currentIncidentId && isFormDirty,
+    onSuccess: () => {
+      console.log('[INCIDENT-REPORTING] Autosave successful');
+    },
+    onError: (error) => {
+      console.error('[INCIDENT-REPORTING] Autosave failed:', error);
+    }
+  });
+
+  // Watch form values for autosave
+  const formValues = form.watch();
+  
+  // Set up autosave interval when form has data
+  useEffect(() => {
+    if (currentIncidentId && isFormDirty) {
+      autosave.startAutosave(() => formValues);
+      return () => autosave.stopAutosave();
+    }
+  }, [currentIncidentId, isFormDirty, formValues]);
+
+  // Save on navigation
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && currentIncidentId && isFormDirty) {
+        autosave.saveNow(formValues);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [currentIncidentId, isFormDirty, formValues, autosave]);
 
   // Initialize smart version watcher
   useEffect(() => {

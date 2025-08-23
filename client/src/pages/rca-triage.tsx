@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getRcaRecommendation, type Severity, type Recurrence } from "@/lib/rca/decision";
+import { useAutosave } from "@/hooks/use-autosave";
 
 interface Incident {
   id: number;
@@ -62,6 +63,34 @@ export default function RcaTriage() {
 
   // Calculate current recommendation
   const recommendation = getRcaRecommendation(severity, recurrence);
+
+  // Initialize autosave for Step 4 (RCA Triage)
+  const autosave = useAutosave({
+    incidentId: incidentId || "",
+    stepNumber: 4,
+    enabled: !!incidentId && (severity !== "Medium" || recurrence !== "Low"),
+    onSuccess: () => {
+      console.log('[RCA-TRIAGE] Autosave successful');
+    },
+    onError: (error) => {
+      console.error('[RCA-TRIAGE] Autosave failed:', error);
+    }
+  });
+
+  // Save triage data when severity or recurrence changes
+  useEffect(() => {
+    if (incidentId && (severity !== "Medium" || recurrence !== "Low")) {
+      const triageData = {
+        severity,
+        recurrence,
+        level: recommendation.level,
+        label: recommendation.label,
+        method: recommendation.method,
+        timebox: recommendation.timebox
+      };
+      autosave.saveIfChanged(triageData);
+    }
+  }, [severity, recurrence, incidentId, recommendation, autosave]);
 
   // Submit triage mutation
   const triageMutation = useMutation({

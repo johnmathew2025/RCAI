@@ -564,6 +564,36 @@ export const insertRcaTriageSchema = createInsertSchema(rcaTriage).omit({
 export type InsertRcaTriage = z.infer<typeof insertRcaTriageSchema>;
 export type RcaTriage = typeof rcaTriage.$inferSelect;
 
+// RCA History table - Persistent workflow state for draft saving and resumption
+export const rcaHistory = pgTable("rca_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id").notNull().unique(),
+  status: varchar("status", { length: 12 }).notNull().default("DRAFT"), // DRAFT, IN_PROGRESS, CLOSED, CANCELLED
+  lastStep: integer("last_step").notNull().default(1), // 1-8 workflow step tracking
+  summary: text("summary"), // User-friendly title like "Pump seal leak – P101A"
+  payload: jsonb("payload").notNull(), // Complete form data snapshot from Steps 1-3
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("rca_history_incident_idx").on(table.incidentId),
+  index("rca_history_status_idx").on(table.status),
+  index("rca_history_updated_idx").on(table.updatedAt),
+]);
+
+export const insertRcaHistorySchema = createInsertSchema(rcaHistory).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  status: z.enum(["DRAFT", "IN_PROGRESS", "CLOSED", "CANCELLED"]).default("DRAFT"),
+  lastStep: z.number().min(1).max(8).default(1),
+  incidentId: z.string().min(1),
+  payload: z.record(z.any()), // Flexible JSONB payload
+});
+
+export type RcaHistory = typeof rcaHistory.$inferSelect;
+export type InsertRcaHistory = z.infer<typeof insertRcaHistorySchema>;
+
 export const insertIncidentSchema = createInsertSchema(incidents).omit({
   id: true,
   createdAt: true,

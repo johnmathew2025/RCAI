@@ -39,6 +39,7 @@ import DataIntegrationDemo from "@/pages/data-integration-demo";
 import DeploymentReadyDashboard from "@/pages/deployment-ready-dashboard";
 import { WorkflowIntegration } from "@/pages/WorkflowIntegration";
 import RcaTriage from "@/pages/rca-triage";
+import RcaCases from "@/pages/rca-cases";
 
 
 function Router() {
@@ -67,6 +68,7 @@ function Router() {
       {/* Main User Workflow Routes - For Investigators & Analysts */}
       <Route path="/incident-reporting" component={IncidentReporting} />
       <Route path="/incidents/:id/rca-triage" component={RcaTriage} />
+      <Route path="/rca/cases" component={RcaCases} />
       <Route path="/workflow/integration" component={WorkflowIntegration} />
       <Route path="/analysis-engine" component={EvidenceAnalysisDemo} />
       <Route path="/ai-powered-rca" component={RCAAnalysisDemo} />

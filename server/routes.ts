@@ -4200,6 +4200,220 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // RCA HISTORY PERSISTENCE ENDPOINTS (Step 2.5 - Draft Saving & Resume Functionality)
+  // Protocol: Path parameter routing (/incidents/:id/history) per Universal Protocol Standard
+  
+  // PUT /api/incidents/:id/history - Upsert RCA History (autosave & navigation saves)
+  app.put("/api/incidents/:id/history", async (req, res) => {
+    try {
+      const incidentId = req.params.id;
+      const { lastStep, status, summary, payload } = req.body;
+      
+      console.log(`[RCA HISTORY] Upserting history for incident ${incidentId}, step ${lastStep}, status ${status}`);
+      
+      // Validate required fields
+      if (!payload || typeof lastStep !== 'number') {
+        return res.status(400).json({ 
+          error: "Missing required fields: lastStep and payload" 
+        });
+      }
+      
+      // Validate step range
+      if (lastStep < 1 || lastStep > 8) {
+        return res.status(400).json({ 
+          error: "lastStep must be between 1 and 8" 
+        });
+      }
+      
+      // Validate status if provided
+      const validStatuses = ['DRAFT', 'IN_PROGRESS', 'CLOSED', 'CANCELLED'];
+      if (status && !validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
+        });
+      }
+      
+      const historyData = {
+        incidentId,
+        lastStep,
+        status: status || 'DRAFT',
+        summary: summary || null,
+        payload
+      };
+      
+      const savedHistory = await investigationStorage.upsertRcaHistory(historyData);
+      
+      res.json({
+        success: true,
+        data: savedHistory
+      });
+      
+    } catch (error) {
+      console.error('[RCA HISTORY] Upsert failed:', error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to save RCA history",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // GET /api/incidents/:id/history - Retrieve RCA History for resume functionality
+  app.get("/api/incidents/:id/history", async (req, res) => {
+    try {
+      const incidentId = req.params.id;
+      
+      console.log(`[RCA HISTORY] Retrieving history for incident ${incidentId}`);
+      
+      const history = await investigationStorage.getRcaHistory(incidentId);
+      
+      if (!history) {
+        return res.status(404).json({ 
+          error: "RCA history not found for this incident" 
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: history
+      });
+      
+    } catch (error) {
+      console.error('[RCA HISTORY] Retrieval failed:', error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to retrieve RCA history",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // RCA TRIAGE ENDPOINTS (Step 2P - RCA Level Determination)
+  
+  // POST /api/incidents/:id/triage - Create/Update RCA Triage & Update History Status
+  app.post("/api/incidents/:id/triage", async (req, res) => {
+    try {
+      const incidentId = req.params.id;
+      const { severity, recurrence, level, label, method, timebox } = req.body;
+      
+      console.log(`[RCA TRIAGE] Processing triage for incident ${incidentId}, level ${level}`);
+      
+      // Validate required fields
+      if (!severity || !recurrence || !level || !label || !method || !timebox) {
+        return res.status(400).json({ 
+          error: "Missing required fields: severity, recurrence, level, label, method, timebox" 
+        });
+      }
+      
+      // Validate level range
+      if (level < 1 || level > 5) {
+        return res.status(400).json({ 
+          error: "level must be between 1 and 5" 
+        });
+      }
+      
+      const triageData = {
+        incidentId,
+        severity,
+        recurrence,
+        level,
+        label,
+        method,
+        timebox
+      };
+      
+      // Save RCA triage
+      const savedTriage = await investigationStorage.upsertRcaTriage(triageData);
+      
+      // Update RCA history status to IN_PROGRESS (Step 2.5 requirement)
+      try {
+        const existingHistory = await investigationStorage.getRcaHistory(incidentId);
+        if (existingHistory) {
+          await investigationStorage.upsertRcaHistory({
+            ...existingHistory,
+            status: 'IN_PROGRESS',
+            lastStep: Math.max(existingHistory.lastStep, 3) // At least step 3 (after triage)
+          });
+          console.log(`[RCA TRIAGE] Updated history status to IN_PROGRESS for incident ${incidentId}`);
+        }
+      } catch (historyError) {
+        console.warn('[RCA TRIAGE] Failed to update history status:', historyError);
+        // Don't fail the triage operation if history update fails
+      }
+      
+      res.json({
+        success: true,
+        data: savedTriage
+      });
+      
+    } catch (error) {
+      console.error('[RCA TRIAGE] Creation failed:', error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to create RCA triage",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // GET /api/incidents/:id/triage - Retrieve RCA Triage
+  app.get("/api/incidents/:id/triage", async (req, res) => {
+    try {
+      const incidentId = req.params.id;
+      
+      console.log(`[RCA TRIAGE] Retrieving triage for incident ${incidentId}`);
+      
+      const triage = await investigationStorage.getRcaTriage(incidentId);
+      
+      if (!triage) {
+        return res.status(404).json({ 
+          error: "RCA triage not found for this incident" 
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: triage
+      });
+      
+    } catch (error) {
+      console.error('[RCA TRIAGE] Retrieval failed:', error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to retrieve RCA triage",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // GET /api/rca/cases - List all RCA cases with filtering
+  app.get("/api/rca/cases", async (req, res) => {
+    try {
+      const { status } = req.query;
+      
+      console.log(`[RCA CASES] Retrieving cases with status filter: ${status || 'all'}`);
+      
+      // Parse status filter
+      const statusFilter = status ? (Array.isArray(status) ? status : [status]) : undefined;
+      
+      const cases = await investigationStorage.getRcaHistoriesByStatus(statusFilter as string[]);
+      
+      res.json({
+        success: true,
+        data: cases,
+        count: cases.length
+      });
+      
+    } catch (error) {
+      console.error('[RCA CASES] Retrieval failed:', error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to retrieve RCA cases",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // UNIFIED EVIDENCE REVIEW ENDPOINT (Universal RCA Evidence Flow v2 Compliance)
   // Route: POST /api/incidents/:id/review-evidence
   // Protocol: Path parameter routing (/incidents/:id/evidence-files) per Universal Protocol Standard

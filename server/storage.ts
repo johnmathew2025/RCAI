@@ -53,6 +53,9 @@ import {
   rcaTriage,
   type RcaTriage,
   type InsertRcaTriage,
+  rcaHistory,
+  type RcaHistory,
+  type InsertRcaHistory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, like, and, or, sql } from "drizzle-orm";
@@ -204,6 +207,11 @@ export interface IInvestigationStorage {
   // RCA Triage operations
   upsertRcaTriage(data: InsertRcaTriage): Promise<RcaTriage>;
   getRcaTriage(incidentId: string): Promise<RcaTriage | undefined>;
+  
+  // RCA History operations
+  upsertRcaHistory(data: InsertRcaHistory): Promise<RcaHistory>;
+  getRcaHistory(incidentId: string): Promise<RcaHistory | undefined>;
+  getRcaHistoriesByStatus(status?: string[]): Promise<RcaHistory[]>;
 }
 
 export class DatabaseInvestigationStorage implements IInvestigationStorage {
@@ -2718,6 +2726,72 @@ export class DatabaseInvestigationStorage implements IInvestigationStorage {
     } catch (error) {
       console.error("[STORAGE] Error fetching RCA triage:", error);
       return undefined;
+    }
+  }
+
+  // RCA History operations
+  async upsertRcaHistory(data: InsertRcaHistory): Promise<RcaHistory> {
+    try {
+      const existing = await this.getRcaHistory(data.incidentId);
+      
+      if (existing) {
+        // Update existing record
+        const [updated] = await db
+          .update(rcaHistory)
+          .set({
+            ...data,
+            updatedAt: new Date()
+          })
+          .where(eq(rcaHistory.incidentId, data.incidentId))
+          .returning();
+        return updated;
+      } else {
+        // Insert new record
+        const [created] = await db
+          .insert(rcaHistory)
+          .values(data)
+          .returning();
+        return created;
+      }
+    } catch (error) {
+      console.error("[STORAGE] Error upserting RCA history:", error);
+      throw error;
+    }
+  }
+
+  async getRcaHistory(incidentId: string): Promise<RcaHistory | undefined> {
+    try {
+      const [history] = await db
+        .select()
+        .from(rcaHistory)
+        .where(eq(rcaHistory.incidentId, incidentId));
+      
+      return history;
+    } catch (error) {
+      console.error("[STORAGE] Error fetching RCA history:", error);
+      return undefined;
+    }
+  }
+
+  async getRcaHistoriesByStatus(statuses?: string[]): Promise<RcaHistory[]> {
+    try {
+      let query = db
+        .select()
+        .from(rcaHistory);
+
+      if (statuses && statuses.length > 0) {
+        query = query.where(
+          or(...statuses.map(status => eq(rcaHistory.status, status)))
+        );
+      }
+
+      const results = await query
+        .orderBy(sql`${rcaHistory.updatedAt} desc`);
+
+      return results;
+    } catch (error) {
+      console.error("[STORAGE] Error getting RCA histories by status:", error);
+      throw error;
     }
   }
 }
