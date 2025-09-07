@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,6 @@ import { ADMIN_SECTIONS, TAXONOMY_TABS } from "@/config/adminNav";
 
 // AI Providers Table Component
 const AIProvidersTable = () => {
-  console.log("[AIPROV] AIProvidersTable component mounted");
   const [providers, setProviders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
@@ -275,7 +274,7 @@ function DynamicProviderSelect({ value, onValueChange }: { value: string; onValu
         <SelectValue placeholder="Select AI provider" />
       </SelectTrigger>
       <SelectContent>
-        {aiModels?.models ? aiModels.models.map((model: any) => (
+        {aiModels?.data ? aiModels.data.map((model: any) => (
           <SelectItem key={model.id} value={model.provider}>
             {model.displayName}
           </SelectItem>
@@ -905,7 +904,7 @@ export default function AdminSettings() {
 
     saveSettingsMutation.mutate({
       provider: formData.provider,
-      apiKey: formData.apiKey, // Backend expects raw apiKey and encrypts internally
+      encryptedApiKey: formData.apiKey, // Backend expects apiKey and encrypts internally
       model: formData.model,
       isActive: formData.isActive,
       createdBy: formData.createdBy
@@ -941,8 +940,6 @@ export default function AdminSettings() {
             const IconComponent = section.icon === 'Home' ? Home : 
                                section.icon === 'Database' ? Database :
                                section.icon === 'Library' ? Library :
-                               section.icon === 'Activity' ? Activity :
-                               section.icon === 'Brain' ? Brain :
                                section.icon === 'Plug' ? Plug : Settings;
             
             return (
