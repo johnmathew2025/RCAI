@@ -1,0 +1,61 @@
+1) One simple switch
+•	Add a flag called DEBUG_AI_SETTINGS (env var or query string):
+o	If env var DEBUG_AI_SETTINGS=1 is set, or the page is opened with ?debug=1, debugging turns on for this browser session.
+o	When off, the app behaves normally with minimal logging.
+2) Give every action a Trace ID
+•	For every UI action (Add, Set Active, Test, Delete), generate a short Trace ID (e.g., AIP-20250907-123456).
+•	Send it in a header on every request: X-Trace-Id: <id>.
+•	The backend must echo this Trace ID in its logs and responses.
+•	Result: we can line up one UI action with one backend request and one DB operation.
+3) Frontend: log what matters (and nothing sensitive)
+When debug is ON, log the following for each button click:
+•	Action (e.g., “ADD_PROVIDER”), when it started, Trace ID.
+•	Inputs used: provider and model as text; never log API keys—replace with "[REDACTED]".
+•	Network: method, URL, status code, total time (ms).
+•	Result: success/fail + short message (e.g., “Row added, id=42” or the error text).
+•	Refresh step: confirm we called “reload table” after a success.
+Also:
+•	Add a small Debug Panel on the AI Settings page (only visible in debug):
+o	Shows the last 100 debug lines with filters (Action / Status / Trace ID).
+o	A button to Export Logs (download a JSON file) for sharing.
+4) Backend: middleware that logs the whole story
+Add one logging middleware that runs for all /api/ai/providers* routes:
+•	On request start: log timestamp, Trace ID (or “none”), route + method, and which fields are present (names only—no values).
+•	On DB calls: log table names touched and query timing (ms). Do not log secrets or full SQL containing keys.
+•	On request end: log status code, duration (ms), and a short outcome (“created id=42”, “activation set”, “deleted id=7”).
+•	On errors: log the stack + Trace ID; include only field names and a short sanitized message.
+5) A tiny /api/meta and a /api/ai/providers/debug check
+•	/api/meta should return: apiVersion, gitSha, and a boolean debug:true|false.
+•	/api/ai/providers/debug (admin-only, debug mode only) should return a quick health snapshot:
+o	recordCount, activeCount, latestCreatedAt
+o	schemaVersion (if you track migrations)
+o	envOk: true|false (e.g., can connect to DB)
+•	The UI (in debug) shows these values at the top so you instantly see if FE/BE/DB are the same world.
+6) Redaction rules (so we don’t leak secrets)
+•	Never log: API keys, Authorization headers, request bodies with api_key. Print "[REDACTED]".
+•	In backend logs, show only field names for bodies (e.g., {provider, model_id, api_key:[REDACTED]}).
+7) A 60-second rat-trap routine (what to do when something “doesn’t show up”)
+1.	Open /admin-settings?debug=1. In the Debug Panel, hit Clear.
+2.	Click Add AI Provider with a test entry.
+3.	Copy the Trace ID shown in the panel.
+4.	In the Replit server logs, search for that Trace ID:
+o	If you don’t see it server-side → FE never called the API (button wiring or base URL/proxy).
+o	If you see request start but no request end → backend error/hang; check stack trace with the same Trace ID.
+o	If backend ends 200 OK but UI table still empty → FE didn’t refresh list or is reading from the wrong base URL.
+o	If backend ends 200 OK and /api/ai/providers shows the row in curl but UI still empty → SPA cache or wrong environment; hard reload with “Disable cache”, verify the Debug Panel meta (apiVersion, gitSha) matches the server.
+5.	If “Set Active” doesn’t reflect, run the same steps—your logs should show the two-step transaction (unset others → set one).
+8) Quick success indicators on the page
+•	A small green line under the page title that shows: FE git: <hash> | BE git: <hash> | apiVersion: v1 | DB: connected.
+•	If FE/BE git hashes or apiVersion mismatch, show a red banner but still render the UI so you can test.
+9) Keep the noise down
+•	All debug logs live under a single “AI Settings” channel. Outside of this area, logging remains normal.
+•	Cap FE logs at 100 lines (drop oldest). Cap BE route timing lines to the routes we care about.
+•	Add a simple log level: INFO, WARN, ERROR. Default to INFO in debug mode.
+10) One-command smoke test (optional but recommended)
+•	Provide npm run smoke:ai that:
+o	Calls /api/ai/providers (list),
+o	Creates a dummy provider,
+o	Checks it appears,
+o	Deletes it.
+•	Prints AI Settings contract OK on success. If this fails, we know it’s backend; if it passes but UI misbehaves, it’s frontend.
+
