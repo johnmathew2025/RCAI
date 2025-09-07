@@ -1,5 +1,5 @@
-const { readdir, rm, stat } = require('node:fs').promises;
-const { join } = require('node:path');
+import { readdir, rm, stat } from 'node:fs/promises';
+import { join } from 'node:path';
 (async () => {
   const root = 'tmp';
   let removed = 0;
