@@ -309,6 +309,21 @@ export default function AdminSettings() {
   const [equipmentGroupsFileRef, setEquipmentGroupsFileRef] = useState<HTMLInputElement | null>(null);
   const [riskRankingsFileRef, setRiskRankingsFileRef] = useState<HTMLInputElement | null>(null);
   const { toast } = useToast();
+  const [systemHealth, setSystemHealth] = useState<any>(null);
+
+  const fetchSystemHealth = async () => {
+    try {
+      const response = await fetch('/api/meta');
+      const data = await response.json();
+      setSystemHealth(data);
+    } catch (error) {
+      console.error('Failed to fetch system health:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSystemHealth();
+  }, []);
 
   // Fetch current AI settings - SINGLE QUERY ONLY
   const { data: aiSettings, isLoading: aiSettingsLoading } = useQuery<AiSettings[]>({
@@ -929,6 +944,24 @@ export default function AdminSettings() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+      {/* System Status Line - Only visible in debug mode */}
+      {aiDebugger.isEnabled() && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="font-medium text-blue-700">🔍 DEBUG MODE ACTIVE</span>
+              <span className="text-blue-600">API v{systemHealth?.apiVersion || 'loading...'}</span>
+              <span className="font-mono text-xs text-blue-500">
+                {systemHealth?.gitSha?.slice(0, 8) || 'workspace'}
+              </span>
+            </div>
+            <div className="text-blue-600">
+              {new Date().toLocaleTimeString()} UTC
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Top-level Admin Navigation - Based on Information Architecture */}
       <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
         <div className="flex items-center space-x-4">
