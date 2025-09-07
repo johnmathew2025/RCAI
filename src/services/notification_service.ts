@@ -356,13 +356,11 @@ export class NotificationService {
     queued: number;
     failed: number;
   }> {
-    let query = db.select().from(notifications);
+    let baseQuery = db.select().from(notifications);
     
-    if (workflowId) {
-      query = query.where(eq(notifications.workflowId, workflowId));
-    }
-    
-    const allNotifications = await query;
+    const allNotifications = workflowId 
+      ? await baseQuery.where(eq(notifications.workflowId, workflowId))
+      : await baseQuery;
     
     return {
       total: allNotifications.length,
