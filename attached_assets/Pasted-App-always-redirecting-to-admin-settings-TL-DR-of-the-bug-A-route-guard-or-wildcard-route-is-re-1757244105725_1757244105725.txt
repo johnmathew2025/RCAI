@@ -1,0 +1,85 @@
+App always redirecting to /admin-settings
+TL;DR of the bug
+A route guard (or wildcard route) is redirecting everything to /admin-settings due to either:
+•	a bad condition (e.g., “no active provider” computed from the wrong source or before data loads), or
+•	a catch-all <Route path="*"> that redirects to /admin-settings, or
+•	legacy window.location.href = '/admin-settings' code.
+1) Find all redirect culprits (run all three)
+# Any code that navigates to /admin-settings
+rg -n -S "navigate\\([^)]*/admin-settings" client
+
+# v6 redirects and wildcard traps
+rg -n -S "<Navigate[^>]*to=['\"]/admin-settings" client
+rg -n -S "<Route[^>]*path=['\"][^'\"]*\\*[^'\"]*['\"][^>]*>" client  # wildcard routes
+
+# Old-school full-page reloads
+rg -n -S "window\\.location\\.(href|assign|replace).*admin-settings" client
+If a wildcard route (path="*") redirects to /admin-settings, that alone explains why nothing else is reachable. Change it to a real NotFound page (no redirect).
+2) Make the config guard load-safe and use one source of truth
+Create/standardize a guard that:
+•	waits for data,
+•	computes “configured” from the same list as the status card/table (GET /api/ai/providers),
+•	only redirects after data is loaded and we know there’s truly no active provider,
+•	never guards the /admin-settings page.
+// client/src/routes/RequireConfigured.tsx
+import { Navigate, useLocation } from "react-router-dom";
+import useSWR from "swr";
+import { api } from "@/api";
+
+const fetcher = (url: string) => api(url).then(r => r.json());
+
+export default function RequireConfigured({ children }: { children: JSX.Element }) {
+  const { data, error, isLoading } = useSWR("/ai/providers", fetcher, { revalidateOnFocus: false });
+  const loc = useLocation();
+
+  // Never block the admin-settings page itself
+  if (loc.pathname.startsWith("/admin-settings")) return children;
+
+  if (isLoading) return null; // or a small skeleton
+  if (error) return <Navigate to="/admin-settings" replace state={{ reason: "load-error" }} />;
+
+  const rows = Array.isArray(data) ? data : [];
+  const hasActive = rows.some(r => r.is_active);
+
+  return hasActive ? children : <Navigate to="/admin-settings" replace state={{ reason: "no-active-provider" }} />;
+}
+Wrap only the routes that actually need configuration:
+import RequireConfigured from "@/routes/RequireConfigured";
+
+<Routes>
+  <Route path="/admin-settings" element={<AdminSettings/>} />
+  <Route path="/" element={
+    <RequireConfigured><Home/></RequireConfigured>
+  } />
+  <Route path="/analysis-engine" element={
+    <RequireConfigured><AnalysisEngine/></RequireConfigured>
+  } />
+  {/* ...other gated routes */}
+  <Route path="*" element={<NotFound/>} />  {/* DO NOT redirect here */}
+</Routes>
+3) Remove/convert legacy redirects
+Replace any v5-style or reload redirects:
+// ❌ remove this pattern (v5 + full reload)
+<Route path="/admin/ai" component={() => { window.location.href = '/ai-powered-rca'; return null; }} />
+// ✅ use v6 Navigate (client-side redirect only for that path)
+<Route path="/admin/ai" element={<Navigate replace to="/ai-powered-rca" />} />
+4) Make new-tab links absolute (so they don’t become weird paths)
+rg -n -S '<a[^>]*target="_blank"[^>]*href="[^/]' client
+rg -n -S 'window\\.open\\([\'"][^/]' client
+Fix each to start with / or use a helper that builds new URL('/path', window.location.origin).
+5) Keep SPA fallback correct (server)
+Order: API → static → SPA fallback; fallback returns index.html for non-API paths (no redirect here).
+6) Quick verification
+1.	Hard reload with cache disabled.
+2.	Open these in new tabs:
+o	/ → should show Home (not bounce to AI Settings if an active provider exists).
+o	/analysis-engine → should show Analysis Engine.
+o	/admin-settings → should show Admin Settings.
+3.	Turn the provider inactive (or delete it) and confirm that guarded routes now send you to /admin-settings, while /admin-settings itself always opens.
+7) Acceptance criteria (must all pass)
+•	Only routes wrapped in RequireConfigured redirect when there is no active provider.
+•	With an active provider, no page redirects to /admin-settings.
+•	Wildcard path="*" shows NotFound (no redirect).
+•	No window.location.*('/admin-settings') remains.
+•	Status card and the guard both compute “active” from the same GET /api/ai/providers response.
+

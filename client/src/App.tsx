@@ -31,6 +31,7 @@ import NotFound from "@/pages/not-found";
 import DebugRoutes from "@/pages/debug-routes";
 import FaultReferenceLibrary from "@/pages/admin/fault-reference-library";
 import TaxonomyManagement from "@/pages/admin/taxonomy-management";
+import RequireConfigured from "@/routes/RequireConfigured";
 // import EvidenceLibraryIntegration from "@/pages/evidence-library-integration"; // Removed - causing errors
 import EvidenceAnalysisDemo from "@/pages/evidence-analysis-demo";
 import RCAAnalysisDemo from "@/pages/rca-analysis-demo";
@@ -40,6 +41,7 @@ import DeploymentReadyDashboard from "@/pages/deployment-ready-dashboard";
 import { WorkflowIntegration } from "@/pages/WorkflowIntegration";
 import RcaTriage from "@/pages/rca-triage";
 import RcaCases from "@/pages/rca-cases";
+import RequireConfigured from "@/routes/RequireConfigured";
 
 
 function Router() {
@@ -54,13 +56,13 @@ function Router() {
   return (
     <BrowserRouter basename="/">
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<RequireConfigured><Home /></RequireConfigured>} />
         <Route path="/new" element={<NewInvestigation />} />
         <Route path="/investigation/:id/type" element={<InvestigationType />} />
         <Route path="/investigation/:id/evidence" element={<EvidenceCollectionOld />} />
         <Route path="/investigation/:id" element={<AnalysisDetail />} />
         <Route path="/admin" element={<AdminSettings />} />
-        <Route path="/admin-settings" element={<Navigate replace to="/admin" />} />
+        <Route path="/admin-settings" element={<AdminSettings />} />
         {/* Canonical Admin Routes - Configuration Tools Only */}
         <Route path="/admin/evidence" element={<EvidenceLibraryManagement />} />
         <Route path="/admin/integrations" element={<WorkflowIntegrationDemo />} />
@@ -71,8 +73,8 @@ function Router() {
         <Route path="/incidents/:id/rca-triage" element={<RcaTriage />} />
         <Route path="/rca/cases" element={<RcaCases />} />
         <Route path="/workflow/integration" element={<WorkflowIntegration />} />
-        <Route path="/analysis-engine" element={<EvidenceAnalysisDemo />} />
-        <Route path="/ai-powered-rca" element={<RCAAnalysisDemo />} />
+        <Route path="/analysis-engine" element={<RequireConfigured><EvidenceAnalysisDemo /></RequireConfigured>} />
+        <Route path="/ai-powered-rca" element={<RequireConfigured><RCAAnalysisDemo /></RequireConfigured>} />
         <Route path="/analysis-history" element={<DeploymentReadyDashboard />} />
       
         {/* Legacy route redirects */}
