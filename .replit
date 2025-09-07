@@ -1,11 +1,11 @@
-modules = ["python-3.11", "nodejs-20", "c-clang14", "cpp-clang14", "postgresql-16"]
+modules = ["python-3.11", "nodejs-20", "c-clang14", "cpp-clang14"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 compile = "make"
 
 [nix]
 channel = "stable-25_05"
-packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libxcrypt", "pkg-config", "qhull", "tcl", "tk", "xsimd", "lsof", "psmisc", "imagemagick_light", "jq"]
+packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libxcrypt", "pkg-config", "qhull", "tcl", "tk", "xsimd", "lsof", "psmisc", "imagemagick_light", "jq", "redis"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -43,5 +43,4 @@ args = "npm run dev"
 waitForPort = 5000
 
 [agent]
-integrations = ["javascript_log_in_with_replit==1.0.0", "javascript_database==1.0.0"]
 # Trigger git change

@@ -38,7 +38,7 @@ export class NotificationService {
    */
   private initializeTransporter(): void {
     try {
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         host: Config.SMTP_CONFIG.host,
         port: Config.SMTP_CONFIG.port,
         secure: Config.SMTP_CONFIG.port === 465,
