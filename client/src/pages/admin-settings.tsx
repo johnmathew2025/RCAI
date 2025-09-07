@@ -28,6 +28,30 @@ const AIProvidersTable = () => {
     is_active: false
   });
 
+  const [apiMeta, setApiMeta] = useState<any>(null);
+  const [metaLoading, setMetaLoading] = useState(true);
+
+  // Fetch API meta for version gating
+  const fetchApiMeta = async () => {
+    try {
+      const response = await fetch('/api/meta');
+      const data = await response.json();
+      setApiMeta(data);
+      
+      // Version gate: refuse to render if version mismatch
+      if (data.apiVersion !== "ai-settings-v1") {
+        console.error(`Version mismatch: expected ai-settings-v1, got ${data.apiVersion}`);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error fetching API meta:', error);
+      return false;
+    } finally {
+      setMetaLoading(false);
+    }
+  };
+
   // Fetch providers
   const fetchProviders = async () => {
     try {
@@ -42,7 +66,13 @@ const AIProvidersTable = () => {
   };
 
   useEffect(() => {
-    fetchProviders();
+    const initializeData = async () => {
+      const metaOk = await fetchApiMeta();
+      if (metaOk) {
+        fetchProviders();
+      }
+    };
+    initializeData();
   }, []);
 
   // Create provider
@@ -113,8 +143,35 @@ const AIProvidersTable = () => {
     }
   };
 
+  // Version gate UI
+  if (metaLoading) {
+    return <div className="text-center py-8">Checking API version...</div>;
+  }
+
+  if (!apiMeta || apiMeta.apiVersion !== "ai-settings-v1") {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="flex items-center space-x-2 text-red-800">
+          <AlertTriangle className="w-5 h-5" />
+          <div>
+            <h3 className="font-medium">Backend/UI Mismatch</h3>
+            <p className="text-sm">
+              Expected API version ai-settings-v1, got {apiMeta?.apiVersion || 'unknown'}. 
+              Please hard refresh or rebuild.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      {/* Version info display */}
+      <div className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-1">
+        API: {apiMeta.apiVersion} | DB: {apiMeta.db} | Git: {apiMeta.git} | {new Date(apiMeta.timestamp).toLocaleTimeString()}
+      </div>
+      
       {/* Add form */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         <Input

@@ -3574,6 +3574,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // API Meta endpoint for version tracking
+  app.get("/api/meta", async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { Pool } = await import("@neondatabase/serverless");
+      
+      // Get database name from connection URL
+      const dbUrl = process.env.DATABASE_URL || '';
+      const dbName = dbUrl.split('/').pop()?.split('?')[0] || 'unknown';
+      
+      // Get git commit (if available)
+      let gitSha = 'unknown';
+      try {
+        const { execSync } = await import('child_process');
+        gitSha = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+      } catch (error) {
+        // Git not available or not a git repo
+      }
+      
+      res.json({
+        apiVersion: "ai-settings-v1",
+        db: dbName,
+        git: gitSha,
+        timestamp: new Date().toISOString(),
+        nodeEnv: process.env.NODE_ENV
+      });
+    } catch (error) {
+      console.error('[META] Error retrieving meta info:', error);
+      res.status(500).json({ 
+        apiVersion: "ai-settings-v1", 
+        error: "Failed to retrieve meta info",
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Provider-specific Models API - NO HARDCODING 
   app.get("/api/ai/models", async (req, res) => {
     try {
