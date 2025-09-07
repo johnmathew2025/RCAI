@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ export default function HistorySection() {
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all"); // Add status filter
   const [currentPage, setCurrentPage] = useState(1);
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const itemsPerPage = 10;
 
   // Build query parameters
@@ -241,10 +241,10 @@ export default function HistorySection() {
                               onClick={() => {
                                 if (analysis.isDraft) {
                                   // Navigate to continue draft
-                                  setLocation(`/equipment-selection?incident=${analysis.id}`);
+                                  navigate(`/equipment-selection?incident=${analysis.id}`);
                                 } else {
                                   // Navigate to comprehensive analysis details page
-                                  setLocation(`/analysis-details/${analysis.id}`);
+                                  navigate(`/analysis-details/${analysis.id}`);
                                 }
                               }}
                               className="text-xs px-2"

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useLocation, Link } from "wouter";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 
 import DashboardSection from "@/components/dashboard-section";
 import HistorySection from "@/components/history-section";
@@ -65,14 +65,14 @@ function NewAnalysisSection() {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
-            <Link href="/incident-reporting" className="flex-1" rel="noopener noreferrer">
+            <Link to="/incident-reporting" className="flex-1" rel="noopener noreferrer">
               <Button className="w-full flex items-center gap-2" size="lg">
                 <FileText className="h-5 w-5" />
                 Report New Incident
                 <ArrowRight className="h-4 w-4 ml-auto" />
               </Button>
             </Link>
-            <Link href="/new" className="flex-1">
+            <Link to="/new" className="flex-1">
               <Button variant="outline" className="w-full flex items-center gap-2" size="lg">
                 <Search className="h-5 w-5" />
                 Legacy Analysis Upload
@@ -102,7 +102,7 @@ function NewAnalysisSection() {
 }
 
 export default function Home() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
@@ -130,7 +130,7 @@ export default function Home() {
               </div>
               <Button 
                 variant="secondary" 
-                onClick={() => setLocation('/admin')}
+                onClick={() => navigate('/admin')}
                 className="text-sm font-medium"
               >
                 <Users className="w-4 h-4 mr-2" />
