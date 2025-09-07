@@ -178,10 +178,8 @@ export default function EvidenceChecklist() {
   // Legacy mutation for backward compatibility
   const legacyGenerateChecklistMutation = useMutation({
     mutationFn: async (incidentData: Incident) => {
-      const response = await fetch(`/api/incidents/${incidentData.id}/generate-evidence-checklist-legacy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/incidents/${incidentData.id}/generate-evidence-checklist-legacy`);
       
       if (!response.ok) {
         throw new Error(`Failed to generate legacy checklist: ${response.status}`);
@@ -713,16 +711,13 @@ export default function EvidenceChecklist() {
                       if (aiAnalysis?.fallbackMode) {
                         // Submit fallback feedback
                         try {
-                          const response = await fetch(`/api/incidents/${incidentId}/fallback-feedback`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              confirmedCauses,
-                              disagreedCauses,
-                              alternativeCauses: [],
-                              customFailureModes,
-                              userReasoning: 'User feedback on AI-inferred failure modes'
-                            })
+                          const { apiPost } = await import('@/api');
+                          const response = await apiPost(`/incidents/${incidentId}/fallback-feedback`, {
+                            confirmedCauses,
+                            disagreedCauses,
+                            alternativeCauses: [],
+                            customFailureModes,
+                            userReasoning: 'User feedback on AI-inferred failure modes'
                           });
                           
                           if (response.ok) {

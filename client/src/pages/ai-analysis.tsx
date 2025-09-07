@@ -84,10 +84,8 @@ export default function AIAnalysis() {
   // Execute Deterministic RCA Synthesis (Universal RCA Evidence Flow v2)
   const performAnalysisMutation = useMutation({
     mutationFn: async (incidentId: string) => {
-      const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}/rca-synthesis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/incidents/${encodeURIComponent(incidentId)}/rca-synthesis`);
       
       if (!response.ok) {
         throw new Error(`RCA synthesis failed: ${response.status}`);

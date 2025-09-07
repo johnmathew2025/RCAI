@@ -90,28 +90,42 @@ export default function EvidenceAnalysisDemo() {
   // Fetch taxonomy data
   const { data: groups, isLoading: groupsLoading } = useQuery({
     queryKey: ['/api/taxonomy/groups'],
-    queryFn: () => fetch('/api/taxonomy/groups').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/taxonomy/groups');
+      return response.json();
+    }
   });
 
   const { data: types, isLoading: typesLoading } = useQuery({
     queryKey: ['/api/taxonomy/types', analysisRequest.equipmentGroupId],
-    queryFn: () => analysisRequest.equipmentGroupId ? 
-      fetch(`/api/taxonomy/types?groupId=${analysisRequest.equipmentGroupId}`).then(res => res.json()) : 
-      Promise.resolve([]),
+    queryFn: async () => {
+      if (!analysisRequest.equipmentGroupId) return [];
+      const { api } = await import('@/api');
+      const response = await api(`/taxonomy/types?groupId=${analysisRequest.equipmentGroupId}`);
+      return response.json();
+    },
     enabled: !!analysisRequest.equipmentGroupId
   });
 
   const { data: subtypes, isLoading: subtypesLoading } = useQuery({
     queryKey: ['/api/taxonomy/subtypes', analysisRequest.equipmentTypeId],
-    queryFn: () => analysisRequest.equipmentTypeId ? 
-      fetch(`/api/taxonomy/subtypes?typeId=${analysisRequest.equipmentTypeId}`).then(res => res.json()) : 
-      Promise.resolve([]),
+    queryFn: async () => {
+      if (!analysisRequest.equipmentTypeId) return [];
+      const { api } = await import('@/api');
+      const response = await api(`/taxonomy/subtypes?typeId=${analysisRequest.equipmentTypeId}`);
+      return response.json();
+    },
     enabled: !!analysisRequest.equipmentTypeId
   });
 
   const { data: risks, isLoading: risksLoading } = useQuery({
     queryKey: ['/api/taxonomy/risks'],
-    queryFn: () => fetch('/api/taxonomy/risks').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/taxonomy/risks');
+      return response.json();
+    }
   });
 
   // Analysis mutation

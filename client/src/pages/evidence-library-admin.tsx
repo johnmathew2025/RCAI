@@ -495,7 +495,8 @@ export default function EvidenceLibraryAdmin() {
             variant="outline"
             onClick={async () => {
               try {
-                const response = await fetch('/api/evidence-library/admin/export', {
+                const { api } = await import('@/api');
+                const response = await api('/evidence-library/admin/export', {
                   headers: {
                     'x-admin-key': 'admin123'
                   }
@@ -568,7 +569,8 @@ export default function EvidenceLibraryAdmin() {
                       const formData = new FormData();
                       formData.append('file', file);
                       
-                      const response = await fetch('/api/evidence-library/admin/import', {
+                      const { api } = await import('@/api');
+                      const response = await api('/evidence-library/admin/import', {
                         method: 'POST',
                         headers: {
                           'x-admin-key': 'admin123'

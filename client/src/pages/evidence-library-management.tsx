@@ -250,7 +250,8 @@ export default function EvidenceLibraryManagement() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('/api/evidence-library/import', {
+      const { api } = await import('@/api');
+      const response = await api('/evidence-library/import', {
         method: 'POST',
         body: formData,
       });
@@ -406,7 +407,8 @@ export default function EvidenceLibraryManagement() {
   // Export function
   const handleExport = async () => {
     try {
-      const response = await fetch('/api/evidence-library/export/csv');
+      const { api } = await import('@/api');
+      const response = await api('/evidence-library/export/csv');
       if (!response.ok) throw new Error('Export failed');
       
       const blob = await response.blob();

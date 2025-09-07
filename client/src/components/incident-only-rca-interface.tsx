@@ -62,10 +62,8 @@ export function IncidentOnlyRCAInterface({
   const startAnalysis = async () => {
     setIsAnalyzing(true);
     try {
-      const response = await fetch(`/api/incidents/${incidentId}/incident-only-rca`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/incidents/${incidentId}/incident-only-rca`);
 
       if (!response.ok) {
         throw new Error('RCA analysis failed');

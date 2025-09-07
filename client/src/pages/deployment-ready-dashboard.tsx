@@ -106,7 +106,11 @@ export default function DeploymentReadyDashboard() {
   // Fetch deployment status
   const { data: deploymentResponse, isLoading, refetch, error } = useQuery({
     queryKey: ['/api/deployment/status'],
-    queryFn: () => fetch('/api/deployment/status').then(res => res.json()),
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/deployment/status');
+      return response.json();
+    },
     refetchInterval: 30000 // Refetch every 30 seconds
   });
 

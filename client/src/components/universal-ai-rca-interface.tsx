@@ -66,12 +66,8 @@ export default function UniversalAIRCAInterface({ incidentId }: { incidentId: st
     try {
       console.log(`[Universal AI RCA] Initiating AI-driven analysis for incident ${incidentId}`);
       
-      const response = await fetch(`/api/incidents/${incidentId}/ai-rca-analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/incidents/${incidentId}/ai-rca-analysis`);
 
       if (!response.ok) {
         const errorData = await response.json();

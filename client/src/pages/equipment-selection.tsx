@@ -77,7 +77,8 @@ export default function EquipmentSelection() {
     queryKey: [`/api/incidents/${incidentId}`],
     queryFn: async () => {
       console.log('Fetching incident:', incidentId);
-      const response = await fetch(`/api/incidents/${encodeURIComponent(incidentId)}`);
+      const { api } = await import('@/api');
+      const response = await api(`/incidents/${encodeURIComponent(incidentId)}`);
       console.log('Response status:', response.status, response.statusText);
       if (!response.ok) {
         const errorText = await response.text();

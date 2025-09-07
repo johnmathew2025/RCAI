@@ -73,7 +73,8 @@ export function WorkflowIntegration() {
   const { data: incidents, isLoading: incidentsLoading } = useQuery<Incident[]>({
     queryKey: ['/api/incidents'],
     queryFn: async () => {
-      const response = await fetch('/api/incidents');
+      const { api } = await import('@/api');
+      const response = await api('/incidents');
       if (!response.ok) throw new Error('Failed to fetch incidents');
       return response.json();
     },
@@ -85,11 +86,8 @@ export function WorkflowIntegration() {
     queryFn: async () => {
       if (!selectedIncidentId) return null;
       
-      const response = await fetch(`/api/workflows/${selectedIncidentId}/notifications/preview`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/workflows/${selectedIncidentId}/notifications/preview`, formData);
       
       if (!response.ok) throw new Error('Failed to get preview');
       return response.json();
@@ -100,11 +98,8 @@ export function WorkflowIntegration() {
   // Initiate workflow mutation
   const initiateWorkflow = useMutation({
     mutationFn: async (data: WorkflowInitiationData) => {
-      const response = await fetch('/api/workflows/initiate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+      const { apiPost } = await import('@/api');
+      const response = await apiPost('/workflows/initiate', data);
       
       if (!response.ok) {
         const error = await response.json();

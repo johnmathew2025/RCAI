@@ -156,13 +156,21 @@ export default function DataIntegrationDemo() {
   // Fetch data sources
   const { data: dataSourcesResponse, isLoading: dataSourcesLoading, refetch: refetchDataSources } = useQuery({
     queryKey: ['/api/data-sources'],
-    queryFn: () => fetch('/api/data-sources').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/data-sources');
+      return response.json();
+    }
   });
 
   // Fetch available integrations
   const { data: integrationsResponse, isLoading: integrationsLoading } = useQuery({
     queryKey: ['/api/integrations'],
-    queryFn: () => fetch('/api/integrations').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/integrations');
+      return response.json();
+    }
   });
 
   // Data source registration mutation
@@ -243,7 +251,8 @@ export default function DataIntegrationDemo() {
   // Fetch sync history for selected data source
   const fetchSyncHistory = async (sourceId: string) => {
     try {
-      const response = await fetch(`/api/data-sources/${sourceId}/history`);
+      const { api } = await import('@/api');
+      const response = await api(`/data-sources/${sourceId}/history`);
       const result = await response.json();
       if (result?.success) {
         setSyncHistory(result?.syncHistory || []);

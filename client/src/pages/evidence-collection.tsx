@@ -103,14 +103,11 @@ export default function EvidenceCollection() {
   // Generate evidence collection categories
   const generateCategoriesMutation = useMutation({
     mutationFn: async (incidentData: Incident) => {
-      const response = await fetch(`/api/incidents/${incidentData.id}/generate-evidence-categories`, {
-        method: 'POST',
-        body: JSON.stringify({
-          equipmentGroup: incidentData.equipmentGroup,
-          equipmentType: incidentData.equipmentType,
-          evidenceChecklist: incidentData.evidenceChecklist,
-        }),
-        headers: { 'Content-Type': 'application/json' },
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/incidents/${incidentData.id}/generate-evidence-categories`, {
+        equipmentGroup: incidentData.equipmentGroup,
+        equipmentType: incidentData.equipmentType,
+        evidenceChecklist: incidentData.evidenceChecklist,
       });
       
       if (!response.ok) {
@@ -147,7 +144,8 @@ export default function EvidenceCollection() {
         formData.append('description', data.description);
       }
 
-      const response = await fetch(`/api/incidents/${incidentId}/upload-evidence`, {
+      const { api } = await import('@/api');
+      const response = await api(`/incidents/${incidentId}/upload-evidence`, {
         method: 'POST',
         body: formData,
       });

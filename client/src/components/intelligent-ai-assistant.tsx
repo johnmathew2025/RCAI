@@ -42,31 +42,37 @@ export default function IntelligentAIAssistant({
   // Fetch equipment-specific AI prompts
   const { data: promptData } = useQuery({
     queryKey: ['/api/evidence-library/equipment', equipmentType, 'prompts', currentQuestion?.type],
-    queryFn: () => fetch(`/api/evidence-library/equipment/${equipmentType}/prompts/${currentQuestion?.type}`)
-      .then(res => res.json()),
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api(`/evidence-library/equipment/${equipmentType}/prompts/${currentQuestion?.type}`);
+      return response.json();
+    },
     enabled: !!equipmentType && !!currentQuestion?.type,
   });
 
   // Fetch equipment requirements and validate evidence
   const { data: requirementsData } = useQuery({
     queryKey: ['/api/evidence-library/equipment', equipmentType, 'requirements'],
-    queryFn: () => fetch(`/api/evidence-library/equipment/${equipmentType}/requirements`)
-      .then(res => res.json()),
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api(`/evidence-library/equipment/${equipmentType}/requirements`);
+      return response.json();
+    },
     enabled: !!equipmentType,
   });
 
   // Real-time evidence validation
   const { data: validationData } = useQuery({
     queryKey: ['/api/evidence-library/validate-evidence', equipmentType, evidenceData],
-    queryFn: () => fetch('/api/evidence-library/validate-evidence', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
+    queryFn: async () => {
+      const { apiPost } = await import('@/api');
+      const response = await apiPost('/evidence-library/validate-evidence', {
         equipmentType, 
         evidenceData,
         symptoms: extractSymptoms(evidenceData)
-      }),
-    }).then(res => res.json()),
+      });
+      return response.json();
+    },
     enabled: !!equipmentType && Object.keys(evidenceData).length > 0,
   });
 

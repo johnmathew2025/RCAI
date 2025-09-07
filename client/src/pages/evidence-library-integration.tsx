@@ -107,34 +107,52 @@ export default function EvidenceLibraryIntegration() {
   // Fetch taxonomy data
   const { data: groups, isLoading: groupsLoading } = useQuery({
     queryKey: ['/api/taxonomy/groups'],
-    queryFn: () => fetch('/api/taxonomy/groups').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/taxonomy/groups');
+      return response.json();
+    }
   });
 
   const { data: types, isLoading: typesLoading } = useQuery({
     queryKey: ['/api/taxonomy/types', selectedGroupId],
-    queryFn: () => selectedGroupId ? 
-      fetch(`/api/taxonomy/types?groupId=${selectedGroupId}`).then(res => res.json()) : 
-      Promise.resolve([]),
+    queryFn: async () => {
+      if (!selectedGroupId) return [];
+      const { api } = await import('@/api');
+      const response = await api(`/taxonomy/types?groupId=${selectedGroupId}`);
+      return response.json();
+    },
     enabled: !!selectedGroupId
   });
 
   const { data: subtypes, isLoading: subtypesLoading } = useQuery({
     queryKey: ['/api/taxonomy/subtypes', selectedTypeId],
-    queryFn: () => selectedTypeId ? 
-      fetch(`/api/taxonomy/subtypes?typeId=${selectedTypeId}`).then(res => res.json()) : 
-      Promise.resolve([]),
+    queryFn: async () => {
+      if (!selectedTypeId) return [];
+      const { api } = await import('@/api');
+      const response = await api(`/taxonomy/subtypes?typeId=${selectedTypeId}`);
+      return response.json();
+    },
     enabled: !!selectedTypeId
   });
 
   const { data: risks, isLoading: risksLoading } = useQuery({
     queryKey: ['/api/taxonomy/risks'],
-    queryFn: () => fetch('/api/taxonomy/risks').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/taxonomy/risks');
+      return response.json();
+    }
   });
 
   // Fetch evidence library data
   const { data: evidenceItems, isLoading: evidenceLoading, refetch: refetchEvidence } = useQuery({
     queryKey: ['/api/evidence-library'],
-    queryFn: () => fetch('/api/evidence-library').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/evidence-library');
+      return response.json();
+    }
   });
 
   // Filter evidence items based on selected taxonomy

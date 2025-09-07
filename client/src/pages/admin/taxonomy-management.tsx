@@ -69,34 +69,52 @@ export default function TaxonomyManagement() {
   // Fetch all taxonomy data
   const { data: groups, isLoading: groupsLoading } = useQuery({
     queryKey: ['/api/taxonomy/groups'],
-    queryFn: () => fetch('/api/taxonomy/groups').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/taxonomy/groups');
+      return response.json();
+    }
   });
 
   const { data: types, isLoading: typesLoading } = useQuery({
     queryKey: ['/api/taxonomy/types', selectedGroupId],
-    queryFn: () => selectedGroupId ? 
-      fetch(`/api/taxonomy/types?groupId=${selectedGroupId}`).then(res => res.json()) : 
-      Promise.resolve([]),
+    queryFn: async () => {
+      if (!selectedGroupId) return [];
+      const { api } = await import('@/api');
+      const response = await api(`/taxonomy/types?groupId=${selectedGroupId}`);
+      return response.json();
+    },
     enabled: !!selectedGroupId
   });
 
   const { data: subtypes, isLoading: subtypesLoading } = useQuery({
     queryKey: ['/api/taxonomy/subtypes', selectedTypeId],
-    queryFn: () => selectedTypeId ? 
-      fetch(`/api/taxonomy/subtypes?typeId=${selectedTypeId}`).then(res => res.json()) : 
-      Promise.resolve([]),
+    queryFn: async () => {
+      if (!selectedTypeId) return [];
+      const { api } = await import('@/api');
+      const response = await api(`/taxonomy/subtypes?typeId=${selectedTypeId}`);
+      return response.json();
+    },
     enabled: !!selectedTypeId
   });
 
   const { data: risks, isLoading: risksLoading } = useQuery({
     queryKey: ['/api/taxonomy/risks'],
-    queryFn: () => fetch('/api/taxonomy/risks').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/taxonomy/risks');
+      return response.json();
+    }
   });
 
   // Test API connectivity
   const { data: apiTest, isLoading: testLoading } = useQuery({
     queryKey: ['/api/test-direct'],
-    queryFn: () => fetch('/api/test-direct').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/test-direct');
+      return response.json();
+    }
   });
 
   return (

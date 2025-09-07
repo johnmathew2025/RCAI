@@ -139,7 +139,8 @@ export default function FaultReferenceLibrary() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('/api/admin/fault-reference-library/import', {
+      const { api } = await import('@/api');
+      const response = await api('/admin/fault-reference-library/import', {
         method: 'POST',
         body: formData,
       });
@@ -171,7 +172,8 @@ export default function FaultReferenceLibrary() {
 
   const handleExport = async (format: 'csv' | 'excel') => {
     try {
-      const response = await fetch(`/api/admin/fault-reference-library/export/${format}`);
+      const { api } = await import('@/api');
+      const response = await api(`/admin/fault-reference-library/export/${format}`);
       if (!response.ok) throw new Error('Export failed');
       
       const blob = await response.blob();

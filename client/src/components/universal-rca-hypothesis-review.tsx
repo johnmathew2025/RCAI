@@ -90,16 +90,11 @@ export function UniversalRCAHypothesisReview({
         userReasoning
       });
 
-      const response = await fetch(`/api/incidents/${incidentId}/hypothesis-feedback`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          hypothesesFeedback,
-          customFailureModes: customModesWithText,
-          userReasoning
-        })
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/incidents/${incidentId}/hypothesis-feedback`, {
+        hypothesesFeedback,
+        customFailureModes: customModesWithText,
+        userReasoning
       });
 
       if (!response.ok) {

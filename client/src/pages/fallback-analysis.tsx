@@ -30,13 +30,10 @@ export function FallbackAnalysisPage() {
       const evidenceAvailability = {};
       const uploadedFiles = incident?.evidenceResponses || [];
       
-      const response = await fetch(`/api/incidents/${incidentId}/fallback-analysis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          evidenceAvailability,
-          uploadedFiles
-        })
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/incidents/${incidentId}/fallback-analysis`, {
+        evidenceAvailability,
+        uploadedFiles
       });
       
       if (!response.ok) {
