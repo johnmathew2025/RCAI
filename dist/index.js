@@ -18723,7 +18723,7 @@ app2.use((req, res, next) => {
       console.error("[SERVER] CRITICAL ERROR in registerRoutes:", error);
       throw error;
     }
-    const publicPath = path5.resolve(__dirname, "../dist/public");
+    const publicPath = path5.resolve(process.cwd(), "dist/public");
     app2.use((req, res, next) => {
       if (req.path.startsWith("/api/")) {
         return next();

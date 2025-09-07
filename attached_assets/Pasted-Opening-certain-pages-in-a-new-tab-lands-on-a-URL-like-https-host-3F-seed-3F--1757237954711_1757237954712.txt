@@ -1,0 +1,101 @@
+Opening certain pages in a new tab lands on a URL like:
+https://<host>/%3F__seed=...   // "%3F" == "?"
+This happens when links are relative (e.g., href="admin-settings" or window.open('admin-settings')) and get resolved against the current URL with a query string. React Router then sees the wrong path and shows 404.
+Goals
+•	Make every new-tab link absolute from app root (e.g., /admin-settings).
+•	Remove any code that turns location.search into a path (no /%3F...).
+•	Keep SPA fallback + router config sane.
+•	Prove with curl that deep links return HTML (200), and API still returns JSON.
+ 
+1) Find & fix bad new-tab links
+Search for relative anchors opened in a new tab:
+rg -n -S '<a[^>]*target="_blank"[^>]*href="[^/]' client
+Fix: ensure the href starts with “/”.
+// ✅ Correct (absolute from root):
+<a href="/admin-settings" target="_blank" rel="noopener noreferrer">Admin Settings</a>
+
+// ❌ Wrong (relative; breaks in new tab):
+<a href="admin-settings" target="_blank">Admin Settings</a>
+Search for JS opens that build relative URLs:
+rg -n -S 'window\\.open\\([\'"][^/]' client
+Replace with the helper in §2 below.
+ 
+2) Add a safe openTab helper and use it everywhere
+Create client/src/utils/openTab.ts:
+export function openTab(path: string, search?: Record<string, string>) {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const url = new URL(p, window.location.origin);
+  if (search) for (const [k,v] of Object.entries(search)) url.searchParams.set(k, v);
+  window.open(url.toString(), "_blank", "noopener,noreferrer");
+}
+Replace any window.open('admin-settings', '_blank') with:
+import { openTab } from "@/utils/openTab";
+<button onClick={() => openTab("/admin-settings")}>Open in new tab</button>
+ 
+3) Remove code that encodes the query into the path
+Search for misuse of location.search or encoded ?:
+rg -n -S '__seed|encodeURIComponent\\(.*\\?' client
+If you see patterns like:
+"/" + encodeURIComponent(location.search)   // --> "/%3F__seed=..."
+Delete or refactor to use query params properly:
+const url = new URL("/admin-settings", window.location.origin);
+url.search = location.search; // if you truly need to carry the query
+open(url.toString(), "_blank", "noopener,noreferrer");
+ 
+4) Router sanity (one-time check)
+Ensure BrowserRouter at root and routes declared:
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+<BrowserRouter basename="/">
+  <Routes>
+    <Route path="/" element={<Home/>} />
+    <Route path="/admin-settings" element={<AdminSettings/>} />
+    <Route path="/admin-settings/*" element={<AdminSettings/>} />
+    <Route path="*" element={<NotFound/>} />
+  </Routes>
+</BrowserRouter>
+index.html must have:
+<base href="/" />
+(If you’re using HashRouter, links must be #/admin-settings. Prefer BrowserRouter.)
+ 
+5) Server fallback order (confirm, don’t change if already correct)
+Order must be: API → static → SPA fallback.
+app.use("/api", apiRouter);
+app.use(express.static(dist, { index: false, maxAge: "1y", immutable: true }));
+app.get("*", (req, res) => {
+  if (req.path.startsWith("/api/")) return res.status(404).end();
+  res.set("Cache-Control","no-store");
+  res.sendFile(path.join(dist, "index.html"));
+});
+ 
+6) Clean start (avoid ghost processes)
+npx kill-port 5000 5173 || true
+npm run build           # if you serve the built SPA
+npm run start
+ 
+7) Verification (can’t-fail)
+Replace H with the exact host from the browser:
+H="https://<your-subdomain>.worf.replit.dev"
+
+# Deep link must be HTML (200)
+curl -si "$H/admin-settings" | head -8
+
+# API must still be JSON (200)
+curl -si "$H/api/ai/providers" | sed -n '1,8p'
+From the app UI, click the same “open in new tab” control—URL in the new tab should be /admin-settings (no /%3F__seed=...), and it should load normally.
+ 
+8) Prevent regressions
+Add a lightweight lint/grep check:
+# Relative new-tab anchors (href without leading "/")
+rg -n -S '<a[^>]*target="_blank"[^>]*href="[^/]' client && { echo "❌ relative new-tab href"; exit 1; } || echo "✅ anchors ok"
+
+# Relative window.open
+rg -n -S 'window\\.open\\([\'"][^/]' client && { echo "❌ relative window.open"; exit 1; } || echo "✅ window.open ok"
+
+# Accidental encoding of "?"
+rg -n -S 'encodeURIComponent\\(.*\\?' client && { echo "❌ encoding ? into path"; exit 1; } || echo "✅ no bad encodings"
+ 
+Acceptance Criteria
+•	Any “open in new tab” to Admin Settings navigates to /admin-settings (no encoded ?, no relative paths).
+•	New tab loads without SPA 404.
+•	curl to …/admin-settings returns 200 text/html; …/api/ai/providers returns 200 application/json.
+•	Grep checks pass (no relative _blank hrefs, no relative window.open, no encodeURIComponent(?...) path misuse).
