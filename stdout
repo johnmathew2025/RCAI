@@ -1,0 +1,2 @@
+4185:C 07 Sep 2025 01:45:20.424 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+4187:C 07 Sep 2025 01:45:20.427 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo

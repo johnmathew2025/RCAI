@@ -23,62 +23,74 @@ export interface SLABreachWarningJob {
 }
 
 export class QueueService {
-  private milestoneQueue: Queue<MilestoneReminderJob>;
-  private slaQueue: Queue<SLABreachWarningJob>;
-  private worker: Worker;
+  private milestoneQueue?: Queue<MilestoneReminderJob>;
+  private slaQueue?: Queue<SLABreachWarningJob>;
+  private worker?: Worker;
   private notificationService: NotificationService;
   
   constructor() {
     this.notificationService = new NotificationService();
     
-    // Redis connection configuration
-    const redisConfig: ConnectionOptions = Config.REDIS_URL 
-      ? { url: Config.REDIS_URL }
-      : { host: 'localhost', port: 6379 };
-    
-    // Initialize queues
-    this.milestoneQueue = new Queue<MilestoneReminderJob>('milestone-reminders', {
-      connection: redisConfig,
-      defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 50,
-        delay: 0,
-      },
-    });
-    
-    this.slaQueue = new Queue<SLABreachWarningJob>('sla-warnings', {
-      connection: redisConfig,
-      defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 50,
-        delay: 0,
-      },
-    });
-    
-    // Initialize worker
-    this.worker = new Worker(
-      'incident-processing',
-      this.processJob.bind(this),
-      {
+    try {
+      // Redis connection configuration
+      const redisConfig: ConnectionOptions = Config.REDIS_URL 
+        ? { url: Config.REDIS_URL }
+        : { host: 'localhost', port: 6379 };
+      
+      // Initialize queues
+      this.milestoneQueue = new Queue<MilestoneReminderJob>('milestone-reminders', {
         connection: redisConfig,
-        concurrency: 5,
-      }
-    );
-    
-    // Error handling
-    this.worker.on('failed', (job, err) => {
-      console.error(`[QUEUE] Job ${job?.id} failed:`, err);
-    });
-    
-    this.worker.on('completed', (job) => {
-      console.log(`[QUEUE] Job ${job.id} completed successfully`);
-    });
+        defaultJobOptions: {
+          removeOnComplete: 100,
+          removeOnFail: 50,
+          delay: 0,
+        },
+      });
+      
+      this.slaQueue = new Queue<SLABreachWarningJob>('sla-warnings', {
+        connection: redisConfig,
+        defaultJobOptions: {
+          removeOnComplete: 100,
+          removeOnFail: 50,
+          delay: 0,
+        },
+      });
+      
+      // Initialize worker
+      this.worker = new Worker(
+        'incident-processing',
+        this.processJob.bind(this),
+        {
+          connection: redisConfig,
+          concurrency: 5,
+        }
+      );
+      
+      // Error handling
+      this.worker.on('failed', (job, err) => {
+        console.error(`[QUEUE] Job ${job?.id} failed:`, err);
+      });
+      
+      this.worker.on('completed', (job) => {
+        console.log(`[QUEUE] Job ${job.id} completed successfully`);
+      });
+      
+      console.log('[QUEUE] Queue service initialized successfully');
+    } catch (error) {
+      console.warn('[QUEUE] Failed to initialize Redis queues - running in degraded mode:', error);
+      // Queue operations will fail gracefully in methods below
+    }
   }
   
   /**
    * Schedule milestone reminder
    */
   async scheduleMilestoneReminder(data: MilestoneReminderJob, delay: number): Promise<void> {
+    if (!this.milestoneQueue) {
+      console.warn('[QUEUE] Milestone queue not available - Redis not connected');
+      return;
+    }
+    
     try {
       await this.milestoneQueue.add('milestone-reminder', data, {
         delay,
@@ -96,6 +108,11 @@ export class QueueService {
    * Schedule SLA breach warning
    */
   async scheduleSLAWarning(data: SLABreachWarningJob, delay: number): Promise<void> {
+    if (!this.slaQueue) {
+      console.warn('[QUEUE] SLA queue not available - Redis not connected');
+      return;
+    }
+    
     try {
       await this.slaQueue.add('sla-warning', data, {
         delay,
