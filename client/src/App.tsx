@@ -98,11 +98,39 @@ function Router() {
       <Route path="/evidence-library" component={EvidenceLibrarySimple} />
       <Route path="/debug" component={DebugRoutes} />
       
-      {/* Legacy redirects for moved workflow routes */}
-      <Route path="/admin/analysis-engine" component={() => { window.location.href = '/analysis-engine'; return null; }} />
-      <Route path="/admin/ai-powered-rca" component={() => { window.location.href = '/ai-powered-rca'; return null; }} />
-      <Route path="/admin/analysis" component={() => { window.location.href = '/analysis-engine'; return null; }} />
-      <Route path="/admin/ai" component={() => { window.location.href = '/ai-powered-rca'; return null; }} />
+      {/* Legacy redirects for moved workflow routes - ZERO HARDCODING COMPLIANCE */}
+      <Route path="/admin/analysis-engine">
+        {() => {
+          const redirectUrl = new URL('/analysis-engine', window.location.origin);
+          redirectUrl.search = window.location.search;
+          window.location.replace(redirectUrl.toString());
+          return null;
+        }}
+      </Route>
+      <Route path="/admin/ai-powered-rca">
+        {() => {
+          const redirectUrl = new URL('/ai-powered-rca', window.location.origin);
+          redirectUrl.search = window.location.search;
+          window.location.replace(redirectUrl.toString());
+          return null;
+        }}
+      </Route>
+      <Route path="/admin/analysis">
+        {() => {
+          const redirectUrl = new URL('/analysis-engine', window.location.origin);
+          redirectUrl.search = window.location.search;
+          window.location.replace(redirectUrl.toString());
+          return null;
+        }}
+      </Route>
+      <Route path="/admin/ai">
+        {() => {
+          const redirectUrl = new URL('/ai-powered-rca', window.location.origin);
+          redirectUrl.search = window.location.search;
+          window.location.replace(redirectUrl.toString());
+          return null;
+        }}
+      </Route>
       <Route path="/equipment-selection" component={EquipmentSelection} />
       <Route path="/evidence-checklist" component={EvidenceChecklist} />
       <Route path="/evidence-collection" component={EvidenceCollection} />
