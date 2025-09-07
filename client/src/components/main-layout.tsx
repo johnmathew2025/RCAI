@@ -4,7 +4,7 @@
  */
 
 import { ReactNode } from 'react';
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Settings, LogOut, User } from 'lucide-react';
@@ -17,10 +17,10 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const [location] = useLocation();
+  const location = useLocation();
   const { user, canAccessAdmin, canAccessWorkflow } = useUserRole();
   
-  const isAdminRoute = location.startsWith('/admin');
+  const isAdminRoute = location.pathname.startsWith('/admin');
   
   if (!user) {
     return (
@@ -39,7 +39,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <div className="w-64 border-r border-border bg-muted/10 flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-border">
-          <Link href="/">
+          <Link to="/">
             <h1 className="text-lg font-bold text-primary">
               Quanntaum RCA Intelligence Pro
             </h1>
@@ -73,7 +73,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           {/* Navigation Toggle */}
           <div className="space-y-2">
             {canAccessWorkflow() && (
-              <Link href="/incident-reporting" rel="noopener noreferrer">
+              <Link to="/incident-reporting" rel="noopener noreferrer">
                 <Button 
                   variant={!isAdminRoute ? "default" : "ghost"} 
                   size="sm" 
@@ -87,7 +87,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             )}
             
             {canAccessAdmin() && (
-              <Link href="/admin">
+              <Link to="/admin">
                 <Button 
                   variant={isAdminRoute ? "default" : "ghost"} 
                   size="sm" 

@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
   AlertTriangle, 
@@ -29,7 +29,7 @@ const iconMap = {
 };
 
 export default function UserNav({ userRole, className = "" }: UserNavProps) {
-  const [location] = useLocation();
+  const location = useLocation();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   
   // Get sections based on user role
@@ -46,7 +46,7 @@ export default function UserNav({ userRole, className = "" }: UserNavProps) {
   };
 
   const isActivePath = (path: string) => {
-    return location === path || location.startsWith(path + '/');
+    return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
   return (
@@ -58,7 +58,7 @@ export default function UserNav({ userRole, className = "" }: UserNavProps) {
           
           return (
             <div key={section.id} className="workflow-section">
-              <Link href={section.href}>
+              <Link to={section.href}>
                 <Button
                   variant={isActive ? "default" : "ghost"}
                   size="sm"
