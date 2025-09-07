@@ -33,34 +33,35 @@ const AIProvidersTable = () => {
   const [apiMeta, setApiMeta] = useState<any>(null);
   const [metaLoading, setMetaLoading] = useState(true);
 
-  // Fetch API meta for version gating
+  // Fetch API meta using runtime config - ZERO HARDCODING
   const fetchApiMeta = async () => {
     try {
-      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
-      const response = await fetch(API_ENDPOINTS.meta());
+      const { api } = await import('@/api');
+      const response = await api('/meta');
       const data = await response.json();
       setApiMeta(data);
       
-      // Dynamic version validation - NO HARDCODING
-      // Accept any valid API version from server - Universal Protocol Standard compliant
+      console.log('🔍 DEBUG: API Meta loaded:', data);
+      
+      // Accept any valid API version from server
       if (!data.apiVersion) {
-        console.error('API version not provided by server');
+        console.error('❌ API version not provided by server');
         return false;
       }
       return true;
     } catch (error) {
-      console.error('Error fetching API meta:', error);
+      console.error('❌ Error fetching API meta:', error);
       return false;
     } finally {
       setMetaLoading(false);
     }
   };
 
-  // Fetch providers
+  // Fetch providers using api() wrapper - ZERO HARDCODING
   const fetchProviders = async () => {
     try {
-      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
-      const response = await fetch(API_ENDPOINTS.aiProviders());
+      const { api } = await import('@/api');
+      const response = await api('/ai/providers');
       const data = await response.json();
       setProviders(data);
     } catch (error) {
@@ -103,13 +104,11 @@ const AIProvidersTable = () => {
     }
   };
 
-  // Test provider
+  // Test provider using api() wrapper - ZERO HARDCODING
   const handleTest = async (id: number) => {
     try {
-      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
-      const response = await fetch(API_ENDPOINTS.aiProviderTest(id), {
-        method: 'POST'
-      });
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/ai/providers/${id}/test`);
       const result = await response.json();
       alert(result.ok ? 'Test successful!' : `Test failed: ${result.message}`);
     } catch (error) {

@@ -1,0 +1,99 @@
+Eliminate Hardcoding + Fix SPA 404s (Fast + Enforced)
+0) What counts as “hardcoding” (ban these)
+•	Absolute URLs in frontend: http://localhost:5000, https://api.example.com, IPs, ports.
+•	Hardcoded route strings in multiple files: "admin-settings", "/api/ai/providers" repeated everywhere.
+•	Hardcoded provider lists: ["openai","anthropic","google"].
+•	Environment flags baked into bundles instead of runtime: const BASE='...' inside React code.
+1) One runtime config to rule them all
+Create client/src/config.ts (or shared/config.ts):
+// client/src/config.ts
+export type AppConfig = {
+  apiBase: string;          // e.g. "/api"
+  apiVersion: string;       // e.g. "ai-settings-v1"
+};
+let cached: AppConfig | null = null;
+
+export async function loadConfig(): Promise<AppConfig> {
+  if (cached) return cached;
+  // Load from backend at runtime so no rebuild per environment
+  const r = await fetch("/api/meta");
+  const m = await r.json();
+  cached = { apiBase: "/api", apiVersion: m.apiVersion ?? "unknown" };
+  return cached;
+}
+Create a tiny API client so NO component calls fetch directly:
+// client/src/api.ts
+import { loadConfig } from "./config";
+export async function api(path: string, init?: RequestInit) {
+  const { apiBase } = await loadConfig();
+  const res = await fetch(`${apiBase}${path}`, init);
+  if (!res.ok) throw new Error(await res.text());
+  return res;
+}
+Rule: all network calls go through api(...).
+2) Replace all hardcoded calls (30–60 min)
+Run these and fix every hit:
+# Absolute URLs / localhost / ports
+rg -n -S "http://|https://|localhost|127\.0\.0\.1|:3000|:5000" client
+
+# Direct /api usage (replace with api('/...'))
+rg -n -S "fetch\\(.*?/api/|axios\\..*?/api/" client
+
+# Duplicated route strings
+rg -n -S "admin-settings|/admin-settings|/api/ai/providers" client
+
+# Hardcoded provider arrays
+rg -n -S "openai|anthropic|gemini|google" client | rg -v "README|.md$"
+Refactor each to use:
+// Before:
+await fetch("/api/ai/providers", { ... })
+// After:
+await api("/ai/providers", { ... })
+Provider lists must come from DB/API (free-text form), not arrays.
+3) SPA 404s → always fall back to index.html
+Your server must serve the React app for all unknown routes (client-side routing):
+// server: after API routes
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api")) return next();
+  res.sendFile(path.join(__dirname, "public", "index.html")); // adjust path for your build
+});
+Vite dev (optional, but recommended):
+// vite.config.ts
+export default defineConfig({
+  server: { proxy: { '/api': { target: 'http://localhost:5000', changeOrigin: true } } }
+});
+4) Stop regressions (enforcement)
+ESLint guard (frontend):
+// .eslintrc.cjs
+module.exports = {
+  rules: {
+    // no absolute URLs in code
+    "no-restricted-syntax": [
+      "error",
+      { selector: "Literal[value=/^https?:\\/\\//]", message: "Absolute URL hardcoding is forbidden; use api() + runtime config." }
+    ],
+    // forbid direct fetch/axios to /api
+    "no-restricted-properties": [
+      "error",
+      { object: "window", property: "fetch", message: "Use api() wrapper." }
+    ]
+  }
+};
+CI grep gate (add to your pipeline or Replit run command):
+# Fail build if we reintroduce hardcoding
+rg -n -S "http://|https://|localhost|127\.0\.0\.1|:5000|:3000" client && { echo "❌ Hardcoded URL found"; exit 1; } || true
+rg -n -S "fetch\\(.*?/api/|axios\\..*?/api/" client && { echo "❌ Direct /api usage"; exit 1; } || true
+Pre-commit hook (optional):
+# .git/hooks/pre-commit
+#!/usr/bin/env bash
+set -e
+npm run lint
+# same rg checks here; exit 1 on matches
+5) Quick verification (no guessing)
+•	curl http://localhost:5000/api/meta returns { apiVersion: "ai-settings-v1" }.
+•	In the browser, hard-reload with “Disable cache”.
+•	Use the UI to Add → Set Active → Delete and confirm:
+o	UI table updates.
+o	curl /api/ai/providers shows the same rows.
+•	Search again with the grep commands: zero matches for absolute URLs, direct /api fetches, or provider arrays.
+
