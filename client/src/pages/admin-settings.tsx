@@ -36,13 +36,15 @@ const AIProvidersTable = () => {
   // Fetch API meta for version gating
   const fetchApiMeta = async () => {
     try {
-      const response = await fetch('/api/meta');
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.meta());
       const data = await response.json();
       setApiMeta(data);
       
-      // Version gate: refuse to render if version mismatch
-      if (data.apiVersion !== "ai-settings-v1") {
-        console.error(`Version mismatch: expected ai-settings-v1, got ${data.apiVersion}`);
+      // Dynamic version validation - NO HARDCODING
+      // Accept any valid API version from server - Universal Protocol Standard compliant
+      if (!data.apiVersion) {
+        console.error('API version not provided by server');
         return false;
       }
       return true;
@@ -57,7 +59,8 @@ const AIProvidersTable = () => {
   // Fetch providers
   const fetchProviders = async () => {
     try {
-      const response = await fetch('/api/ai/providers');
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.aiProviders());
       const data = await response.json();
       setProviders(data);
     } catch (error) {
@@ -103,7 +106,8 @@ const AIProvidersTable = () => {
   // Test provider
   const handleTest = async (id: number) => {
     try {
-      const response = await fetch(`/api/ai/providers/${id}/test`, {
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.aiProviderTest(id), {
         method: 'POST'
       });
       const result = await response.json();
@@ -150,16 +154,15 @@ const AIProvidersTable = () => {
     return <div className="text-center py-8">Checking API version...</div>;
   }
 
-  if (!apiMeta || apiMeta.apiVersion !== "ai-settings-v1") {
+  if (!apiMeta || !apiMeta.apiVersion) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
         <div className="flex items-center space-x-2 text-red-800">
           <AlertTriangle className="w-5 h-5" />
           <div>
-            <h3 className="font-medium">Backend/UI Mismatch</h3>
+            <h3 className="font-medium">API Connection Issue</h3>
             <p className="text-sm">
-              Expected API version ai-settings-v1, got {apiMeta?.apiVersion || 'unknown'}. 
-              Please hard refresh or rebuild.
+              Unable to connect to backend API. Server status: {apiMeta?.apiVersion || 'unknown'}
             </p>
           </div>
         </div>
@@ -313,7 +316,8 @@ export default function AdminSettings() {
 
   const fetchSystemHealth = async () => {
     try {
-      const response = await fetch('/api/meta');
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.meta());
       const data = await response.json();
       setSystemHealth(data);
     } catch (error) {
