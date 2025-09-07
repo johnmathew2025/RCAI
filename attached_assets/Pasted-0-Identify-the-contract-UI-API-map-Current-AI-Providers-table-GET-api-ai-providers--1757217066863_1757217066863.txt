@@ -1,0 +1,72 @@
+0) Identify the contract (UI → API map)
+•	“Current AI Providers” table ← GET /api/ai/providers
+•	“Add AI Provider” form ← POST /api/ai/providers
+•	“Set active” action ← POST /api/ai/providers/:id/activate
+•	“Test key” action ← POST /api/ai/providers/:id/test
+•	“Delete” action ← DELETE /api/ai/providers/:id
+1) Confirm the frontend is calling the right base URL
+Do not assume. Prove it.
+•	Search the client code: rg -n "fetch\\(|axios\\.|VITE_API_BASE_URL|/api/" client/
+•	If using Vite, open vite.config.* and verify the dev proxy: '/api' → http://localhost:5000.
+•	In production, make sure the backend serves the built frontend and rewrites SPA routes (no 404 on refresh/new tab).
+2) Smoke-test the backend directly (no UI)
+Run these in the Replit shell against your running server:
+# List
+curl -i http://localhost:5000/api/ai/providers
+
+# Create (dummy)
+curl -i -X POST http://localhost:5000/api/ai/providers \
+  -H 'Content-Type: application/json' \
+  -d '{"provider":"test","model_id":"gpt-4o-mini","api_key":"sk-test","is_active":false}'
+
+# Verify it shows up
+curl -s http://localhost:5000/api/ai/providers | jq .
+✅ If the row appears here but not in the UI, the frontend is pointed at the wrong API (wrong base URL, proxy, or environment).
+3) Watch the UI’s actual calls (Network tab)
+•	Open the AI Settings page, enable “Disable cache,” and reload.
+•	Click “Add AI Provider” with a dummy entry.
+•	In Network, confirm a request to /api/ai/providers fired:
+o	If no request: the button isn’t wired; fix the onClick handler.
+o	If request 404/500: the route or proxy is wrong; fix vite proxy or server routes.
+o	If request 200 but table doesn’t update: the UI isn’t refreshing state after success; call GET /api/ai/providers and setState.
+4) Eliminate stale builds & dual servers
+Common Replit gotchas:
+•	“Dev server” and “built server” both running → UI is hitting an old build.
+o	Kill all node processes, then start only one: the backend that serves the built frontend or vite dev + backend proxy (not both).
+•	Force a clean rebuild:
+o	Frontend: delete .vite/dist, then npm run build or npm run dev.
+o	Backend: restart the process so it picks up new routes and env.
+5) Prove DB/env consistency
+Sometimes the backend you’re hitting isn’t the one you just wrote to.
+•	Log DB URL (redact secrets) on server start.
+•	Add a quick endpoint GET /api/meta that returns:
+•	{ "apiVersion":"ai-settings-v1", "db":"<db name>", "git":"<short sha>" }
+•	In the UI footer, display this meta and a UI build hash. If apiVersion or git don’t match expectations, show a red banner: “Backend/UI mismatch—hard refresh or rebuild.”
+6) Add a 30-second contract test (run in CI or Replit shell)
+Create scripts/ai-settings-smoke.mjs:
+import assert from "node:assert/strict";
+
+const base = process.env.API_BASE ?? "http://localhost:5000";
+const get = (p)=>fetch(base+p).then(r=>r.json());
+const post = (p,b)=>fetch(base+p,{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json());
+
+const list = await get("/api/ai/providers");
+assert.ok(Array.isArray(list), "list should be an array");
+
+const created = await post("/api/ai/providers", {provider:"probe", model_id:"probe-model", api_key:"sk-probe"});
+assert.ok(created.id, "create should return id");
+
+const after = await get("/api/ai/providers");
+assert.ok(after.some(x=>x.provider==="probe"), "created row should exist");
+
+console.log("AI Settings contract OK");
+Run with: node scripts/ai-settings-smoke.mjs
+If this passes but the UI is wrong, the frontend wiring is the issue (state update or base URL). If it fails, the backend is the issue (routes/DB).
+7) Lock alignment going forward (prevention)
+•	Single source of truth types: define the Provider shape once (e.g., Zod or TS type in /shared) and use it in both FE and BE.
+•	/api/meta gate: UI refuses to render the table unless apiVersion === "ai-settings-v1".
+•	UI shows meta (db + git) near “Last updated” in the AI Settings card, so you can visually spot mismatches. The page already has a “Last updated” indicator—extend that section. 
+ 
+One-liner 
+“Run the 15-minute alignment drill: verify Vite proxy/base URL, curl the /api/ai/providers endpoints directly, watch the UI network calls, kill duplicate servers, clean-rebuild, and add /api/meta to surface apiVersion/db/git in the UI. If curl shows data but UI doesn’t, fix frontend wiring and state refresh. If curl fails, fix backend routes.
+
