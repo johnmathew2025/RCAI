@@ -235,6 +235,11 @@ export class QueueService {
    * Cancel scheduled jobs for a workflow
    */
   async cancelWorkflowJobs(workflowId: string): Promise<void> {
+    if (!this.milestoneQueue || !this.slaQueue) {
+      console.warn('[QUEUE] Queues not available - Redis not connected');
+      return;
+    }
+    
     try {
       // Cancel milestone reminders
       const milestoneJobs = await this.milestoneQueue.getJobs(['waiting', 'delayed']);
@@ -265,6 +270,13 @@ export class QueueService {
     milestones: { waiting: number; active: number; completed: number; failed: number };
     sla: { waiting: number; active: number; completed: number; failed: number };
   }> {
+    if (!this.milestoneQueue || !this.slaQueue) {
+      return {
+        milestones: { waiting: 0, active: 0, completed: 0, failed: 0 },
+        sla: { waiting: 0, active: 0, completed: 0, failed: 0 },
+      };
+    }
+    
     const [milestoneWaiting, milestoneActive, milestoneCompleted, milestoneFailed] = await Promise.all([
       this.milestoneQueue.getWaiting(),
       this.milestoneQueue.getActive(),
@@ -299,11 +311,12 @@ export class QueueService {
    * Close connections
    */
   async close(): Promise<void> {
-    await Promise.all([
-      this.milestoneQueue.close(),
-      this.slaQueue.close(),
-      this.worker.close(),
-    ]);
+    const promises = [];
+    if (this.milestoneQueue) promises.push(this.milestoneQueue.close());
+    if (this.slaQueue) promises.push(this.slaQueue.close());
+    if (this.worker) promises.push(this.worker.close());
+    
+    await Promise.all(promises);
     console.log('[QUEUE] All connections closed');
   }
 }
