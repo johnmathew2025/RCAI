@@ -59,7 +59,16 @@ function Router() {
       <Route path="/investigation/:id/evidence" component={EvidenceCollectionOld} />
       <Route path="/investigation/:id" component={AnalysisDetail} />
       <Route path="/admin" component={AdminSettings} />
-      <Route path="/admin-settings" component={AdminSettings} />
+      {/* Legacy admin-settings redirect - zero hardcoding compliance */}
+      <Route path="/admin-settings">
+        {() => {
+          // Dynamic redirect to correct path using browser origin (no hardcoding)
+          const redirectUrl = new URL('/admin', window.location.origin);
+          redirectUrl.search = window.location.search; // Preserve query params
+          window.location.replace(redirectUrl.toString());
+          return null;
+        }}
+      </Route>
       {/* Canonical Admin Routes - Configuration Tools Only */}
       <Route path="/admin/evidence" component={EvidenceLibraryManagement} />
       <Route path="/admin/integrations" component={WorkflowIntegrationDemo} />
