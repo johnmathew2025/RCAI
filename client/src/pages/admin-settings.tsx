@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Eye, EyeOff, TestTube, Save, Shield, AlertTriangle, Database, Plus, Edit3, Download, Upload, Home, ArrowLeft, FileUp, FileDown, FileText, TrendingUp, Brain, GitBranch, Library, Activity, Plug, Settings, Trash2 } from "lucide-react";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import type { AiSettings, InsertAiSettings, EquipmentGroup, RiskRanking } from "@shared/schema";
 import AIStatusIndicator from "@/components/ai-status-indicator";
 import { ADMIN_SECTIONS, TAXONOMY_TABS } from "@/config/adminNav";
@@ -967,7 +967,7 @@ export default function AdminSettings() {
       {/* Top-level Admin Navigation - Based on Information Architecture */}
       <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
         <div className="flex items-center space-x-4">
-          <Link href="/">
+          <Link to="/">
             <Button variant="outline" size="sm" className="flex items-center space-x-2">
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Home</span>
@@ -980,7 +980,7 @@ export default function AdminSettings() {
                                section.icon === 'Plug' ? Plug : Settings;
             
             return (
-              <Link key={section.id} href={section.path}>
+              <Link key={section.id} to={section.path}>
                 <Button variant="ghost" size="sm" className="flex items-center space-x-2">
                   <IconComponent className="w-4 h-4" />
                   <span>{section.label}</span>

@@ -58,7 +58,7 @@ export default function SummaryReport() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
-            <Link href="/">← Back to Home</Link>
+            <Link to="/">← Back to Home</Link>
           </Button>
           <Button className="flex items-center gap-2">
             <Download className="h-4 w-4" />

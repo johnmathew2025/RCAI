@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 
 export default function EquipmentSelectionTest() {
   const [incidentId, setIncidentId] = useState<number | null>(null);
@@ -26,7 +26,7 @@ export default function EquipmentSelectionTest() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Link href="/">
+            <Link to="/">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Home
