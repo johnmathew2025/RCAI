@@ -1,9 +1,10 @@
 /**
- * Phase 3.2 - Frontend Equipment Hooks
- * Dynamic equipment data fetching with dependent queries
+ * UNIVERSAL PROTOCOL STANDARD - ZERO HARDCODING COMPLIANCE
+ * Dynamic equipment data fetching with NO hardcoded endpoints
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 
 export type EquipmentOption = { 
   id: number; 
@@ -20,7 +21,7 @@ export const useGroups = () => useQuery({
   refetchOnWindowFocus: 'always',
   queryFn: async (): Promise<EquipmentOption[]> => {
     console.log("[EQUIPMENT-HOOKS] Fetching equipment groups");
-    const response = await fetch("/api/equipment/groups?active=1", { 
+    const response = await fetch(API_ENDPOINTS.equipmentGroups() + "?active=1", { 
       cache: "no-store" 
     });
     const json = await response.json();
@@ -47,7 +48,7 @@ export const useTypes = (groupId?: number) => useQuery({
   queryFn: async (): Promise<EquipmentOption[]> => {
     console.log(`[EQUIPMENT-HOOKS] Fetching equipment types for group ${groupId}`);
     const response = await fetch(
-      `/api/equipment/types?groupId=${groupId}&active=1`, 
+      API_ENDPOINTS.equipmentTypesByGroup(groupId!) + "?active=1", 
       { cache: "no-store" }
     );
     const json = await response.json();
@@ -74,7 +75,7 @@ export const useSubtypes = (typeId?: number) => useQuery({
   queryFn: async (): Promise<EquipmentOption[]> => {
     console.log(`[EQUIPMENT-HOOKS] Fetching equipment subtypes for type ${typeId}`);
     const response = await fetch(
-      `/api/equipment/subtypes?typeId=${typeId}&active=1`, 
+      API_ENDPOINTS.equipmentSubtypesByType(typeId!) + "?active=1", 
       { cache: "no-store" }
     );
     const json = await response.json();

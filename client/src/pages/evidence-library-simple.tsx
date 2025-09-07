@@ -92,14 +92,15 @@ export default function EvidenceLibrarySimple() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<EvidenceLibrary | null>(null);
   
-  // Evidence Library data - NO HARDCODING
+  // Evidence Library data - ZERO HARDCODING COMPLIANCE
   const { data: evidenceItems = [], isLoading, refetch } = useQuery<EvidenceLibrary[]>({
-    queryKey: ["/api/evidence-library"],
+    queryKey: ["evidence-library"],
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: true,
     queryFn: async () => {
-      const response = await fetch('/api/evidence-library', {
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.evidenceLibrary(), {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
@@ -116,31 +117,34 @@ export default function EvidenceLibrarySimple() {
     refetchOnWindowFocus: false
   });
 
-  // Dynamic Equipment Groups - NO HARDCODING
+  // Dynamic Equipment Groups - ZERO HARDCODING COMPLIANCE
   const { data: equipmentGroups = [] } = useQuery({
-    queryKey: ['/api/equipment-groups'],
+    queryKey: ['equipment-groups'],
     queryFn: async () => {
-      const response = await fetch('/api/equipment-groups');
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.equipmentGroups());
       if (!response.ok) return [];
       return response.json();
     }
   });
 
-  // Dynamic Equipment Types - NO HARDCODING
+  // Dynamic Equipment Types - ZERO HARDCODING COMPLIANCE
   const { data: equipmentTypes = [] } = useQuery({
-    queryKey: ["/api/equipment-types"],
+    queryKey: ["equipment-types"],
     queryFn: async () => {
-      const response = await fetch('/api/equipment-types');
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.equipmentTypes());
       if (!response.ok) return [];
       return response.json();
     }
   });
 
-  // Dynamic Equipment Subtypes - NO HARDCODING
+  // Dynamic Equipment Subtypes - ZERO HARDCODING COMPLIANCE
   const { data: equipmentSubtypes = [] } = useQuery({
-    queryKey: ["/api/equipment-subtypes"],
+    queryKey: ["equipment-subtypes"],
     queryFn: async () => {
-      const response = await fetch('/api/equipment-subtypes');
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.equipmentSubtypes());
       if (!response.ok) return [];
       return response.json();
     }
@@ -152,7 +156,8 @@ export default function EvidenceLibrarySimple() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('/api/evidence-library/import', {
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.evidenceLibraryImport(), {
         method: 'POST',
         body: formData,
       });
@@ -165,7 +170,7 @@ export default function EvidenceLibrarySimple() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/evidence-library"] });
+      queryClient.invalidateQueries({ queryKey: ["evidence-library"] });
       toast({
         title: "Import Successful",
         description: `Imported ${data.imported} items, ${data.errors} errors`,
@@ -287,7 +292,7 @@ export default function EvidenceLibrarySimple() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/evidence-library"] });
+      queryClient.invalidateQueries({ queryKey: ["evidence-library"] });
       toast({
         title: "Success",
         description: "Evidence item permanently deleted",
@@ -312,7 +317,7 @@ export default function EvidenceLibrarySimple() {
       ));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/evidence-library"] });
+      queryClient.invalidateQueries({ queryKey: ["evidence-library"] });
       setSelectedItems([]);
       setSelectAll(false);
       toast({
@@ -1247,7 +1252,7 @@ export default function EvidenceLibrarySimple() {
         }}
         item={editingItem}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/evidence-library"] });
+          queryClient.invalidateQueries({ queryKey: ["evidence-library"] });
           setShowAddForm(false);
           setEditingItem(null);
         }}

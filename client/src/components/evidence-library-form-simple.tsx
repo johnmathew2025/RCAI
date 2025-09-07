@@ -50,29 +50,43 @@ export default function EvidenceLibraryFormSimple({ isOpen, onClose, item, onSuc
     industryBenchmark: "",
   });
 
-  // Fetch dropdown data
+  // Fetch dropdown data - ZERO HARDCODING COMPLIANCE
   const { data: equipmentGroups = [] } = useQuery({
-    queryKey: ['/api/equipment-groups'],
+    queryKey: ['equipment-groups'],
     queryFn: async () => {
-      const response = await fetch('/api/equipment-groups');
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.equipmentGroups());
       if (!response.ok) return [];
       return response.json();
     },
   });
 
   const { data: equipmentTypes = [] } = useQuery({
-    queryKey: ['/api/equipment-types'],
+    queryKey: ['equipment-types'],
     queryFn: async () => {
-      const response = await fetch('/api/equipment-types');
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.equipmentTypes());
       if (!response.ok) return [];
       return response.json();
     },
   });
 
   const { data: riskRankings = [] } = useQuery({
-    queryKey: ['/api/risk-rankings'],
+    queryKey: ['risk-rankings'],
     queryFn: async () => {
-      const response = await fetch('/api/risk-rankings');
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.riskRankings());
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
+  // Equipment Subtypes - ZERO HARDCODING COMPLIANCE
+  const { data: equipmentSubtypes = [] } = useQuery({
+    queryKey: ['equipment-subtypes'],
+    queryFn: async () => {
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.equipmentSubtypes());
       if (!response.ok) return [];
       return response.json();
     },

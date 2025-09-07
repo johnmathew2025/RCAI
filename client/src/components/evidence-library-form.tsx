@@ -95,9 +95,10 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
 
   // Fetch equipment groups and types for dropdowns
   const { data: equipmentGroupsRaw = [] } = useQuery({
-    queryKey: ['/api/equipment-groups'],
+    queryKey: ['equipment-groups'],
     queryFn: async () => {
-      const response = await fetch('/api/equipment-groups');
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.equipmentGroups());
       if (!response.ok) return [];
       const json = await response.json();
       return json;
@@ -151,10 +152,11 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
   // CRITICAL FIX: Equipment Types filtered by selected Equipment Group
   const selectedEquipmentGroupId = form.watch('equipmentGroupId');
   const { data: equipmentTypesRaw = [] } = useQuery({
-    queryKey: ['/api/equipment-types/by-group', selectedEquipmentGroupId],
+    queryKey: ['equipment-types-by-group', selectedEquipmentGroupId],
     queryFn: async () => {
       if (!selectedEquipmentGroupId) return [];
-      const response = await fetch(`/api/equipment-types/by-group/${selectedEquipmentGroupId}`);
+      const { API_ENDPOINTS } = await import('@/config/apiEndpoints');
+      const response = await fetch(API_ENDPOINTS.equipmentTypesByGroup(selectedEquipmentGroupId));
       if (!response.ok) return [];
       const json = await response.json();
       return json;
