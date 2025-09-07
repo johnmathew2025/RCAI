@@ -89,11 +89,8 @@ const AIProvidersTable = () => {
     }
 
     try {
-      const response = await fetch('/api/ai/providers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
+      const { apiPost } = await import('@/api');
+      const response = await apiPost('/ai/providers', formData);
       
       if (response.ok) {
         setFormData({ provider: '', model_id: '', api_key: '', is_active: false });
@@ -121,9 +118,8 @@ const AIProvidersTable = () => {
     if (!confirm('Are you sure you want to delete this provider?')) return;
     
     try {
-      const response = await fetch(`/api/ai/providers/${id}`, {
-        method: 'DELETE'
-      });
+      const { apiDelete } = await import('@/api');
+      const response = await apiDelete(`/ai/providers/${id}`);
       
       if (response.ok) {
         fetchProviders();
@@ -136,9 +132,8 @@ const AIProvidersTable = () => {
   // Activate provider
   const handleActivate = async (id: number) => {
     try {
-      const response = await fetch(`/api/ai/providers/${id}/activate`, {
-        method: 'POST'
-      });
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/ai/providers/${id}/activate`);
       
       if (response.ok) {
         fetchProviders();
@@ -528,7 +523,8 @@ export default function AdminSettings() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('/api/equipment-groups/import', {
+      const { api } = await import('@/api');
+      const response = await api('/equipment-groups/import', {
         method: 'POST',
         body: formData,
       });
@@ -558,7 +554,8 @@ export default function AdminSettings() {
 
   const exportEquipmentGroups = async () => {
     try {
-      const response = await fetch('/api/equipment-groups/export');
+      const { api } = await import('@/api');
+      const response = await api('/equipment-groups/export');
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -587,7 +584,8 @@ export default function AdminSettings() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('/api/risk-rankings/import', {
+      const { api } = await import('@/api');
+      const response = await api('/risk-rankings/import', {
         method: 'POST',
         body: formData,
       });
@@ -617,7 +615,8 @@ export default function AdminSettings() {
 
   const exportRiskRankings = async () => {
     try {
-      const response = await fetch('/api/risk-rankings/export');
+      const { api } = await import('@/api');
+      const response = await api('/risk-rankings/export');
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');

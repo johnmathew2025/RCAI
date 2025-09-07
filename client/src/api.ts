@@ -14,7 +14,7 @@ export async function api(path: string, init?: RequestInit): Promise<Response> {
   
   console.log(`🌐 API call: ${init?.method || 'GET'} ${url}`);
   
-  const response = await fetch(url, init);
+  const response = await fetch(url, { cache: "no-store", ...init });
   
   if (!response.ok) {
     const errorText = await response.text();
