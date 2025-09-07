@@ -161,7 +161,7 @@ app.use((req, res, next) => {
     }
     
     // AFTER API routes: Serve static assets with proper cache headers
-    const publicPath = path.resolve(__dirname, '../dist/public');
+    const publicPath = path.resolve(process.cwd(), 'dist/public');
     app.use((req, res, next) => {
       // Skip static file serving for API routes
       if (req.path.startsWith('/api/')) {
