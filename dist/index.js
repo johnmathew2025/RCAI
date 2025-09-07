@@ -15,7 +15,9 @@ __export(schema_exports, {
   EQUIPMENT_PARAMETERS: () => EQUIPMENT_PARAMETERS,
   EQUIPMENT_TYPES: () => EQUIPMENT_TYPES,
   FAULT_TREE_TEMPLATES: () => FAULT_TREE_TEMPLATES,
+  INCIDENT_ID_REGEX: () => INCIDENT_ID_REGEX,
   ISO14224_EQUIPMENT_TYPES: () => ISO14224_EQUIPMENT_TYPES,
+  aiProviders: () => aiProviders,
   aiSettings: () => aiSettings,
   analyses: () => analyses,
   approvals: () => approvals,
@@ -31,6 +33,7 @@ __export(schema_exports, {
   historicalPatterns: () => historicalPatterns,
   incidents: () => incidents,
   incidentsNew: () => incidentsNew,
+  insertAiProvidersSchema: () => insertAiProvidersSchema,
   insertAiSettingsSchema: () => insertAiSettingsSchema,
   insertAnalysisSchema: () => insertAnalysisSchema,
   insertApprovalSchema: () => insertApprovalSchema,
@@ -51,6 +54,8 @@ __export(schema_exports, {
   insertManufacturerSchema: () => insertManufacturerSchema,
   insertModelSchema: () => insertModelSchema,
   insertNotificationSchema: () => insertNotificationSchema,
+  insertRcaHistorySchema: () => insertRcaHistorySchema,
+  insertRcaTriageSchema: () => insertRcaTriageSchema,
   insertRiskRankingSchema: () => insertRiskRankingSchema,
   insertStakeholderSchema: () => insertStakeholderSchema,
   insertSymptomSchema: () => insertSymptomSchema,
@@ -60,11 +65,14 @@ __export(schema_exports, {
   manufacturers: () => manufacturers,
   models: () => models,
   notifications: () => notifications,
+  rcaHistory: () => rcaHistory,
+  rcaTriage: () => rcaTriage,
   riskRankings: () => riskRankings,
   sessions: () => sessions,
   stakeholders: () => stakeholders,
   symptoms: () => symptoms,
   users: () => users,
+  validateIncidentId: () => validateIncidentId,
   workflows: () => workflows
 });
 import {
@@ -87,10 +95,12 @@ import {
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var sessions, users, faultReferenceLibrary, insertFaultReferenceLibrarySchema, evidenceItems, evidenceLibrary, insertEvidenceItemSchema, insertEvidenceLibrarySchema, investigations, aiSettings, insertInvestigationSchema, insertAiSettingsSchema, libraryUpdateProposals, insertLibraryUpdateProposalSchema, historicalPatterns, insertHistoricalPatternSchema, equipmentGroups, insertEquipmentGroupSchema, equipmentTypes, insertEquipmentTypeSchema, equipmentSubtypes, insertEquipmentSubtypeSchema, riskRankings, insertRiskRankingSchema, auditLogs, insertAuditLogSchema, incidents, insertIncidentSchema, analyses, insertAnalysisSchema, ISO14224_EQUIPMENT_TYPES, EQUIPMENT_TYPES, EQUIPMENT_PARAMETERS, FAULT_TREE_TEMPLATES, ECFA_COMPONENTS, manufacturers, insertManufacturerSchema, models, insertModelSchema, assets, insertAssetSchema, incidentsNew, insertIncidentNewSchema, symptoms, insertSymptomSchema, workflows, insertWorkflowSchema, stakeholders, insertStakeholderSchema, approvals, insertApprovalSchema, notifications, insertNotificationSchema, evidence, insertEvidenceSchema;
+var INCIDENT_ID_REGEX, validateIncidentId, sessions, users, faultReferenceLibrary, insertFaultReferenceLibrarySchema, evidenceItems, evidenceLibrary, insertEvidenceItemSchema, insertEvidenceLibrarySchema, investigations, aiSettings, aiProviders, insertInvestigationSchema, insertAiSettingsSchema, insertAiProvidersSchema, libraryUpdateProposals, insertLibraryUpdateProposalSchema, historicalPatterns, insertHistoricalPatternSchema, equipmentGroups, insertEquipmentGroupSchema, equipmentTypes, insertEquipmentTypeSchema, equipmentSubtypes, insertEquipmentSubtypeSchema, riskRankings, insertRiskRankingSchema, auditLogs, insertAuditLogSchema, incidents, rcaTriage, insertRcaTriageSchema, rcaHistory, insertRcaHistorySchema, insertIncidentSchema, analyses, insertAnalysisSchema, ISO14224_EQUIPMENT_TYPES, EQUIPMENT_TYPES, EQUIPMENT_PARAMETERS, FAULT_TREE_TEMPLATES, ECFA_COMPONENTS, manufacturers, insertManufacturerSchema, models, insertModelSchema, assets, insertAssetSchema, incidentsNew, insertIncidentNewSchema, symptoms, insertSymptomSchema, workflows, insertWorkflowSchema, stakeholders, insertStakeholderSchema, approvals, insertApprovalSchema, notifications, insertNotificationSchema, evidence, insertEvidenceSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
+    INCIDENT_ID_REGEX = /^INC-\d+$/;
+    validateIncidentId = (id) => INCIDENT_ID_REGEX.test(id);
     sessions = pgTable(
       "sessions",
       {
@@ -351,8 +361,21 @@ var init_schema = __esm({
       // Prevent duplicate providers - UNIQUE constraint
       uniqueProvider: unique("unique_provider_per_user").on(table.provider, table.createdBy)
     }));
+    aiProviders = pgTable("ai_providers", {
+      id: serial("id").primaryKey(),
+      provider: text("provider").notNull(),
+      // e.g., "openai", "anthropic", "google" - free text
+      modelId: text("model_id").notNull(),
+      // e.g., "gpt-4o-mini", "claude-3-sonnet-20240229"
+      apiKeyEnc: text("api_key_enc").notNull(),
+      // server-side encrypted API key
+      isActive: boolean("is_active").notNull().default(false),
+      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+      updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+    });
     insertInvestigationSchema = createInsertSchema(investigations);
     insertAiSettingsSchema = createInsertSchema(aiSettings);
+    insertAiProvidersSchema = createInsertSchema(aiProviders);
     libraryUpdateProposals = pgTable("library_update_proposals", {
       id: serial("id").primaryKey(),
       incidentId: integer("incident_id"),
@@ -585,6 +608,55 @@ var init_schema = __esm({
       // incident_reported, equipment_selected, evidence_collected, ai_analyzed, finalized
       createdAt: timestamp("created_at").defaultNow(),
       updatedAt: timestamp("updated_at").defaultNow()
+    });
+    rcaTriage = pgTable("rca_triage", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      incidentId: varchar("incident_id").notNull().unique(),
+      severity: varchar("severity").notNull(),
+      // 'Low', 'Medium', 'High'
+      recurrence: varchar("recurrence").notNull(),
+      // 'Low', 'Medium', 'High'
+      level: integer("level").notNull(),
+      // 1-5
+      label: text("label").notNull(),
+      method: text("method").notNull(),
+      timebox: text("timebox").notNull(),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    insertRcaTriageSchema = createInsertSchema(rcaTriage).omit({
+      id: true,
+      createdAt: true,
+      updatedAt: true
+    });
+    rcaHistory = pgTable("rca_history", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      incidentId: varchar("incident_id").notNull().unique(),
+      status: varchar("status", { length: 12 }).notNull().default("DRAFT"),
+      // DRAFT, IN_PROGRESS, CLOSED, CANCELLED
+      lastStep: integer("last_step").notNull().default(1),
+      // 1-8 workflow step tracking
+      summary: text("summary"),
+      // User-friendly title like "Pump seal leak – P101A"
+      payload: jsonb("payload").notNull(),
+      // Complete form data snapshot from Steps 1-3
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    }, (table) => [
+      index("rca_history_incident_idx").on(table.incidentId),
+      index("rca_history_status_idx").on(table.status),
+      index("rca_history_updated_idx").on(table.updatedAt)
+    ]);
+    insertRcaHistorySchema = createInsertSchema(rcaHistory).omit({
+      id: true,
+      createdAt: true,
+      updatedAt: true
+    }).extend({
+      status: z.enum(["DRAFT", "IN_PROGRESS", "CLOSED", "CANCELLED"]).default("DRAFT"),
+      lastStep: z.number().min(1).max(8).default(1),
+      incidentId: z.string().min(1),
+      payload: z.record(z.any())
+      // Flexible JSONB payload
     });
     insertIncidentSchema = createInsertSchema(incidents).omit({
       id: true,
@@ -976,6 +1048,11 @@ var init_schema = __esm({
 });
 
 // server/db.ts
+var db_exports = {};
+__export(db_exports, {
+  db: () => db,
+  pool: () => pool
+});
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
@@ -1009,11 +1086,20 @@ __export(ai_service_exports, {
 });
 import crypto from "crypto";
 function getEncryptionKey() {
-  const key = process.env.AI_KEY_ENCRYPTION_SECRET;
-  if (!key || key.length < 32) {
-    throw new Error("PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET missing or too short");
+  const keyBase64 = process.env.AI_KEY_ENCRYPTION_SECRET;
+  if (!keyBase64) {
+    throw new Error("PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET missing");
   }
-  return key;
+  try {
+    const normalizedBase64 = keyBase64.replace(/-/g, "+").replace(/_/g, "/");
+    const keyBytes = Buffer.from(normalizedBase64, "base64");
+    if (keyBytes.length !== 32) {
+      throw new Error(`PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET must decode to 32 bytes, got ${keyBytes.length}`);
+    }
+    return keyBytes;
+  } catch (error) {
+    throw new Error("PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET is not valid Base64");
+  }
 }
 var IV_LENGTH, AIService;
 var init_ai_service = __esm({
@@ -1027,25 +1113,25 @@ var init_ai_service = __esm({
         if (!text2 || typeof text2 !== "string") {
           throw new Error("PROTOCOL VIOLATION: Cannot encrypt undefined or non-string data");
         }
-        const encryptionKey2 = getEncryptionKey();
+        const encryptionKey = getEncryptionKey();
         const iv = Buffer.alloc(IV_LENGTH);
         const randomValues = new Uint8Array(IV_LENGTH);
         crypto.randomFillSync(randomValues);
         for (let i = 0; i < IV_LENGTH; i++) {
           iv[i] = randomValues[i];
         }
-        const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(encryptionKey2), iv);
+        const cipher = crypto.createCipheriv("aes-256-cbc", encryptionKey, iv);
         let encrypted = cipher.update(text2, "utf8");
         encrypted = Buffer.concat([encrypted, cipher.final()]);
         return iv.toString("hex") + ":" + encrypted.toString("hex");
       }
       // AES-256-CBC decryption for API keys
       static decrypt(encryptedText) {
-        const encryptionKey2 = getEncryptionKey();
+        const encryptionKey = getEncryptionKey();
         const textParts = encryptedText.split(":");
         const iv = Buffer.from(textParts.shift(), "hex");
         const encryptedData = Buffer.from(textParts.join(":"), "hex");
-        const decipher = crypto.createDecipheriv("aes-256-cbc", Buffer.from(encryptionKey2), iv);
+        const decipher = crypto.createDecipheriv("aes-256-cbc", encryptionKey, iv);
         let decrypted = decipher.update(encryptedData);
         decrypted = Buffer.concat([decrypted, decipher.final()]);
         return decrypted.toString();
@@ -2945,6 +3031,77 @@ var init_storage = __esm({
           await tx.delete(aiSettings).where(eq(aiSettings.id, settingId));
           console.log(`[DELETE AUDIT] AI setting ${settingId} permanently deleted`);
         });
+      }
+      // RCA Triage operations
+      async upsertRcaTriage(data) {
+        try {
+          const existing = await this.getRcaTriage(data.incidentId);
+          if (existing) {
+            const [updated] = await db.update(rcaTriage).set({
+              ...data,
+              updatedAt: /* @__PURE__ */ new Date()
+            }).where(eq(rcaTriage.incidentId, data.incidentId)).returning();
+            return updated;
+          } else {
+            const [created] = await db.insert(rcaTriage).values(data).returning();
+            return created;
+          }
+        } catch (error) {
+          console.error("[STORAGE] Error upserting RCA triage:", error);
+          throw error;
+        }
+      }
+      async getRcaTriage(incidentId) {
+        try {
+          const [triage] = await db.select().from(rcaTriage).where(eq(rcaTriage.incidentId, incidentId));
+          return triage;
+        } catch (error) {
+          console.error("[STORAGE] Error fetching RCA triage:", error);
+          return void 0;
+        }
+      }
+      // RCA History operations
+      async upsertRcaHistory(data) {
+        try {
+          const existing = await this.getRcaHistory(data.incidentId);
+          if (existing) {
+            const [updated] = await db.update(rcaHistory).set({
+              ...data,
+              updatedAt: /* @__PURE__ */ new Date()
+            }).where(eq(rcaHistory.incidentId, data.incidentId)).returning();
+            return updated;
+          } else {
+            const [created] = await db.insert(rcaHistory).values(data).returning();
+            return created;
+          }
+        } catch (error) {
+          console.error("[STORAGE] Error upserting RCA history:", error);
+          throw error;
+        }
+      }
+      async getRcaHistory(incidentId) {
+        try {
+          const [history] = await db.select().from(rcaHistory).where(eq(rcaHistory.incidentId, incidentId));
+          return history;
+        } catch (error) {
+          console.error("[STORAGE] Error fetching RCA history:", error);
+          return void 0;
+        }
+      }
+      async getRcaHistoriesByStatus(statuses) {
+        try {
+          let query = db.select().from(rcaHistory);
+          if (statuses && statuses.length > 0) {
+            query = query.where(
+              or(...statuses.map((status) => eq(rcaHistory.status, status)))
+            );
+          }
+          const results = await query.orderBy(sql2`${rcaHistory.updatedAt} desc`);
+          return results;
+        } catch (error) {
+          console.error("[STORAGE] Error getting RCA histories by status:", error);
+          throw error;
+        }
       }
     };
     investigationStorage = new DatabaseInvestigationStorage();
@@ -8127,6 +8284,20 @@ __export(incidents_exports, {
 import { Router as Router8 } from "express";
 import { z as z3 } from "zod";
 import { eq as eq9 } from "drizzle-orm";
+function toISOOrUndefined(input) {
+  if (!input) return void 0;
+  const d1 = new Date(input);
+  if (!isNaN(d1.getTime()) && /\d{2}:\d{2}:\d{2}/.test(input)) return d1.toISOString();
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(input)) {
+    const [date2, time] = input.split("T");
+    const [y, m, d] = date2.split("-").map(Number);
+    const [hh, mm] = time.split(":").map(Number);
+    const local = new Date(y, (m ?? 1) - 1, d ?? 1, hh ?? 0, mm ?? 0, 0, 0);
+    return local.toISOString();
+  }
+  const d2 = new Date(input);
+  return isNaN(d2.getTime()) ? void 0 : d2.toISOString();
+}
 var router8, createIncidentSchema, addSymptomSchema, evidenceUploadSchema, simpleAuth2, simpleAuthorize2, incidents_default;
 var init_incidents = __esm({
   "src/api/incidents.ts"() {
@@ -8150,10 +8321,15 @@ var init_incidents = __esm({
       model: z3.string().max(100).optional(),
       // Free-text model field
       location: z3.string().optional(),
-      incidentDateTime: z3.string().datetime().optional(),
+      incidentDateTime: z3.string().optional(),
+      // accept any string, normalize in handler
       immediateActions: z3.string().optional(),
       safetyImplications: z3.string().optional(),
-      operatingParameters: z3.string().optional()
+      operatingParameters: z3.string().optional(),
+      // equipment IDs can be optional at creation (multi-step flow)
+      equipment_group_id: z3.number().int().optional(),
+      equipment_type_id: z3.number().int().optional(),
+      equipment_subtype_id: z3.number().int().optional()
     });
     addSymptomSchema = z3.object({
       text: z3.string().min(1, "Symptom text is required"),
@@ -8227,6 +8403,7 @@ var init_incidents = __esm({
             modelSnapshot: validatedData.model || null
           };
         }
+        const incidentDateTimeISO = toISOOrUndefined(validatedData.incidentDateTime);
         const incidentId = "INC-" + Date.now();
         const incidentData = {
           id: incidentId,
@@ -8236,6 +8413,10 @@ var init_incidents = __esm({
           regulatoryRequired: validatedData.regulatoryRequired || false,
           equipmentId: validatedData.equipmentId || null,
           location: validatedData.location || null,
+          incidentDateTime: incidentDateTimeISO || null,
+          immediateActions: validatedData.immediateActions || null,
+          safetyImplications: validatedData.safetyImplications || null,
+          operatingParameters: validatedData.operatingParameters || null,
           ...assetSnapshots,
           // This includes manufacturerSnapshot, modelSnapshot, serialSnapshot, and assetId
           status: "open",
@@ -8513,6 +8694,193 @@ var init_incidents = __esm({
       }
     });
     incidents_default = router8;
+  }
+});
+
+// server/src/schemas/incidents.ts
+import { z as z4 } from "zod";
+var IncidentCreateReqSchema, IncidentCreateResSchema;
+var init_incidents2 = __esm({
+  "server/src/schemas/incidents.ts"() {
+    "use strict";
+    IncidentCreateReqSchema = z4.object({
+      title: z4.string().min(1, "Title is required"),
+      description: z4.string().min(1, "Description is required"),
+      priority: z4.enum(["Low", "Medium", "High", "Critical"]),
+      regulatoryRequired: z4.boolean().optional().default(false),
+      equipmentId: z4.string().optional(),
+      manufacturer: z4.string().optional(),
+      model: z4.string().optional(),
+      location: z4.string().optional(),
+      incidentDateTime: z4.string().optional(),
+      immediateActions: z4.string().optional(),
+      safetyImplications: z4.string().optional(),
+      operatingParameters: z4.string().optional(),
+      equipment_group_id: z4.number().int().optional(),
+      equipment_type_id: z4.number().int().optional(),
+      equipment_subtype_id: z4.number().int().optional(),
+      reportableStatus: z4.string().optional(),
+      intendedRegulatoryAuthority: z4.string().optional()
+    }).strict();
+    IncidentCreateResSchema = z4.object({
+      id: z4.string().min(1)
+    });
+  }
+});
+
+// client/src/lib/rca/decision.ts
+function getRcaRecommendation(severity, recurrence) {
+  return MATRIX[severity][recurrence];
+}
+var MATRIX;
+var init_decision = __esm({
+  "client/src/lib/rca/decision.ts"() {
+    "use strict";
+    MATRIX = {
+      Low: {
+        Low: { level: 1, label: "Level 1 RCA", method: "Quick check / mini 5 Whys", timebox: "\u226424h" },
+        Medium: { level: 2, label: "Level 2 RCA", method: "5 Whys", timebox: "24\u201348h" },
+        High: { level: 3, label: "Level 3 RCA", method: "Fishbone (+ 5 Whys)", timebox: "\u22647 days" }
+      },
+      Medium: {
+        Low: { level: 2, label: "Level 2 RCA", method: "5 Whys", timebox: "24\u201348h" },
+        Medium: { level: 3, label: "Level 3 RCA", method: "Fishbone (+ 5 Whys)", timebox: "\u22647 days" },
+        High: { level: 4, label: "Level 4 RCA", method: "Logic Tree (+ Fishbone)", timebox: "1\u20133 weeks" }
+      },
+      High: {
+        Low: { level: 3, label: "Level 3 RCA", method: "Fishbone (+ 5 Whys)", timebox: "\u22647 days" },
+        Medium: { level: 4, label: "Level 4 RCA", method: "Logic Tree (+ Fishbone)", timebox: "1\u20133 weeks" },
+        High: { level: 5, label: "Level 5 RCA", method: "Full toolkit (Logic Tree + FMEA + CAPA)", timebox: "Programmatic" }
+      }
+    };
+  }
+});
+
+// server/src/api/v1/incidents.ts
+var incidents_exports2 = {};
+__export(incidents_exports2, {
+  default: () => incidents_default2
+});
+import { Router as Router9 } from "express";
+import { z as z5 } from "zod";
+var router9, incidents_default2;
+var init_incidents3 = __esm({
+  "server/src/api/v1/incidents.ts"() {
+    "use strict";
+    init_incidents2();
+    init_storage();
+    init_decision();
+    router9 = Router9();
+    router9.delete("/draft", async (req, res) => {
+      try {
+        console.log("[V1_INCIDENTS] Draft clear requested");
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        res.status(204).end();
+      } catch (error) {
+        console.error("[V1_INCIDENTS] Error clearing draft:", error);
+        return res.status(500).json({
+          error: {
+            code: "DRAFT_CLEAR_FAILED",
+            message: "Failed to clear draft"
+          }
+        });
+      }
+    });
+    router9.post("/", async (req, res) => {
+      const parsed = IncidentCreateReqSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(422).json({
+          error: { code: "INVALID_REQUEST", message: "Invalid incident payload", issues: parsed.error.issues }
+        });
+      }
+      const payload = parsed.data;
+      try {
+        const incidentData = {
+          ...payload,
+          incidentDateTime: payload.incidentDateTime ? new Date(payload.incidentDateTime) : /* @__PURE__ */ new Date()
+        };
+        const incident = await investigationStorage.createIncident(incidentData);
+        const incidentId = String(incident.id);
+        const body = { id: incidentId };
+        const ok = IncidentCreateResSchema.safeParse(body);
+        if (!ok.success) {
+          return res.status(500).json({ error: { code: "INVALID_RESPONSE", message: "Server response invalid" } });
+        }
+        return res.status(201).setHeader("Location", `/api/v1/incidents/${incidentId}`).setHeader("Cache-Control", "no-store, no-cache, must-revalidate").json(body);
+      } catch (error) {
+        console.error("[V1_INCIDENTS] Error creating incident:", error);
+        return res.status(500).json({
+          error: {
+            code: "CREATION_FAILED",
+            message: error instanceof Error ? error.message : "Failed to create incident"
+          }
+        });
+      }
+    });
+    router9.post("/:id/triage", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const triageSchema = z5.object({
+          severity: z5.enum(["Low", "Medium", "High"]),
+          recurrence: z5.enum(["Low", "Medium", "High"])
+        });
+        const parsed = triageSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(422).json({
+            error: {
+              code: "INVALID_REQUEST",
+              message: "Invalid triage payload",
+              issues: parsed.error.issues
+            }
+          });
+        }
+        const { severity, recurrence } = parsed.data;
+        const rec = getRcaRecommendation(severity, recurrence);
+        const triageData = {
+          incidentId: String(id),
+          severity,
+          recurrence,
+          level: rec.level,
+          label: rec.label,
+          method: rec.method,
+          timebox: rec.timebox
+        };
+        const saved = await investigationStorage.upsertRcaTriage(triageData);
+        return res.json({ ...rec, saved: true });
+      } catch (error) {
+        console.error("[V1_INCIDENTS] Error creating/updating triage:", error);
+        return res.status(500).json({
+          error: {
+            code: "TRIAGE_OPERATION_FAILED",
+            message: "Failed to create/update triage"
+          }
+        });
+      }
+    });
+    router9.get("/:id/triage", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const triage = await investigationStorage.getRcaTriage(String(id));
+        if (!triage) {
+          return res.status(404).json({
+            error: {
+              code: "TRIAGE_NOT_FOUND",
+              message: "Triage not found for this incident"
+            }
+          });
+        }
+        return res.json(triage);
+      } catch (error) {
+        console.error("[V1_INCIDENTS] Error fetching triage:", error);
+        return res.status(500).json({
+          error: {
+            code: "TRIAGE_FETCH_FAILED",
+            message: "Failed to fetch triage"
+          }
+        });
+      }
+    });
+    incidents_default2 = router9;
   }
 });
 
@@ -11546,7 +11914,7 @@ var NotificationService = class {
    */
   initializeTransporter() {
     try {
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         host: Config.SMTP_CONFIG.host,
         port: Config.SMTP_CONFIG.port,
         secure: Config.SMTP_CONFIG.port === 465,
@@ -11803,11 +12171,8 @@ Please ensure all tasks are completed on time.`
    * Get notification statistics
    */
   async getNotificationStats(workflowId) {
-    let query = db2.select().from(notifications);
-    if (workflowId) {
-      query = query.where(eq2(notifications.workflowId, workflowId));
-    }
-    const allNotifications = await query;
+    let baseQuery = db2.select().from(notifications);
+    const allNotifications = workflowId ? await baseQuery.where(eq2(notifications.workflowId, workflowId)) : await baseQuery;
     return {
       total: allNotifications.length,
       sent: allNotifications.filter((n) => n.status === "sent").length,
@@ -11828,42 +12193,51 @@ var QueueService = class {
   notificationService;
   constructor() {
     this.notificationService = new NotificationService();
-    const redisConfig = Config.REDIS_URL ? { url: Config.REDIS_URL } : { host: "localhost", port: 6379 };
-    this.milestoneQueue = new Queue("milestone-reminders", {
-      connection: redisConfig,
-      defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 50,
-        delay: 0
-      }
-    });
-    this.slaQueue = new Queue("sla-warnings", {
-      connection: redisConfig,
-      defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 50,
-        delay: 0
-      }
-    });
-    this.worker = new Worker(
-      "incident-processing",
-      this.processJob.bind(this),
-      {
+    try {
+      const redisConfig = Config.REDIS_URL ? { url: Config.REDIS_URL } : { host: "localhost", port: 6379 };
+      this.milestoneQueue = new Queue("milestone-reminders", {
         connection: redisConfig,
-        concurrency: 5
-      }
-    );
-    this.worker.on("failed", (job, err) => {
-      console.error(`[QUEUE] Job ${job?.id} failed:`, err);
-    });
-    this.worker.on("completed", (job) => {
-      console.log(`[QUEUE] Job ${job.id} completed successfully`);
-    });
+        defaultJobOptions: {
+          removeOnComplete: 100,
+          removeOnFail: 50,
+          delay: 0
+        }
+      });
+      this.slaQueue = new Queue("sla-warnings", {
+        connection: redisConfig,
+        defaultJobOptions: {
+          removeOnComplete: 100,
+          removeOnFail: 50,
+          delay: 0
+        }
+      });
+      this.worker = new Worker(
+        "incident-processing",
+        this.processJob.bind(this),
+        {
+          connection: redisConfig,
+          concurrency: 5
+        }
+      );
+      this.worker.on("failed", (job, err) => {
+        console.error(`[QUEUE] Job ${job?.id} failed:`, err);
+      });
+      this.worker.on("completed", (job) => {
+        console.log(`[QUEUE] Job ${job.id} completed successfully`);
+      });
+      console.log("[QUEUE] Queue service initialized successfully");
+    } catch (error) {
+      console.warn("[QUEUE] Failed to initialize Redis queues - running in degraded mode:", error);
+    }
   }
   /**
    * Schedule milestone reminder
    */
   async scheduleMilestoneReminder(data, delay) {
+    if (!this.milestoneQueue) {
+      console.warn("[QUEUE] Milestone queue not available - Redis not connected");
+      return;
+    }
     try {
       await this.milestoneQueue.add("milestone-reminder", data, {
         delay,
@@ -11879,6 +12253,10 @@ var QueueService = class {
    * Schedule SLA breach warning
    */
   async scheduleSLAWarning(data, delay) {
+    if (!this.slaQueue) {
+      console.warn("[QUEUE] SLA queue not available - Redis not connected");
+      return;
+    }
     try {
       await this.slaQueue.add("sla-warning", data, {
         delay,
@@ -11985,6 +12363,10 @@ var QueueService = class {
    * Cancel scheduled jobs for a workflow
    */
   async cancelWorkflowJobs(workflowId) {
+    if (!this.milestoneQueue || !this.slaQueue) {
+      console.warn("[QUEUE] Queues not available - Redis not connected");
+      return;
+    }
     try {
       const milestoneJobs = await this.milestoneQueue.getJobs(["waiting", "delayed"]);
       for (const job of milestoneJobs) {
@@ -12007,6 +12389,12 @@ var QueueService = class {
    * Get queue status
    */
   async getQueueStatus() {
+    if (!this.milestoneQueue || !this.slaQueue) {
+      return {
+        milestones: { waiting: 0, active: 0, completed: 0, failed: 0 },
+        sla: { waiting: 0, active: 0, completed: 0, failed: 0 }
+      };
+    }
     const [milestoneWaiting, milestoneActive, milestoneCompleted, milestoneFailed] = await Promise.all([
       this.milestoneQueue.getWaiting(),
       this.milestoneQueue.getActive(),
@@ -12038,11 +12426,11 @@ var QueueService = class {
    * Close connections
    */
   async close() {
-    await Promise.all([
-      this.milestoneQueue.close(),
-      this.slaQueue.close(),
-      this.worker.close()
-    ]);
+    const promises = [];
+    if (this.milestoneQueue) promises.push(this.milestoneQueue.close());
+    if (this.slaQueue) promises.push(this.slaQueue.close());
+    if (this.worker) promises.push(this.worker.close());
+    await Promise.all(promises);
     console.log("[QUEUE] All connections closed");
   }
 };
@@ -14188,6 +14576,8 @@ async function registerRoutes(app3) {
     app3.use("/api/assets", assetsRouter);
     app3.use("/api/manufacturers", manufacturersRouter);
     app3.use("/api/models", modelsRouter);
+    const incidentsRouterV1 = (await Promise.resolve().then(() => (init_incidents3(), incidents_exports2))).default;
+    app3.use("/api/v1/incidents", incidentsRouterV1);
     app3.use("/api/incidents", incidentsRouter);
     console.log("[ROUTES] Asset management and incidents API routes registered successfully");
   } catch (error) {
@@ -14486,19 +14876,13 @@ async function registerRoutes(app3) {
       res.status(500).json({ message: "Failed to fetch analyses" });
     }
   });
-  app3.post("/api/incidents", async (req, res) => {
-    try {
-      console.log("[RCA] Creating incident with data:", req.body);
-      const incidentData = {
-        ...req.body,
-        incidentDateTime: req.body.incidentDateTime ? new Date(req.body.incidentDateTime) : /* @__PURE__ */ new Date()
-      };
-      const incident = await investigationStorage.createIncident(incidentData);
-      res.json(incident);
-    } catch (error) {
-      console.error("[RCA] Error creating incident:", error);
-      res.status(500).json({ message: "Failed to create incident" });
-    }
+  app3.post("/api/incidents", (_req, res) => {
+    res.status(410).json({
+      error: {
+        code: "DEPRECATED",
+        message: "Use POST /api/v1/incidents"
+      }
+    });
   });
   app3.get("/api/incidents/:id", async (req, res) => {
     try {
@@ -15122,6 +15506,224 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
         }
       };
       res.status(500).json(envelope);
+    }
+  });
+  app3.get("/api/ai/providers", async (req, res) => {
+    try {
+      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const providers = await db3.select({
+        id: aiProviders2.id,
+        provider: aiProviders2.provider,
+        modelId: aiProviders2.modelId,
+        isActive: aiProviders2.isActive,
+        createdAt: aiProviders2.createdAt,
+        updatedAt: aiProviders2.updatedAt
+      }).from(aiProviders2).orderBy(aiProviders2.createdAt);
+      console.log(`[AI-PROVIDERS] Retrieved ${providers.length} providers`);
+      res.json(providers);
+    } catch (error) {
+      console.error("[AI-PROVIDERS] Error retrieving providers:", error);
+      res.status(500).json({ message: "Failed to retrieve AI providers" });
+    }
+  });
+  app3.post("/api/ai/providers", async (req, res) => {
+    try {
+      const { provider, model_id, api_key, is_active } = req.body;
+      if (!provider || !provider.trim()) {
+        return res.status(400).json({ message: "Provider is required" });
+      }
+      if (!model_id || !model_id.trim()) {
+        return res.status(400).json({ message: "Model ID is required" });
+      }
+      if (!api_key || !api_key.trim()) {
+        return res.status(400).json({ message: "API Key is required" });
+      }
+      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { AIService: AIService2 } = await Promise.resolve().then(() => (init_ai_service(), ai_service_exports));
+      const encryptedKey = AIService2.encrypt(api_key);
+      if (is_active) {
+        await db3.transaction(async (tx) => {
+          await tx.update(aiProviders2).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() });
+          const [newProvider] = await tx.insert(aiProviders2).values({
+            provider: provider.trim(),
+            modelId: model_id.trim(),
+            apiKeyEnc: encryptedKey,
+            isActive: true
+          }).returning({
+            id: aiProviders2.id,
+            provider: aiProviders2.provider,
+            modelId: aiProviders2.modelId,
+            isActive: aiProviders2.isActive,
+            createdAt: aiProviders2.createdAt
+          });
+          res.json(newProvider);
+        });
+      } else {
+        const [newProvider] = await db3.insert(aiProviders2).values({
+          provider: provider.trim(),
+          modelId: model_id.trim(),
+          apiKeyEnc: encryptedKey,
+          isActive: false
+        }).returning({
+          id: aiProviders2.id,
+          provider: aiProviders2.provider,
+          modelId: aiProviders2.modelId,
+          isActive: aiProviders2.isActive,
+          createdAt: aiProviders2.createdAt
+        });
+        res.json(newProvider);
+      }
+      console.log(`[AI-PROVIDERS] Created provider: ${provider} (${model_id})`);
+    } catch (error) {
+      console.error("[AI-PROVIDERS] Error creating provider:", error);
+      res.status(500).json({ message: "Failed to create AI provider" });
+    }
+  });
+  app3.put("/api/ai/providers/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { provider, model_id, api_key, is_active } = req.body;
+      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq10 } = await import("drizzle-orm");
+      const updateData = { updatedAt: /* @__PURE__ */ new Date() };
+      if (provider !== void 0) updateData.provider = provider.trim();
+      if (model_id !== void 0) updateData.modelId = model_id.trim();
+      if (is_active !== void 0) updateData.isActive = is_active;
+      if (api_key && api_key.trim()) {
+        const { AIService: AIService2 } = await Promise.resolve().then(() => (init_ai_service(), ai_service_exports));
+        updateData.apiKeyEnc = AIService2.encrypt(api_key.trim());
+      }
+      if (is_active) {
+        await db3.transaction(async (tx) => {
+          await tx.update(aiProviders2).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() });
+          const [updatedProvider] = await tx.update(aiProviders2).set(updateData).where(eq10(aiProviders2.id, parseInt(id))).returning({
+            id: aiProviders2.id,
+            provider: aiProviders2.provider,
+            modelId: aiProviders2.modelId,
+            isActive: aiProviders2.isActive,
+            updatedAt: aiProviders2.updatedAt
+          });
+          if (!updatedProvider) {
+            return res.status(404).json({ message: "Provider not found" });
+          }
+          res.json(updatedProvider);
+        });
+      } else {
+        const [updatedProvider] = await db3.update(aiProviders2).set(updateData).where(eq10(aiProviders2.id, parseInt(id))).returning({
+          id: aiProviders2.id,
+          provider: aiProviders2.provider,
+          modelId: aiProviders2.modelId,
+          isActive: aiProviders2.isActive,
+          updatedAt: aiProviders2.updatedAt
+        });
+        if (!updatedProvider) {
+          return res.status(404).json({ message: "Provider not found" });
+        }
+        res.json(updatedProvider);
+      }
+      console.log(`[AI-PROVIDERS] Updated provider ${id}`);
+    } catch (error) {
+      console.error("[AI-PROVIDERS] Error updating provider:", error);
+      res.status(500).json({ message: "Failed to update AI provider" });
+    }
+  });
+  app3.delete("/api/ai/providers/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq10 } = await import("drizzle-orm");
+      const deletedProvider = await db3.delete(aiProviders2).where(eq10(aiProviders2.id, parseInt(id))).returning();
+      if (deletedProvider.length === 0) {
+        return res.status(404).json({ message: "Provider not found" });
+      }
+      console.log(`[AI-PROVIDERS] Deleted provider ${id}`);
+      res.json({ message: "Provider deleted successfully" });
+    } catch (error) {
+      console.error("[AI-PROVIDERS] Error deleting provider:", error);
+      res.status(500).json({ message: "Failed to delete AI provider" });
+    }
+  });
+  app3.post("/api/ai/providers/:id/activate", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq10 } = await import("drizzle-orm");
+      await db3.transaction(async (tx) => {
+        await tx.update(aiProviders2).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() });
+        const [activatedProvider] = await tx.update(aiProviders2).set({ isActive: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq10(aiProviders2.id, parseInt(id))).returning({
+          id: aiProviders2.id,
+          provider: aiProviders2.provider,
+          modelId: aiProviders2.modelId,
+          isActive: aiProviders2.isActive
+        });
+        if (!activatedProvider) {
+          return res.status(404).json({ message: "Provider not found" });
+        }
+        res.json(activatedProvider);
+      });
+      console.log(`[AI-PROVIDERS] Activated provider ${id}`);
+    } catch (error) {
+      console.error("[AI-PROVIDERS] Error activating provider:", error);
+      res.status(500).json({ message: "Failed to activate AI provider" });
+    }
+  });
+  app3.post("/api/ai/providers/:id/test", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq10 } = await import("drizzle-orm");
+      const [provider] = await db3.select().from(aiProviders2).where(eq10(aiProviders2.id, parseInt(id)));
+      if (!provider) {
+        return res.status(404).json({ ok: false, message: "Provider not found" });
+      }
+      const { AIService: AIService2 } = await Promise.resolve().then(() => (init_ai_service(), ai_service_exports));
+      const apiKey = AIService2.decrypt(provider.apiKeyEnc);
+      const testResult = await AIService2.testApiKey(provider.provider, apiKey);
+      res.json({
+        ok: testResult.success,
+        message: testResult.success ? "API test successful" : testResult.error || "API test failed"
+      });
+      console.log(`[AI-PROVIDERS] Tested provider ${id}: ${testResult.success ? "SUCCESS" : "FAILED"}`);
+    } catch (error) {
+      console.error("[AI-PROVIDERS] Error testing provider:", error);
+      res.json({
+        ok: false,
+        message: "Test failed: " + (error.message || "Unknown error")
+      });
+    }
+  });
+  app3.get("/api/meta", async (req, res) => {
+    try {
+      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { Pool: Pool2 } = await import("@neondatabase/serverless");
+      const dbUrl = process.env.DATABASE_URL || "";
+      const dbName = dbUrl.split("/").pop()?.split("?")[0] || "unknown";
+      let gitSha = "unknown";
+      try {
+        const { execSync } = await import("child_process");
+        gitSha = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+      } catch (error) {
+      }
+      res.json({
+        apiVersion: "ai-settings-v1",
+        db: dbName,
+        git: gitSha,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        nodeEnv: process.env.NODE_ENV
+      });
+    } catch (error) {
+      console.error("[META] Error retrieving meta info:", error);
+      res.status(500).json({
+        apiVersion: "ai-settings-v1",
+        error: "Failed to retrieve meta info",
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
     }
   });
   app3.get("/api/ai/models", async (req, res) => {
@@ -15814,6 +16416,166 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
       res.status(500).json({
         success: false,
         message: "Failed to request more info",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  app3.put("/api/incidents/:id/history", async (req, res) => {
+    try {
+      const incidentId = req.params.id;
+      const { lastStep, status, summary, payload } = req.body;
+      console.log(`[RCA HISTORY] Upserting history for incident ${incidentId}, step ${lastStep}, status ${status}`);
+      if (!payload || typeof lastStep !== "number") {
+        return res.status(400).json({
+          error: "Missing required fields: lastStep and payload"
+        });
+      }
+      if (lastStep < 1 || lastStep > 8) {
+        return res.status(400).json({
+          error: "lastStep must be between 1 and 8"
+        });
+      }
+      const validStatuses = ["DRAFT", "IN_PROGRESS", "CLOSED", "CANCELLED"];
+      if (status && !validStatuses.includes(status)) {
+        return res.status(400).json({
+          error: `Invalid status. Must be one of: ${validStatuses.join(", ")}`
+        });
+      }
+      const historyData = {
+        incidentId,
+        lastStep,
+        status: status || "DRAFT",
+        summary: summary || null,
+        payload
+      };
+      const savedHistory = await investigationStorage.upsertRcaHistory(historyData);
+      res.json({
+        success: true,
+        data: savedHistory
+      });
+    } catch (error) {
+      console.error("[RCA HISTORY] Upsert failed:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to save RCA history",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  app3.get("/api/incidents/:id/history", async (req, res) => {
+    try {
+      const incidentId = req.params.id;
+      console.log(`[RCA HISTORY] Retrieving history for incident ${incidentId}`);
+      const history = await investigationStorage.getRcaHistory(incidentId);
+      if (!history) {
+        return res.status(404).json({
+          error: "RCA history not found for this incident"
+        });
+      }
+      res.json({
+        success: true,
+        data: history
+      });
+    } catch (error) {
+      console.error("[RCA HISTORY] Retrieval failed:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to retrieve RCA history",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  app3.post("/api/incidents/:id/triage", async (req, res) => {
+    try {
+      const incidentId = req.params.id;
+      const { severity, recurrence, level, label, method, timebox } = req.body;
+      console.log(`[RCA TRIAGE] Processing triage for incident ${incidentId}, level ${level}`);
+      if (!severity || !recurrence || !level || !label || !method || !timebox) {
+        return res.status(400).json({
+          error: "Missing required fields: severity, recurrence, level, label, method, timebox"
+        });
+      }
+      if (level < 1 || level > 5) {
+        return res.status(400).json({
+          error: "level must be between 1 and 5"
+        });
+      }
+      const triageData = {
+        incidentId,
+        severity,
+        recurrence,
+        level,
+        label,
+        method,
+        timebox
+      };
+      const savedTriage = await investigationStorage.upsertRcaTriage(triageData);
+      try {
+        const existingHistory = await investigationStorage.getRcaHistory(incidentId);
+        if (existingHistory) {
+          await investigationStorage.upsertRcaHistory({
+            ...existingHistory,
+            status: "IN_PROGRESS",
+            lastStep: Math.max(existingHistory.lastStep, 3)
+            // At least step 3 (after triage)
+          });
+          console.log(`[RCA TRIAGE] Updated history status to IN_PROGRESS for incident ${incidentId}`);
+        }
+      } catch (historyError) {
+        console.warn("[RCA TRIAGE] Failed to update history status:", historyError);
+      }
+      res.json({
+        success: true,
+        data: savedTriage
+      });
+    } catch (error) {
+      console.error("[RCA TRIAGE] Creation failed:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to create RCA triage",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  app3.get("/api/incidents/:id/triage", async (req, res) => {
+    try {
+      const incidentId = req.params.id;
+      console.log(`[RCA TRIAGE] Retrieving triage for incident ${incidentId}`);
+      const triage = await investigationStorage.getRcaTriage(incidentId);
+      if (!triage) {
+        return res.status(404).json({
+          error: "RCA triage not found for this incident"
+        });
+      }
+      res.json({
+        success: true,
+        data: triage
+      });
+    } catch (error) {
+      console.error("[RCA TRIAGE] Retrieval failed:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to retrieve RCA triage",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  app3.get("/api/rca/cases", async (req, res) => {
+    try {
+      const { status } = req.query;
+      console.log(`[RCA CASES] Retrieving cases with status filter: ${status || "all"}`);
+      const statusFilter = status ? Array.isArray(status) ? status : [status] : void 0;
+      const cases = await investigationStorage.getRcaHistoriesByStatus(statusFilter);
+      res.json({
+        success: true,
+        data: cases,
+        count: cases.length
+      });
+    } catch (error) {
+      console.error("[RCA CASES] Retrieval failed:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to retrieve RCA cases",
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }
@@ -17689,18 +18451,27 @@ init_universal_ai_config();
 import path5 from "path";
 import { fileURLToPath } from "url";
 dotenv.config();
-var encryptionKey = process.env.AI_KEY_ENCRYPTION_SECRET;
-if (!encryptionKey) {
+var encryptionKeyBase64 = process.env.AI_KEY_ENCRYPTION_SECRET;
+if (!encryptionKeyBase64) {
   console.error("\u{1F6A8} PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET not found");
-  console.error("Please set AI_KEY_ENCRYPTION_SECRET to exactly 32 characters using Replit secrets manager");
+  console.error("Please set AI_KEY_ENCRYPTION_SECRET to a Base64-encoded 32-byte key using Replit secrets manager");
   process.exit(1);
 }
-if (encryptionKey.length !== 32) {
-  console.error(`\u{1F6A8} PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET must be exactly 32 characters, got ${encryptionKey.length}`);
+var encryptionKeyBytes;
+try {
+  const normalizedBase64 = encryptionKeyBase64.replace(/-/g, "+").replace(/_/g, "/");
+  encryptionKeyBytes = Buffer.from(normalizedBase64, "base64");
+} catch (error) {
+  console.error("\u{1F6A8} PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET is not valid Base64");
+  console.error("Please provide a valid Base64-encoded 32-byte key");
+  process.exit(1);
+}
+if (encryptionKeyBytes.length !== 32) {
+  console.error(`\u{1F6A8} PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET must decode to exactly 32 bytes, got ${encryptionKeyBytes.length} bytes`);
   console.error("AES-256-CBC encryption requires exactly 32 bytes (256 bits)");
   process.exit(1);
 }
-console.log(`\u2705 AI_KEY_ENCRYPTION_SECRET loaded successfully (length: ${encryptionKey.length})`);
+console.log(`\u2705 AI_KEY_ENCRYPTION_SECRET loaded successfully (${encryptionKeyBase64.length} chars -> ${encryptionKeyBytes.length} bytes)`);
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path5.dirname(__filename);
 var app2 = express2();

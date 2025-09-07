@@ -19,6 +19,7 @@ import { ADMIN_SECTIONS, TAXONOMY_TABS } from "@/config/adminNav";
 
 // AI Providers Table Component
 const AIProvidersTable = () => {
+  console.log("[AIPROV] AIProvidersTable component mounted");
   const [providers, setProviders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
