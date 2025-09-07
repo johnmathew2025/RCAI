@@ -15,13 +15,26 @@ import { DynamicAIConfig } from "./dynamic-ai-config";
 
 const IV_LENGTH = 16;
 
-// Get encryption key with runtime validation
-function getEncryptionKey(): string {
-  const key = process.env.AI_KEY_ENCRYPTION_SECRET;
-  if (!key || key.length < 32) {
-    throw new Error("PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET missing or too short");
+// Get encryption key with runtime validation - returns decoded bytes
+function getEncryptionKey(): Buffer {
+  const keyBase64 = process.env.AI_KEY_ENCRYPTION_SECRET;
+  if (!keyBase64) {
+    throw new Error("PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET missing");
   }
-  return key;
+  
+  try {
+    // Support both standard and URL-safe Base64
+    const normalizedBase64 = keyBase64.replace(/-/g, '+').replace(/_/g, '/');
+    const keyBytes = Buffer.from(normalizedBase64, 'base64');
+    
+    if (keyBytes.length !== 32) {
+      throw new Error(`PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET must decode to 32 bytes, got ${keyBytes.length}`);
+    }
+    
+    return keyBytes;
+  } catch (error) {
+    throw new Error("PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET is not valid Base64");
+  }
 }
 
 export class AIService {
@@ -39,7 +52,7 @@ export class AIService {
     for (let i = 0; i < IV_LENGTH; i++) {
       iv[i] = randomValues[i];
     }
-    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(encryptionKey), iv);
+    const cipher = crypto.createCipheriv('aes-256-cbc', encryptionKey, iv);
     let encrypted = cipher.update(text, 'utf8');
     encrypted = Buffer.concat([encrypted, cipher.final()]);
     return iv.toString('hex') + ':' + encrypted.toString('hex');
@@ -51,7 +64,7 @@ export class AIService {
     const textParts = encryptedText.split(':');
     const iv = Buffer.from(textParts.shift()!, 'hex');
     const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(encryptionKey), iv);
+    const decipher = crypto.createDecipheriv('aes-256-cbc', encryptionKey, iv);
     let decrypted = decipher.update(encryptedData);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
     return decrypted.toString();
