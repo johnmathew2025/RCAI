@@ -252,9 +252,12 @@ export default function WorkflowIntegrationDemo() {
   // Workflow status query
   const { data: workflowStatus, refetch: refetchWorkflowStatus } = useQuery({
     queryKey: ['/api/workflows', activeWorkflow?.workflowId],
-    queryFn: () => activeWorkflow ? 
-      fetch(`/api/workflows/${activeWorkflow.workflowId}`).then(res => res.json()) :
-      Promise.resolve(null),
+    queryFn: async () => {
+      if (!activeWorkflow) return null;
+      const { api } = await import('@/api');
+      const response = await api(`/workflows/${activeWorkflow.workflowId}`);
+      return response.json();
+    },
     enabled: !!activeWorkflow,
     refetchInterval: 5000 // Poll every 5 seconds
   });

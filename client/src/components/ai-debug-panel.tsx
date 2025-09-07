@@ -75,12 +75,13 @@ export function AIDebugPanel({ isVisible }: AIDebugPanelProps) {
   const fetchSystemHealth = async () => {
     try {
       setLoading(true);
-      const metaResponse = await fetch('/api/meta');
+      const { api } = await import('@/api');
+      const metaResponse = await api('/meta');
       const metaData = await metaResponse.json();
       
       let providerStats = undefined;
       try {
-        const debugResponse = await fetch('/api/ai/providers/debug');
+        const debugResponse = await api('/ai/providers/debug');
         if (debugResponse.ok) {
           providerStats = await debugResponse.json();
         }

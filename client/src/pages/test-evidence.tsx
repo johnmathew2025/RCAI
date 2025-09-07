@@ -86,8 +86,9 @@ export default function TestEvidence() {
 
   const createTestAnalysis = async () => {
     try {
-      // Create analysis without files - using fetch to bypass apiRequest JSON issues
-      const response = await fetch('/api/analyses/create', {
+      // Create analysis without files - using API wrapper
+      const { api } = await import('@/api');
+      const response = await api('/analyses/create', {
         method: 'POST',
         body: new FormData() // Empty FormData to trigger multipart
       });

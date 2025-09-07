@@ -224,14 +224,11 @@ export default function IncidentReporting() {
       const selectedType = equipmentTypes.find(t => t.id === selectedTypeId);
       const selectedSubtype = equipmentSubtypes.find(s => s.id === selectedSubtypeId);
       
-      const response = await fetch('/api/incidents/0/generate-timeline-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          equipmentGroup: selectedGroup?.name,
-          equipmentType: selectedType?.name,
-          equipmentSubtype: selectedSubtype?.name
-        })
+      const { apiPost } = await import('@/api');
+      const response = await apiPost('/incidents/0/generate-timeline-questions', {
+        equipmentGroup: selectedGroup?.name,
+        equipmentType: selectedType?.name,
+        equipmentSubtype: selectedSubtype?.name
       });
       
       if (response.ok) {

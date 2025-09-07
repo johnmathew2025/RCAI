@@ -65,7 +65,8 @@ export function UniversalRCAInterface({ incidentId, equipmentContext }: Universa
       formData.append('file', file);
       formData.append('evidenceType', evidenceType);
       
-      const response = await fetch(`/api/incidents/${incidentId}/parse-evidence`, {
+      const { api } = await import('@/api');
+      const response = await api(`/incidents/${incidentId}/parse-evidence`, {
         method: 'POST',
         body: formData,
       });

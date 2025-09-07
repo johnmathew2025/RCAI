@@ -33,11 +33,8 @@ export default function NLPAnalysisPage() {
     }
 
     try {
-      const response = await fetch("/api/nlp/generate-questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(questionParams)
-      });
+      const { apiPost } = await import('@/api');
+      const response = await apiPost("/nlp/generate-questions", questionParams);
       
       if (response.ok) {
         const suggestions = await response.json();

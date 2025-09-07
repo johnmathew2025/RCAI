@@ -151,7 +151,8 @@ export default function EvidenceLibraryManagement() {
     gcTime: 0,
     refetchOnMount: true,
     queryFn: async () => {
-      const response = await fetch('/api/evidence-library', {
+      const { api } = await import('@/api');
+      const response = await api('/evidence-library', {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
@@ -173,7 +174,8 @@ export default function EvidenceLibraryManagement() {
     queryKey: ["/api/equipment-types"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const response = await fetch('/api/equipment-types');
+      const { api } = await import('@/api');
+      const response = await api('/equipment-types');
       if (!response.ok) return [];
       return response.json();
     }
@@ -184,7 +186,8 @@ export default function EvidenceLibraryManagement() {
     queryKey: ["/api/equipment-subtypes"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const response = await fetch('/api/equipment-subtypes');
+      const { api } = await import('@/api');
+      const response = await api('/equipment-subtypes');
       if (!response.ok) return [];
       return response.json();
     }
@@ -194,7 +197,8 @@ export default function EvidenceLibraryManagement() {
   const { data: equipmentGroups = [] } = useQuery({
     queryKey: ['/api/equipment-groups'],
     queryFn: async () => {
-      const response = await fetch('/api/equipment-groups');
+      const { api } = await import('@/api');
+      const response = await api('/equipment-groups');
       if (!response.ok) return [];
       return response.json();
     },
@@ -207,7 +211,8 @@ export default function EvidenceLibraryManagement() {
   const { data: riskRankings = [] } = useQuery({
     queryKey: ['/api/risk-rankings'],
     queryFn: async () => {
-      const response = await fetch('/api/risk-rankings');
+      const { api } = await import('@/api');
+      const response = await api('/risk-rankings');
       if (!response.ok) return [];
       return response.json();
     },

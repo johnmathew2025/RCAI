@@ -14,8 +14,8 @@ export async function loadConfig(): Promise<AppConfig> {
   if (cached) return cached;
   
   try {
-    // Load from backend at runtime so no rebuild per environment
-    const response = await fetch("/api/meta");
+    // Load from backend at runtime so no rebuild per environment  
+    const response = await fetch("/api/meta", { cache: "no-store" });
     const meta = await response.json();
     
     cached = { 

@@ -171,7 +171,8 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
   const { data: riskRankingsRaw = [] } = useQuery({
     queryKey: ['/api/risk-rankings'],
     queryFn: async () => {
-      const response = await fetch('/api/risk-rankings');
+      const { api } = await import('@/api');
+      const response = await api('/risk-rankings');
       if (!response.ok) return [];
       const json = await response.json();
       return json;
@@ -187,7 +188,8 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
     queryKey: ['/api/equipment-subtypes/by-type', selectedEquipmentTypeId],
     queryFn: async () => {
       if (!selectedEquipmentTypeId) return [];
-      const response = await fetch(`/api/equipment-subtypes/by-type/${selectedEquipmentTypeId}`);
+      const { api } = await import('@/api');
+      const response = await api(`/equipment-subtypes/by-type/${selectedEquipmentTypeId}`);
       if (!response.ok) return [];
       const json = await response.json();
       return json;

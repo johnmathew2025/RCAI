@@ -134,20 +134,31 @@ export default function RCAAnalysisDemo() {
   // Fetch taxonomy data
   const { data: groups, isLoading: groupsLoading } = useQuery({
     queryKey: ['/api/taxonomy/groups'],
-    queryFn: () => fetch('/api/taxonomy/groups').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/taxonomy/groups');
+      return response.json();
+    }
   });
 
   const { data: types, isLoading: typesLoading } = useQuery({
     queryKey: ['/api/taxonomy/types', rcaRequest.equipmentGroupId],
-    queryFn: () => rcaRequest.equipmentGroupId ? 
-      fetch(`/api/taxonomy/types?groupId=${rcaRequest.equipmentGroupId}`).then(res => res.json()) : 
-      Promise.resolve([]),
+    queryFn: async () => {
+      if (!rcaRequest.equipmentGroupId) return [];
+      const { api } = await import('@/api');
+      const response = await api(`/taxonomy/types?groupId=${rcaRequest.equipmentGroupId}`);
+      return response.json();
+    },
     enabled: !!rcaRequest.equipmentGroupId
   });
 
   const { data: risks, isLoading: risksLoading } = useQuery({
     queryKey: ['/api/taxonomy/risks'],
-    queryFn: () => fetch('/api/taxonomy/risks').then(res => res.json())
+    queryFn: async () => {
+      const { api } = await import('@/api');
+      const response = await api('/taxonomy/risks');
+      return response.json();
+    }
   });
 
   // RCA analysis mutation

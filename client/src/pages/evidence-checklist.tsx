@@ -95,10 +95,8 @@ export default function EvidenceChecklist() {
       console.log(`[UNIVERSAL RCA INSTRUCTION] STEP 2: Generating AI hypotheses for human confirmation`);
       console.log(`[AI HYPOTHESIS GENERATOR] Incident: "${incidentData.symptomDescription || incidentData.title}"`);
       
-      const response = await fetch(`/api/incidents/${incidentData.id}/generate-ai-hypotheses`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/incidents/${incidentData.id}/generate-ai-hypotheses`);
       
       if (!response.ok) {
         throw new Error(`Failed to generate AI hypotheses: ${response.status}`);
@@ -133,10 +131,10 @@ export default function EvidenceChecklist() {
     }) => {
       console.log(`[UNIVERSAL RCA INSTRUCTION] STEP 5: Generating evidence checklist from confirmed hypotheses`);
       
-      const response = await fetch(`/api/incidents/${incidentId}/generate-evidence-checklist`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmedHypotheses, customHypotheses })
+      const { apiPost } = await import('@/api');
+      const response = await apiPost(`/incidents/${incidentId}/generate-evidence-checklist`, { 
+        confirmedHypotheses, 
+        customHypotheses 
       });
       
       if (!response.ok) {

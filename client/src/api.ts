@@ -3,25 +3,10 @@
  * All network calls must go through this client
  */
 
-import { loadConfig } from "./config";
-
 export async function api(path: string, init?: RequestInit): Promise<Response> {
-  const { apiBase } = await loadConfig();
-  
-  // Ensure path starts with /
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const url = `${apiBase}${normalizedPath}`;
-  
-  console.log(`🌐 API call: ${init?.method || 'GET'} ${url}`);
-  
-  const response = await fetch(url, { cache: "no-store", ...init });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`API Error ${response.status}: ${errorText}`);
-  }
-  
-  return response;
+  const res = await fetch(`/api${path}`, { cache: "no-store", ...init });
+  if (!res.ok) throw new Error(await res.text());
+  return res;
 }
 
 // Convenience methods

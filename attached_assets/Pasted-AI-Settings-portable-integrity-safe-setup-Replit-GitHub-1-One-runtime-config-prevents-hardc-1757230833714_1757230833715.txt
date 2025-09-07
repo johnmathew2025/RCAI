@@ -1,0 +1,96 @@
+AI Settings: portable, integrity-safe setup (Replit → GitHub)
+1) One runtime config (prevents hardcoding; portable)
+•	Frontend never uses absolute URLs. All calls go through a tiny wrapper that reads runtime config from the backend.
+// client/src/api.ts
+export async function api(path: string, init?: RequestInit) {
+  const res = await fetch(`/api${path}`, { cache: "no-store", ...init });
+  if (!res.ok) throw new Error(await res.text());
+  return res;
+}
+•	Backend exposes runtime config:
+// server: /api/meta
+res.json({ apiVersion: "ai-settings-v1", gitSha, dbName });
+2) Integrity by design (DB + routes)
+•	Foreign keys: pick ONE policy and enforce at DB level for anything referencing ai_providers.id:
+o	RESTRICT (block delete if referenced) or
+o	SET NULL (detach safely).
+•	Hard delete route (admin-only):
+// DELETE /api/ai/providers/:id
+// Option A: block if active (409)  OR  Option B: auto-deactivate then delete
+// Always wrap in a DB transaction.
+•	Exactly one active enforced in code when activating (unset others → set this one).
+3) Cache safety (no stale UI; purge on changes)
+•	API responses: never cached by clients/proxies.
+// server: for all /api routes
+app.use("/api", (req,res,next)=>{ res.set("Cache-Control","no-store"); next(); });
+•	After any mutation (add/activate/delete/test):
+o	Server: invalidate in-memory/Redis keys like ai_providers:list (if used).
+o	Client: always call loadProviders() again (no reliance on local cache).
+4) Single source of truth in UI (no drift)
+•	Both the status card and the table read from the same state loaded by:
+async function loadProviders() {
+  const r = await api("/ai/providers");
+  const rows = await r.json();
+  setRows(rows);
+  setActive(rows.find(x => x.is_active) || null); // status card uses this
+}
+•	Universal form only: remove the old dropdown form; keep free-text Provider / Model / API Key.
+•	Footer meta: fetch /api/meta once; render apiVersion | dbName | gitSha.
+5) SPA 404s eliminated (portable routing)
+•	Backend must serve index.html for all non-API paths:
+// after API routes
+app.use((req,res,next)=> req.path.startsWith("/api") ? next() :
+  res.sendFile(path.join(__dirname, "public", "index.html")));
+•	Dev (Vite) proxy (local only):
+// vite.config.ts
+server: { proxy: { "/api": { target: "http://localhost:5000", changeOrigin: true } } }
+6) GitHub portability checklist (make it survive imports)
+•	Repo files:
+o	.env.example (no secrets; include placeholders and lengths, e.g., ENCRYPTION_KEY=32-char-min).
+o	README.md with “Run locally”:
+npm i → start DB → npm run dev (backend) + npm run dev (frontend) or single server start.
+o	Database migrations (Drizzle/SQL) checked in.
+o	scripts/ai-settings-smoke.mjs (see below).
+o	ESLint rule to forbid absolute URLs and direct fetch to /api.
+•	GitHub Actions (portable CI):
+name: ci
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build --workspaces=false
+      # Optional integration smoke:
+      - run: |
+          node server/index.js &  # start your server
+          sleep 4
+          node scripts/ai-settings-smoke.mjs
+7) Smoke test (keeps integrity across environments)
+•	Script should: list → create dummy → verify → (optionally activate) → delete → verify gone.
+•	Fail fast if any step breaks. This guarantees the same behavior on Replit and GitHub.
+8) Delete semantics (hard delete, safe UX)
+•	UI “Delete”:
+o	If policy is block when active → disable with tooltip “Deactivate first”.
+o	If policy is auto-deactivate → modal confirm; proceed; then refresh via loadProviders().
+•	Server on delete:
+o	Transactional; invalidate caches; return 204.
+o	Never log raw keys.
+9) No surprise caching anywhere
+•	Client fetch uses cache: "no-store" (see wrapper).
+•	No service worker. If you already have one, remove or bypass it for /api/*.
+•	Static assets can stay hashed (Vite/webpack handles cache-busting automatically).
+10) Quick acceptance (run every time you import to GitHub)
+•	Add via Universal form → shows in table, status card reflects when activated.
+•	Set Active / Delete / Test keep table + status card in sync (no page reloads).
+•	Refresh with Disable cache → state persists; footer shows apiVersion | dbName | gitSha.
+•	scripts/ai-settings-smoke.mjs passes locally and in CI.
+•	Grep shows no absolute URLs and no provider arrays:
+•	rg -n -S "http://|https://|localhost|:3000|:5000" client && exit 1 || true
+•	rg -n -S "fetch\\(.*?/api/" client && exit 1 || true
+
+
