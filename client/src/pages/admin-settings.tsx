@@ -16,6 +16,8 @@ import { Link } from "wouter";
 import type { AiSettings, InsertAiSettings, EquipmentGroup, RiskRanking } from "@shared/schema";
 import AIStatusIndicator from "@/components/ai-status-indicator";
 import { ADMIN_SECTIONS, TAXONOMY_TABS } from "@/config/adminNav";
+import { AIDebugPanel } from "@/components/ai-debug-panel";
+import { aiDebugger } from "@/lib/debug-ai-settings";
 
 // AI Providers Table Component
 const AIProvidersTable = () => {
@@ -1173,6 +1175,9 @@ export default function AdminSettings() {
           <AIProvidersTable />
         </CardContent>
       </Card>
+      
+      {/* Debug Panel - only visible in debug mode */}
+      <AIDebugPanel isVisible={aiDebugger.isEnabled()} />
         </TabsContent>
 
         {/* Equipment Groups Tab */}

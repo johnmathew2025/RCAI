@@ -11850,6 +11850,136 @@ var EvidenceLibraryOperations = class {
   }
 };
 
+// server/middleware/ai-settings-debug.ts
+init_universal_ai_config();
+var AISettingsDebugMiddleware = class _AISettingsDebugMiddleware {
+  static instance;
+  timings = /* @__PURE__ */ new Map();
+  isDebugMode;
+  constructor() {
+    this.isDebugMode = process.env.DEBUG_AI_SETTINGS === "1";
+  }
+  static getInstance() {
+    if (!_AISettingsDebugMiddleware.instance) {
+      _AISettingsDebugMiddleware.instance = new _AISettingsDebugMiddleware();
+    }
+    return _AISettingsDebugMiddleware.instance;
+  }
+  middleware() {
+    return (req, res, next) => {
+      if (!req.path.startsWith("/api/ai/providers")) {
+        return next();
+      }
+      if (!this.isDebugMode) {
+        return next();
+      }
+      const requestId = this.generateRequestId();
+      const traceId = req.headers["x-trace-id"] || null;
+      const start = UniversalAIConfig.getPerformanceTime();
+      this.logRequestStart(req, traceId, requestId);
+      this.timings.set(requestId, {
+        start,
+        traceId,
+        route: req.path,
+        method: req.method
+      });
+      const originalJson = res.json;
+      res.json = function(body) {
+        const timing = _AISettingsDebugMiddleware.getInstance().timings.get(requestId);
+        if (timing) {
+          _AISettingsDebugMiddleware.getInstance().logRequestEnd(
+            req,
+            res,
+            body,
+            timing,
+            requestId
+          );
+          _AISettingsDebugMiddleware.getInstance().timings.delete(requestId);
+        }
+        return originalJson.call(this, body);
+      };
+      const originalNext = next;
+      next = (error) => {
+        if (error) {
+          const timing = this.timings.get(requestId);
+          if (timing) {
+            this.logRequestError(req, error, timing, requestId);
+            this.timings.delete(requestId);
+          }
+        }
+        originalNext(error);
+      };
+      next();
+    };
+  }
+  generateRequestId() {
+    return `req-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+  }
+  logRequestStart(req, traceId, requestId) {
+    const fieldsPresent = this.getFieldsPresent(req.body);
+    const logLine = `[AI Debug] START ${req.method} ${req.path} | Trace: ${traceId || "none"} | Fields: [${fieldsPresent.join(", ")}] | ReqID: ${requestId}`;
+    console.log(logLine);
+  }
+  logRequestEnd(req, res, body, timing, requestId) {
+    const duration = UniversalAIConfig.getPerformanceTime() - timing.start;
+    const outcome = this.generateOutcome(req.method, res.statusCode, body);
+    const logLine = `[AI Debug] END ${timing.method} ${timing.route} | Trace: ${timing.traceId || "none"} | Status: ${res.statusCode} | Duration: ${Math.round(duration)}ms | Outcome: ${outcome} | ReqID: ${requestId}`;
+    console.log(logLine);
+  }
+  logRequestError(req, error, timing, requestId) {
+    const duration = UniversalAIConfig.getPerformanceTime() - timing.start;
+    const sanitizedError = this.sanitizeError(error);
+    const logLine = `[AI Debug] ERROR ${timing.method} ${timing.route} | Trace: ${timing.traceId || "none"} | Duration: ${Math.round(duration)}ms | Error: ${sanitizedError} | ReqID: ${requestId}`;
+    console.error(logLine);
+    if (error.stack && timing.traceId) {
+      console.error(`[AI Debug] Stack for ${timing.traceId}:`, error.stack);
+    }
+  }
+  getFieldsPresent(body) {
+    if (!body || typeof body !== "object") return [];
+    return Object.keys(body).filter((key) => {
+      const value = body[key];
+      return value !== void 0 && value !== null && value !== "";
+    });
+  }
+  generateOutcome(method, status, body) {
+    if (status >= 400) {
+      return body?.message || body?.error || "error";
+    }
+    switch (method.toUpperCase()) {
+      case "POST":
+        return body?.id ? `created id=${body.id}` : "created";
+      case "PUT":
+        if (body?.isActive !== void 0) return "activation set";
+        return "updated";
+      case "DELETE":
+        return body?.id ? `deleted id=${body.id}` : "deleted";
+      case "GET":
+        if (Array.isArray(body)) return `found ${body.length} items`;
+        return body?.id ? `found id=${body.id}` : "success";
+      default:
+        return "success";
+    }
+  }
+  sanitizeError(error) {
+    if (!error) return "unknown error";
+    let message = error.message || error.toString() || "unknown error";
+    message = message.replace(/api[_-]?key[s]?[\s]*[:=][\s]*[^\s]+/gi, "api_key:[REDACTED]");
+    message = message.replace(/authorization[\s]*[:=][\s]*[^\s]+/gi, "authorization:[REDACTED]");
+    message = message.replace(/bearer\s+[^\s]+/gi, "bearer [REDACTED]");
+    if (message.length > 200) {
+      message = message.substring(0, 197) + "...";
+    }
+    return message;
+  }
+  logDbOperation(tableName, operation, duration, traceId) {
+    if (!this.isDebugMode) return;
+    const logLine = `[AI Debug] DB ${operation.toUpperCase()} ${tableName} | Duration: ${Math.round(duration)}ms | Trace: ${traceId || "none"}`;
+    console.log(logLine);
+  }
+};
+var aiDebugMiddleware = AISettingsDebugMiddleware.getInstance();
+
 // server/routes.ts
 init_universal_ai_config();
 init_dynamic_ai_config();
@@ -12933,7 +13063,18 @@ var upload = multer({
 });
 async function registerRoutes(app3) {
   console.log("[ROUTES] Starting registerRoutes function - CRITICAL DEBUG");
+  app3.use("/api/ai/providers", aiDebugMiddleware.middleware());
+  app3.use("/api/admin/ai-settings", aiDebugMiddleware.middleware());
   const { APP_VERSION: APP_VERSION2, APP_BUILT_AT: APP_BUILT_AT2 } = await Promise.resolve().then(() => (init_version(), version_exports));
+  app3.get("/api/meta", (_req, res) => {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.json({
+      apiVersion: APP_VERSION2,
+      gitSha: process.env.REPL_SLUG || process.env.REPLIT_SLUG || "development",
+      debug: process.env.DEBUG_AI_SETTINGS === "1",
+      timestamp: APP_BUILT_AT2
+    });
+  });
   app3.get("/version.json", (_req, res) => {
     res.set("Cache-Control", "no-store, no-cache, must-revalidate");
     res.json({
@@ -15506,6 +15647,37 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
         }
       };
       res.status(500).json(envelope);
+    }
+  });
+  app3.get("/api/ai/providers/debug", requireAdmin, async (req, res) => {
+    if (process.env.DEBUG_AI_SETTINGS !== "1") {
+      return res.status(404).json({ message: "Debug endpoint not available" });
+    }
+    try {
+      const providers = await investigationStorage.getAiProviders();
+      const activeCount = providers.filter((p) => p.isActive).length;
+      const latestProvider = providers.sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0];
+      let envOk = false;
+      try {
+        await investigationStorage.getAllEquipmentGroups();
+        envOk = true;
+      } catch (error) {
+        console.error("[AI Debug] DB connection test failed:", error);
+      }
+      res.json({
+        recordCount: providers.length,
+        activeCount,
+        latestCreatedAt: latestProvider?.createdAt || null,
+        schemaVersion: "ai-settings-v1",
+        envOk
+      });
+    } catch (error) {
+      res.status(500).json({
+        error: "Debug health check failed",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
   app3.get("/api/ai/providers", async (req, res) => {
