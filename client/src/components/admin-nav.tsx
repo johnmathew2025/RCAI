@@ -3,7 +3,7 @@
  * System configuration tools navigation for admin users only
  */
 
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
   Home, 
@@ -25,10 +25,10 @@ const iconMap = {
 };
 
 export default function AdminNav({ className = "" }: AdminNavProps) {
-  const [location] = useLocation();
+  const location = useLocation();
   
   const isActivePath = (path: string) => {
-    return location === path || location.startsWith(path + '/');
+    return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
   return (
@@ -40,7 +40,7 @@ export default function AdminNav({ className = "" }: AdminNavProps) {
           
           return (
             <div key={section.id} className="admin-section">
-              <Link href={section.path}>
+              <Link to={section.path}>
                 <Button
                   variant={isActive ? "default" : "ghost"}
                   size="sm"

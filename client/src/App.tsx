@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -52,99 +52,64 @@ function Router() {
   }, []);
   
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/new" component={NewInvestigation} />
-      <Route path="/investigation/:id/type" component={InvestigationType} />
-      <Route path="/investigation/:id/evidence" component={EvidenceCollectionOld} />
-      <Route path="/investigation/:id" component={AnalysisDetail} />
-      <Route path="/admin" component={AdminSettings} />
-      {/* Legacy admin-settings redirect - zero hardcoding compliance */}
-      <Route path="/admin-settings">
-        {() => {
-          // Dynamic redirect to correct path using browser origin (no hardcoding)
-          const redirectUrl = new URL('/admin', window.location.origin);
-          redirectUrl.search = window.location.search; // Preserve query params
-          window.location.replace(redirectUrl.toString());
-          return null;
-        }}
-      </Route>
-      {/* Canonical Admin Routes - Configuration Tools Only */}
-      <Route path="/admin/evidence" component={EvidenceLibraryManagement} />
-      <Route path="/admin/integrations" component={WorkflowIntegrationDemo} />
-      <Route path="/admin/taxonomy" component={TaxonomyManagement} />
+    <BrowserRouter basename="/">
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/new" element={<NewInvestigation />} />
+        <Route path="/investigation/:id/type" element={<InvestigationType />} />
+        <Route path="/investigation/:id/evidence" element={<EvidenceCollectionOld />} />
+        <Route path="/investigation/:id" element={<AnalysisDetail />} />
+        <Route path="/admin" element={<AdminSettings />} />
+        <Route path="/admin-settings" element={<Navigate replace to="/admin" />} />
+        {/* Canonical Admin Routes - Configuration Tools Only */}
+        <Route path="/admin/evidence" element={<EvidenceLibraryManagement />} />
+        <Route path="/admin/integrations" element={<WorkflowIntegrationDemo />} />
+        <Route path="/admin/taxonomy" element={<TaxonomyManagement />} />
       
-      {/* Main User Workflow Routes - For Investigators & Analysts */}
-      <Route path="/incident-reporting" component={IncidentReporting} />
-      <Route path="/incidents/:id/rca-triage" component={RcaTriage} />
-      <Route path="/rca/cases" component={RcaCases} />
-      <Route path="/workflow/integration" component={WorkflowIntegration} />
-      <Route path="/analysis-engine" component={EvidenceAnalysisDemo} />
-      <Route path="/ai-powered-rca" component={RCAAnalysisDemo} />
-      <Route path="/analysis-history" component={DeploymentReadyDashboard} />
+        {/* Main User Workflow Routes - For Investigators & Analysts */}
+        <Route path="/incident-reporting" element={<IncidentReporting />} />
+        <Route path="/incidents/:id/rca-triage" element={<RcaTriage />} />
+        <Route path="/rca/cases" element={<RcaCases />} />
+        <Route path="/workflow/integration" element={<WorkflowIntegration />} />
+        <Route path="/analysis-engine" element={<EvidenceAnalysisDemo />} />
+        <Route path="/ai-powered-rca" element={<RCAAnalysisDemo />} />
+        <Route path="/analysis-history" element={<DeploymentReadyDashboard />} />
       
-      {/* Legacy route redirects */}
-      <Route path="/admin/evidence-library" component={EvidenceLibraryAdmin} />
-      <Route path="/admin/evidence-management" component={EvidenceLibrarySimple} />
-      <Route path="/admin/evidence-library-management" component={EvidenceLibraryManagement} />
-      <Route path="/admin/fault-reference-library" component={FaultReferenceLibrary} />
-      {/* Route removed - was causing JSX errors */}
-      <Route path="/evidence-analysis-demo" component={EvidenceAnalysisDemo} />
-      <Route path="/rca-analysis-demo" component={RCAAnalysisDemo} />
-      <Route path="/workflow-integration-demo" component={WorkflowIntegrationDemo} />
-      <Route path="/data-integration-demo" component={DataIntegrationDemo} />
-      <Route path="/deployment-ready" component={DeploymentReadyDashboard} />
-      <Route path="/evidence-library-management" component={EvidenceLibrarySimple} />
-      <Route path="/evidence-library" component={EvidenceLibrarySimple} />
-      <Route path="/debug" component={DebugRoutes} />
+        {/* Legacy route redirects */}
+        <Route path="/admin/evidence-library" element={<EvidenceLibraryAdmin />} />
+        <Route path="/admin/evidence-management" element={<EvidenceLibrarySimple />} />
+        <Route path="/admin/evidence-library-management" element={<EvidenceLibraryManagement />} />
+        <Route path="/admin/fault-reference-library" element={<FaultReferenceLibrary />} />
+        {/* Route removed - was causing JSX errors */}
+        <Route path="/evidence-analysis-demo" element={<EvidenceAnalysisDemo />} />
+        <Route path="/rca-analysis-demo" element={<RCAAnalysisDemo />} />
+        <Route path="/workflow-integration-demo" element={<WorkflowIntegrationDemo />} />
+        <Route path="/data-integration-demo" element={<DataIntegrationDemo />} />
+        <Route path="/deployment-ready" element={<DeploymentReadyDashboard />} />
+        <Route path="/evidence-library-management" element={<EvidenceLibrarySimple />} />
+        <Route path="/evidence-library" element={<EvidenceLibrarySimple />} />
+        <Route path="/debug" element={<DebugRoutes />} />
       
-      {/* Legacy redirects for moved workflow routes - ZERO HARDCODING COMPLIANCE */}
-      <Route path="/admin/analysis-engine">
-        {() => {
-          const redirectUrl = new URL('/analysis-engine', window.location.origin);
-          redirectUrl.search = window.location.search;
-          window.location.replace(redirectUrl.toString());
-          return null;
-        }}
-      </Route>
-      <Route path="/admin/ai-powered-rca">
-        {() => {
-          const redirectUrl = new URL('/ai-powered-rca', window.location.origin);
-          redirectUrl.search = window.location.search;
-          window.location.replace(redirectUrl.toString());
-          return null;
-        }}
-      </Route>
-      <Route path="/admin/analysis">
-        {() => {
-          const redirectUrl = new URL('/analysis-engine', window.location.origin);
-          redirectUrl.search = window.location.search;
-          window.location.replace(redirectUrl.toString());
-          return null;
-        }}
-      </Route>
-      <Route path="/admin/ai">
-        {() => {
-          const redirectUrl = new URL('/ai-powered-rca', window.location.origin);
-          redirectUrl.search = window.location.search;
-          window.location.replace(redirectUrl.toString());
-          return null;
-        }}
-      </Route>
-      <Route path="/equipment-selection" component={EquipmentSelection} />
-      <Route path="/evidence-checklist" component={EvidenceChecklist} />
-      <Route path="/evidence-collection" component={EvidenceCollection} />
-      <Route path="/human-review" component={HumanReview} />
-      <Route path="/incidents/:id/human-review" component={HumanReview} />
-      <Route path="/incidents/:id/analysis" component={AIAnalysis} />
-      <Route path="/ai-analysis" component={AIAnalysis} />
-      <Route path="/engineer-review" component={EngineerReview} />
-      <Route path="/nlp-analysis" component={NLPAnalysis} />
-      <Route path="/incidents/:id/fallback-analysis" component={FallbackAnalysisPage} />
-      <Route path="/summary-report/:incidentId" component={SummaryReport} />
-      <Route path="/analysis-details/:incidentId" component={AnalysisDetails} />
-      <Route component={NotFound} />
-    </Switch>
+        {/* Legacy redirects for moved workflow routes - v6 safe redirects */}
+        <Route path="/admin/analysis-engine" element={<Navigate replace to="/analysis-engine" />} />
+        <Route path="/admin/ai-powered-rca" element={<Navigate replace to="/ai-powered-rca" />} />
+        <Route path="/admin/analysis" element={<Navigate replace to="/analysis-engine" />} />
+        <Route path="/admin/ai" element={<Navigate replace to="/ai-powered-rca" />} />
+        <Route path="/equipment-selection" element={<EquipmentSelection />} />
+        <Route path="/evidence-checklist" element={<EvidenceChecklist />} />
+        <Route path="/evidence-collection" element={<EvidenceCollection />} />
+        <Route path="/human-review" element={<HumanReview />} />
+        <Route path="/incidents/:id/human-review" element={<HumanReview />} />
+        <Route path="/incidents/:id/analysis" element={<AIAnalysis />} />
+        <Route path="/ai-analysis" element={<AIAnalysis />} />
+        <Route path="/engineer-review" element={<EngineerReview />} />
+        <Route path="/nlp-analysis" element={<NLPAnalysis />} />
+        <Route path="/incidents/:id/fallback-analysis" element={<FallbackAnalysisPage />} />
+        <Route path="/summary-report/:incidentId" element={<SummaryReport />} />
+        <Route path="/analysis-details/:incidentId" element={<AnalysisDetails />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

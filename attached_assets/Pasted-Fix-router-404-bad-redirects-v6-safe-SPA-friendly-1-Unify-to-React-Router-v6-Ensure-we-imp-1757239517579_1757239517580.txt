@@ -1,0 +1,71 @@
+Fix router 404 + bad redirects (v6-safe, SPA-friendly)
+1) Unify to React Router v6
+•	Ensure we import v6 APIs:
+•	import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+•	Wrap the app once:
+•	<BrowserRouter basename="/">
+•	  <Routes>
+•	    {/* routes here */}
+•	  </Routes>
+•	</BrowserRouter>
+•	Add <base href="/" /> in index.html.
+2) Replace all v5-style redirect hacks
+Find offending lines (your snippet shows 4 of them):
+// ❌ v5 style + full reload anti-pattern
+<Route path="/admin/analysis-engine" component={() => { window.location.href = '/analysis-engine'; return null; }} />
+<Route path="/admin/ai-powered-rca" component={() => { window.location.href = '/ai-powered-rca'; return null; }} />
+<Route path="/admin/analysis"       component={() => { window.location.href = '/analysis-engine'; return null; }} />
+<Route path="/admin/ai"             component={() => { window.location.href = '/ai-powered-rca'; return null; }} />
+Replace with v6 redirects (no full reload):
+// ✅ v6 safe redirects
+<Route path="/admin/analysis-engine" element={<Navigate replace to="/analysis-engine" />} />
+<Route path="/admin/ai-powered-rca"  element={<Navigate replace to="/ai-powered-rca" />} />
+<Route path="/admin/analysis"        element={<Navigate replace to="/analysis-engine" />} />
+<Route path="/admin/ai"              element={<Navigate replace to="/ai-powered-rca" />} />
+Also ensure your real pages are declared:
+<Route path="/admin-settings" element={<AdminSettings />} />
+<Route path="/analysis-engine" element={<AnalysisEngine />} />
+<Route path="/ai-powered-rca" element={<AiPoweredRca />} />
+3) Fix “open in new tab” links (absolute paths only)
+•	Any link or window.open that opens a new tab must be absolute from root:
+•	// ✅ correct
+•	<a href="/admin-settings" target="_blank" rel="noopener noreferrer">Admin Settings</a>
+•	// ❌ wrong (relative; becomes "/%3F__seed=.../admin-settings")
+•	<a href="admin-settings" target="_blank">Admin Settings</a>
+•	// ❌ wrong
+•	window.open('admin-settings', '_blank')
+•	Quick search & fix:
+•	rg -n -S '<a[^>]*target="_blank"[^>]*href="[^/]' client
+•	rg -n -S 'window\\.open\\([\'"][^/]' client
+(If you want a helper, use the openTab('/path') function we discussed earlier to always build absolute URLs.)
+4) Keep server fallback order (confirm)
+Order must be API → static → SPA fallback:
+app.use('/api', apiRouter);
+app.use(express.static(dist, { index: false, maxAge: '1y', immutable: true }));
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/')) return res.status(404).end();
+  res.set('Cache-Control','no-store');
+  res.sendFile(path.join(dist, 'index.html'));
+});
+5) Clean restart (avoid ghosts)
+npx kill-port 5000 5173 || true
+npm run build     # if serving the built SPA
+npm run start
+6) Verification (deep links + API)
+Replace H with your actual host:
+H="https://<your>.worf.replit.dev"
+
+# Deep route should serve index.html (200 + text/html)
+curl -si "$H/admin-settings" | head -8
+curl -si "$H/analysis-engine" | head -8
+curl -si "$H/ai-powered-rca" | head -8
+
+# API still JSON (not hijacked by SPA fallback)
+curl -si "$H/api/ai/providers" | sed -n '1,8p'
+7) Prevent regressions
+•	Ban v5 props in the codebase:
+•	rg -n -S '<Route[^>]*\\bcomponent=' client && echo "❌ v5 Route.component found"
+•	Add a lint/grep guard in CI to fail on relative _blank links and relative window.open:
+•	rg -n -S '<a[^>]*target="_blank"[^>]*href="[^/]' client && exit 1
+•	rg -n -S 'window\\.open\\([\'"][^/]' client && exit 1
+
