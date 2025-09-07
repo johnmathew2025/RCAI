@@ -301,6 +301,17 @@ export const aiSettings = pgTable("ai_settings", {
   uniqueProvider: unique("unique_provider_per_user").on(table.provider, table.createdBy),
 }));
 
+// New simplified AI Providers table for universal provider management
+export const aiProviders = pgTable("ai_providers", {
+  id: serial("id").primaryKey(),
+  provider: text("provider").notNull(), // e.g., "openai", "anthropic", "google" - free text
+  modelId: text("model_id").notNull(), // e.g., "gpt-4o-mini", "claude-3-sonnet-20240229"
+  apiKeyEnc: text("api_key_enc").notNull(), // server-side encrypted API key
+  isActive: boolean("is_active").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const insertInvestigationSchema = createInsertSchema(investigations);
 export type InsertInvestigation = z.infer<typeof insertInvestigationSchema>;
 export type Investigation = typeof investigations.$inferSelect;
@@ -308,6 +319,10 @@ export type Investigation = typeof investigations.$inferSelect;
 export const insertAiSettingsSchema = createInsertSchema(aiSettings);
 export type InsertAiSettings = z.infer<typeof insertAiSettingsSchema>;
 export type AiSettings = typeof aiSettings.$inferSelect;
+
+export const insertAiProvidersSchema = createInsertSchema(aiProviders);
+export type InsertAiProviders = z.infer<typeof insertAiProvidersSchema>;
+export type AiProviders = typeof aiProviders.$inferSelect;
 
 // Admin Library Update System (NEW - Step 8 Requirements)
 export const libraryUpdateProposals = pgTable("library_update_proposals", {

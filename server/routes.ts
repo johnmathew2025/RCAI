@@ -3299,6 +3299,281 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // NEW AI PROVIDERS API - Simple universal provider management
+  // ============================================================================
+  
+  // GET /api/ai/providers - List all providers (omit api_key_enc)
+  app.get("/api/ai/providers", async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { aiProviders } = await import("../shared/schema");
+      
+      const providers = await db.select({
+        id: aiProviders.id,
+        provider: aiProviders.provider,
+        modelId: aiProviders.modelId,
+        isActive: aiProviders.isActive,
+        createdAt: aiProviders.createdAt,
+        updatedAt: aiProviders.updatedAt,
+      }).from(aiProviders).orderBy(aiProviders.createdAt);
+      
+      console.log(`[AI-PROVIDERS] Retrieved ${providers.length} providers`);
+      res.json(providers);
+    } catch (error) {
+      console.error('[AI-PROVIDERS] Error retrieving providers:', error);
+      res.status(500).json({ message: "Failed to retrieve AI providers" });
+    }
+  });
+
+  // POST /api/ai/providers - Create new provider
+  app.post("/api/ai/providers", async (req, res) => {
+    try {
+      const { provider, model_id, api_key, is_active } = req.body;
+      
+      // Validate required fields
+      if (!provider || !provider.trim()) {
+        return res.status(400).json({ message: "Provider is required" });
+      }
+      
+      if (!model_id || !model_id.trim()) {
+        return res.status(400).json({ message: "Model ID is required" });
+      }
+      
+      if (!api_key || !api_key.trim()) {
+        return res.status(400).json({ message: "API Key is required" });
+      }
+      
+      const { db } = await import("./db");
+      const { aiProviders } = await import("../shared/schema");
+      const { AIService } = await import("./ai-service");
+      
+      // Encrypt the API key
+      const encryptedKey = AIService.encrypt(api_key);
+      
+      // If setting as active, transaction to ensure only one active provider
+      if (is_active) {
+        await db.transaction(async (tx) => {
+          // Deactivate all providers
+          await tx.update(aiProviders).set({ isActive: false, updatedAt: new Date() });
+          
+          // Insert new active provider
+          const [newProvider] = await tx.insert(aiProviders).values({
+            provider: provider.trim(),
+            modelId: model_id.trim(),
+            apiKeyEnc: encryptedKey,
+            isActive: true,
+          }).returning({
+            id: aiProviders.id,
+            provider: aiProviders.provider,
+            modelId: aiProviders.modelId,
+            isActive: aiProviders.isActive,
+            createdAt: aiProviders.createdAt,
+          });
+          
+          res.json(newProvider);
+        });
+      } else {
+        // Insert non-active provider
+        const [newProvider] = await db.insert(aiProviders).values({
+          provider: provider.trim(),
+          modelId: model_id.trim(),
+          apiKeyEnc: encryptedKey,
+          isActive: false,
+        }).returning({
+          id: aiProviders.id,
+          provider: aiProviders.provider,
+          modelId: aiProviders.modelId,
+          isActive: aiProviders.isActive,
+          createdAt: aiProviders.createdAt,
+        });
+        
+        res.json(newProvider);
+      }
+      
+      console.log(`[AI-PROVIDERS] Created provider: ${provider} (${model_id})`);
+    } catch (error) {
+      console.error('[AI-PROVIDERS] Error creating provider:', error);
+      res.status(500).json({ message: "Failed to create AI provider" });
+    }
+  });
+
+  // PUT /api/ai/providers/:id - Update provider
+  app.put("/api/ai/providers/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { provider, model_id, api_key, is_active } = req.body;
+      
+      const { db } = await import("./db");
+      const { aiProviders } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+      
+      const updateData: any = { updatedAt: new Date() };
+      
+      if (provider !== undefined) updateData.provider = provider.trim();
+      if (model_id !== undefined) updateData.modelId = model_id.trim();
+      if (is_active !== undefined) updateData.isActive = is_active;
+      
+      // Encrypt new API key if provided
+      if (api_key && api_key.trim()) {
+        const { AIService } = await import("./ai-service");
+        updateData.apiKeyEnc = AIService.encrypt(api_key.trim());
+      }
+      
+      // If setting as active, ensure only one active provider
+      if (is_active) {
+        await db.transaction(async (tx) => {
+          // Deactivate all providers
+          await tx.update(aiProviders).set({ isActive: false, updatedAt: new Date() });
+          
+          // Update target provider
+          const [updatedProvider] = await tx.update(aiProviders)
+            .set(updateData)
+            .where(eq(aiProviders.id, parseInt(id)))
+            .returning({
+              id: aiProviders.id,
+              provider: aiProviders.provider,
+              modelId: aiProviders.modelId,
+              isActive: aiProviders.isActive,
+              updatedAt: aiProviders.updatedAt,
+            });
+          
+          if (!updatedProvider) {
+            return res.status(404).json({ message: "Provider not found" });
+          }
+          
+          res.json(updatedProvider);
+        });
+      } else {
+        // Regular update
+        const [updatedProvider] = await db.update(aiProviders)
+          .set(updateData)
+          .where(eq(aiProviders.id, parseInt(id)))
+          .returning({
+            id: aiProviders.id,
+            provider: aiProviders.provider,
+            modelId: aiProviders.modelId,
+            isActive: aiProviders.isActive,
+            updatedAt: aiProviders.updatedAt,
+          });
+        
+        if (!updatedProvider) {
+          return res.status(404).json({ message: "Provider not found" });
+        }
+        
+        res.json(updatedProvider);
+      }
+      
+      console.log(`[AI-PROVIDERS] Updated provider ${id}`);
+    } catch (error) {
+      console.error('[AI-PROVIDERS] Error updating provider:', error);
+      res.status(500).json({ message: "Failed to update AI provider" });
+    }
+  });
+
+  // DELETE /api/ai/providers/:id - Delete provider
+  app.delete("/api/ai/providers/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const { db } = await import("./db");
+      const { aiProviders } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+      
+      const deletedProvider = await db.delete(aiProviders)
+        .where(eq(aiProviders.id, parseInt(id)))
+        .returning();
+      
+      if (deletedProvider.length === 0) {
+        return res.status(404).json({ message: "Provider not found" });
+      }
+      
+      console.log(`[AI-PROVIDERS] Deleted provider ${id}`);
+      res.json({ message: "Provider deleted successfully" });
+    } catch (error) {
+      console.error('[AI-PROVIDERS] Error deleting provider:', error);
+      res.status(500).json({ message: "Failed to delete AI provider" });
+    }
+  });
+
+  // POST /api/ai/providers/:id/activate - Set provider as active
+  app.post("/api/ai/providers/:id/activate", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const { db } = await import("./db");
+      const { aiProviders } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+      
+      await db.transaction(async (tx) => {
+        // Deactivate all providers
+        await tx.update(aiProviders).set({ isActive: false, updatedAt: new Date() });
+        
+        // Activate target provider
+        const [activatedProvider] = await tx.update(aiProviders)
+          .set({ isActive: true, updatedAt: new Date() })
+          .where(eq(aiProviders.id, parseInt(id)))
+          .returning({
+            id: aiProviders.id,
+            provider: aiProviders.provider,
+            modelId: aiProviders.modelId,
+            isActive: aiProviders.isActive,
+          });
+        
+        if (!activatedProvider) {
+          return res.status(404).json({ message: "Provider not found" });
+        }
+        
+        res.json(activatedProvider);
+      });
+      
+      console.log(`[AI-PROVIDERS] Activated provider ${id}`);
+    } catch (error) {
+      console.error('[AI-PROVIDERS] Error activating provider:', error);
+      res.status(500).json({ message: "Failed to activate AI provider" });
+    }
+  });
+
+  // POST /api/ai/providers/:id/test - Test provider API key
+  app.post("/api/ai/providers/:id/test", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const { db } = await import("./db");
+      const { aiProviders } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+      
+      // Get provider with encrypted key
+      const [provider] = await db.select()
+        .from(aiProviders)
+        .where(eq(aiProviders.id, parseInt(id)));
+      
+      if (!provider) {
+        return res.status(404).json({ ok: false, message: "Provider not found" });
+      }
+      
+      // Decrypt API key
+      const { AIService } = await import("./ai-service");
+      const apiKey = AIService.decrypt(provider.apiKeyEnc);
+      
+      // Test the API key using existing test infrastructure
+      const testResult = await AIService.testApiKey(provider.provider, apiKey);
+      
+      res.json({
+        ok: testResult.success,
+        message: testResult.success ? "API test successful" : testResult.error || "API test failed"
+      });
+      
+      console.log(`[AI-PROVIDERS] Tested provider ${id}: ${testResult.success ? 'SUCCESS' : 'FAILED'}`);
+    } catch (error) {
+      console.error('[AI-PROVIDERS] Error testing provider:', error);
+      res.json({ 
+        ok: false, 
+        message: "Test failed: " + (error.message || "Unknown error")
+      });
+    }
+  });
+
   // Provider-specific Models API - NO HARDCODING 
   app.get("/api/ai/models", async (req, res) => {
     try {

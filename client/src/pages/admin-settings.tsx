@@ -11,11 +11,188 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Eye, EyeOff, TestTube, Save, Shield, AlertTriangle, Database, Plus, Edit3, Download, Upload, Home, ArrowLeft, FileUp, FileDown, FileText, TrendingUp, Brain, GitBranch, Library, Activity, Plug, Settings } from "lucide-react";
+import { Eye, EyeOff, TestTube, Save, Shield, AlertTriangle, Database, Plus, Edit3, Download, Upload, Home, ArrowLeft, FileUp, FileDown, FileText, TrendingUp, Brain, GitBranch, Library, Activity, Plug, Settings, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import type { AiSettings, InsertAiSettings, EquipmentGroup, RiskRanking } from "@shared/schema";
 import AIStatusIndicator from "@/components/ai-status-indicator";
 import { ADMIN_SECTIONS, TAXONOMY_TABS } from "@/config/adminNav";
+
+// AI Providers Table Component
+const AIProvidersTable = () => {
+  const [providers, setProviders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    provider: '',
+    model_id: '',
+    api_key: '',
+    is_active: false
+  });
+
+  // Fetch providers
+  const fetchProviders = async () => {
+    try {
+      const response = await fetch('/api/ai/providers');
+      const data = await response.json();
+      setProviders(data);
+    } catch (error) {
+      console.error('Error fetching providers:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProviders();
+  }, []);
+
+  // Create provider
+  const handleCreate = async () => {
+    if (!formData.provider || !formData.model_id || !formData.api_key) {
+      alert('Please fill all fields');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/ai/providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      
+      if (response.ok) {
+        setFormData({ provider: '', model_id: '', api_key: '', is_active: false });
+        fetchProviders();
+      }
+    } catch (error) {
+      console.error('Error creating provider:', error);
+    }
+  };
+
+  // Test provider
+  const handleTest = async (id: number) => {
+    try {
+      const response = await fetch(`/api/ai/providers/${id}/test`, {
+        method: 'POST'
+      });
+      const result = await response.json();
+      alert(result.ok ? 'Test successful!' : `Test failed: ${result.message}`);
+    } catch (error) {
+      console.error('Error testing provider:', error);
+    }
+  };
+
+  // Delete provider
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this provider?')) return;
+    
+    try {
+      const response = await fetch(`/api/ai/providers/${id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        fetchProviders();
+      }
+    } catch (error) {
+      console.error('Error deleting provider:', error);
+    }
+  };
+
+  // Activate provider
+  const handleActivate = async (id: number) => {
+    try {
+      const response = await fetch(`/api/ai/providers/${id}/activate`, {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        fetchProviders();
+      }
+    } catch (error) {
+      console.error('Error activating provider:', error);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Add form */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+        <Input
+          placeholder="Provider (e.g., openai)"
+          value={formData.provider}
+          onChange={(e) => setFormData(prev => ({ ...prev, provider: e.target.value }))}
+        />
+        <Input
+          placeholder="Model ID (e.g., gpt-4o-mini)"
+          value={formData.model_id}
+          onChange={(e) => setFormData(prev => ({ ...prev, model_id: e.target.value }))}
+        />
+        <Input
+          type="password"
+          placeholder="API Key"
+          value={formData.api_key}
+          onChange={(e) => setFormData(prev => ({ ...prev, api_key: e.target.value }))}
+        />
+        <Button onClick={handleCreate}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add
+        </Button>
+      </div>
+
+      {/* Providers table */}
+      {loading ? (
+        <div className="text-center py-8">Loading providers...</div>
+      ) : providers.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          No providers configured. Add one above.
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Provider</TableHead>
+              <TableHead>Model</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {providers.map((provider) => (
+              <TableRow key={provider.id}>
+                <TableCell className="font-medium">{provider.provider}</TableCell>
+                <TableCell>{provider.modelId}</TableCell>
+                <TableCell>
+                  <Badge variant={provider.isActive ? "default" : "secondary"}>
+                    {provider.isActive ? "Active" : "Inactive"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {new Date(provider.createdAt).toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline" onClick={() => handleTest(provider.id)}>
+                      <TestTube className="w-4 h-4" />
+                    </Button>
+                    {!provider.isActive && (
+                      <Button size="sm" variant="outline" onClick={() => handleActivate(provider.id)}>
+                        <Shield className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => handleDelete(provider.id)}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
+};
 
 // STEP 4: Dynamic Provider Select Component - NO HARDCODING
 function DynamicProviderSelect({ value, onValueChange }: { value: string; onValueChange: (value: string) => void }) {
@@ -928,6 +1105,17 @@ export default function AdminSettings() {
               </TableBody>
             </Table>
           )}
+        </CardContent>
+      </Card>
+
+      {/* AI PROVIDERS - Simple Universal Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Providers (Universal)</CardTitle>
+          <p className="text-sm text-muted-foreground">Simple universal provider management - enter any provider and model</p>
+        </CardHeader>
+        <CardContent>
+          <AIProvidersTable />
         </CardContent>
       </Card>
         </TabsContent>

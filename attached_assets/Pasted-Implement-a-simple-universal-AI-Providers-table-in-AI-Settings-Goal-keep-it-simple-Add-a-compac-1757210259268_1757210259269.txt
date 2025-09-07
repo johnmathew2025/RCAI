@@ -1,0 +1,54 @@
+Implement a simple, universal “AI Providers” table in AI Settings
+Goal (keep it simple)
+Add a compact, editable table that lists provider + model pairs the admin can add and manage. No hard-coded provider lists. Both fields are free-text so it works with any vendor.
+UI requirements
+Placement
+On the AI Settings page, render the table adjacent to the “Add AI Provider” form on wide screens (two-column layout). On small screens, stack the table below the form.
+Form (existing “Add AI Provider”)
+Inputs: Provider (text), Model ID (text), API Key (password), Set as active (checkbox).
+Add button: creates a new row in the table and saves to backend.
+No dropdowns; no env var dependencies.
+Table: “Current AI Providers”
+Columns: Provider, Model ID, Active?, Created, Actions.
+Actions per row:
+Set Active (makes this row the sole active one)
+Test (pings a lightweight /test endpoint with the stored key + model)
+Delete
+Empty-state: “No AI providers configured. Add one to get started.”
+Data model (minimal & universal)
+Create table ai_providers:
+id               SERIAL PRIMARY KEY
+provider         TEXT NOT NULL           -- e.g., "openai", "anthropic", "google", or any free text
+model_id         TEXT NOT NULL           -- e.g., "gpt-4o-mini", "claude-3-sonnet-20240229"
+api_key_enc      TEXT NOT NULL           -- store server-side encrypted
+is_active        BOOLEAN NOT NULL DEFAULT FALSE
+created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+Exactly one row may be active at a time (enforce in service code).
+Keys are never exposed to the client; only test result booleans/messages are returned.
+Backend API (CRUD + actions)
+Implement these routes:
+GET /api/ai/providers → list rows (omit api_key_enc)
+POST /api/ai/providers → create { provider, model_id, api_key, is_active? }
+PUT /api/ai/providers/:id → update { provider?, model_id?, api_key?, is_active? }
+DELETE /api/ai/providers/:id → delete
+POST /api/ai/providers/:id/activate → set this row active (unset others)
+POST /api/ai/providers/:id/test → try a cheap “whoami/version” call for that vendor; return { ok: boolean, message }
+Notes
+Encrypt api_key on receipt → store as api_key_enc.
+Do not log raw keys.
+When activate, wrap in a transaction:
+UPDATE ai_providers SET is_active = FALSE WHERE is_active = TRUE;
+UPDATE ai_providers SET is_active = TRUE WHERE id = :id;
+Frontend (React)
+Form (left): Provider (Input), Model ID (Input), API Key (Input.Password), Set Active (Checkbox), Add (Button).
+Table (right): Provider, Model, Active?, Created, Actions [Set Active] [Test] [Delete].
+After any action, refresh from GET /api/ai/providers.
+Toast success/error; no page reloads.
+Acceptance criteria
+I can type any provider and model id, click Add, and see it appear in the table.
+No hard-coded provider lists or env vars are required.
+Set Active ensures exactly one active provider at all times.
+Test returns a clear pass/fail message without exposing the API key.
+Delete removes the row and refreshes the table.
+Mobile view stacks form above table; desktop shows them side-by-side.
