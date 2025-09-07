@@ -43,6 +43,7 @@ import { UniversalRCAEngine } from "./universal-rca-engine";
 import { LowConfidenceRCAEngine } from "./low-confidence-rca-engine";
 import { UniversalRCAFallbackEngine } from "./universal-rca-fallback-engine";
 import { EvidenceLibraryOperations } from "./evidence-library-operations";
+import { aiDebugMiddleware } from './middleware/ai-settings-debug';
 import { UniversalAIConfig } from "./universal-ai-config";
 import { DynamicAIConfig } from "./dynamic-ai-config";
 import { AIService } from "./ai-service";
@@ -66,9 +67,24 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   console.log("[ROUTES] Starting registerRoutes function - CRITICAL DEBUG");
   
+  // Apply AI Settings debug middleware to all AI routes
+  app.use('/api/ai/providers', aiDebugMiddleware.middleware());
+  app.use('/api/admin/ai-settings', aiDebugMiddleware.middleware());
+  
   // Stable version endpoint using single source of truth
   const { APP_VERSION, APP_BUILT_AT } = await import("./version");
   
+  // AI Settings Debug Meta Endpoint - Universal Protocol Standard
+  app.get("/api/meta", (_req, res) => {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.json({
+      apiVersion: APP_VERSION,
+      gitSha: process.env.REPL_SLUG || process.env.REPLIT_SLUG || 'development',
+      debug: process.env.DEBUG_AI_SETTINGS === '1',
+      timestamp: APP_BUILT_AT
+    });
+  });
+
   app.get("/version.json", (_req, res) => {
     res.set("Cache-Control", "no-store, no-cache, must-revalidate");
     res.json({
@@ -3303,6 +3319,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // NEW AI PROVIDERS API - Simple universal provider management
   // ============================================================================
   
+  // GET /api/ai/providers/debug - Health snapshot (admin-only, debug mode only)
+  app.get("/api/ai/providers/debug", requireAdmin, async (req: AuthenticatedRequest, res) => {
+    if (process.env.DEBUG_AI_SETTINGS !== '1') {
+      return res.status(404).json({ message: 'Debug endpoint not available' });
+    }
+    
+    try {
+      const providers = await investigationStorage.getAiProviders();
+      const activeCount = providers.filter(p => p.isActive).length;
+      const latestProvider = providers.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0];
+      
+      // Test DB connection
+      let envOk = false;
+      try {
+        await investigationStorage.getAllEquipmentGroups();
+        envOk = true;
+      } catch (error) {
+        console.error('[AI Debug] DB connection test failed:', error);
+      }
+      
+      res.json({
+        recordCount: providers.length,
+        activeCount,
+        latestCreatedAt: latestProvider?.createdAt || null,
+        schemaVersion: 'ai-settings-v1',
+        envOk
+      });
+    } catch (error) {
+      res.status(500).json({
+        error: 'Debug health check failed',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // GET /api/ai/providers - List all providers (omit api_key_enc)
   app.get("/api/ai/providers", async (req, res) => {
     try {
