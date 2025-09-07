@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, CheckCircle, Clock, FileText, Upload, MessageSquare } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -38,7 +38,8 @@ interface EvidenceFile {
  */
 
 export default function HumanReview() {
-  const [, setLocation] = useLocation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [reviewComments, setReviewComments] = useState<{ [key: string]: string }>({});
@@ -147,7 +148,7 @@ export default function HumanReview() {
     if (allFilesReviewed) {
       // Navigate to Stage 5: RCA Draft Synthesis (Universal RCA Evidence Flow v2)
       // Protocol: Query parameter routing (?incident=ID) per Universal Protocol Standard
-      setLocation(`/ai-analysis?incident=${incidentId}`);
+      navigate(`/ai-analysis?incident=${incidentId}`);
     } else {
       toast({
         title: "Review Required", 
@@ -185,7 +186,7 @@ export default function HumanReview() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Link href="/">
+            <Link to="/">
               <Button variant="outline" size="sm">
                 ← Back to Home
               </Button>
@@ -440,7 +441,7 @@ export default function HumanReview() {
               <div className="text-sm text-slate-500 mb-4">
                 Please upload evidence files in the previous steps before proceeding to human review.
               </div>
-              <Button variant="outline" onClick={() => setLocation(`/evidence-collection?incident=${incidentId}`)}>
+              <Button variant="outline" onClick={() => navigate(`/evidence-collection?incident=${incidentId}`)}>
                 ← Back to Evidence Collection
               </Button>
             </CardContent>

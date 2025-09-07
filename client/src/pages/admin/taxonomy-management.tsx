@@ -19,7 +19,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, RefreshCw, Database, CheckCircle, AlertCircle, Home, ArrowLeft } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { ADMIN_SECTIONS, TAXONOMY_TABS } from '@/config/adminNav';
 
 interface EquipmentGroup {
@@ -122,13 +122,13 @@ export default function TaxonomyManagement() {
       {/* Navigation Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Link href="/">
+          <Link to="/">
             <Button variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Home
             </Button>
           </Link>
-          <Link href="/admin">
+          <Link to="/admin">
             <Button variant="outline" size="sm">
               <Home className="h-4 w-4 mr-2" />
               Admin Dashboard

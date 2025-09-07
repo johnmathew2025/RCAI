@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation, Link } from "wouter";
+import { useNavigate, Link } from "react-router-dom";
 import { Search, Clock, Play, Filter, RefreshCw, FileText, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,7 +62,7 @@ const stepLabels = {
 };
 
 export default function RcaCases() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -72,7 +72,7 @@ export default function RcaCases() {
     queryFn: async ({ queryKey }) => {
       const [baseUrl, status] = queryKey;
       const params = new URLSearchParams();
-      if (status) params.set('status', status);
+      if (status) params.set('status', status as string);
       
       const response = await fetch(`${baseUrl}?${params.toString()}`);
       if (!response.ok) {
@@ -102,16 +102,16 @@ export default function RcaCases() {
   const handleResume = (incidentId: string, lastStep: number) => {
     // Navigate to the appropriate step in the workflow
     if (lastStep <= 1) {
-      setLocation(`/incident-reporting?resume=${incidentId}`);
+      navigate(`/incident-reporting?resume=${incidentId}`);
     } else if (lastStep <= 2) {
-      setLocation(`/equipment-selection?incident=${incidentId}`);
+      navigate(`/equipment-selection?incident=${incidentId}`);
     } else if (lastStep <= 3) {
-      setLocation(`/evidence-checklist?incident=${incidentId}`);
+      navigate(`/evidence-checklist?incident=${incidentId}`);
     } else if (lastStep <= 4) {
-      setLocation(`/incidents/${incidentId}/rca-triage`);
+      navigate(`/incidents/${incidentId}/rca-triage`);
     } else {
       // For higher steps, navigate to appropriate workflow page
-      setLocation(`/incidents/${incidentId}/analysis`);
+      navigate(`/incidents/${incidentId}/analysis`);
     }
   };
 
@@ -135,7 +135,7 @@ export default function RcaCases() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Link href="/incident-reporting">
+          <Link to="/incident-reporting">
             <Button data-testid="button-new-incident">
               <FileText className="h-4 w-4 mr-2" />
               New Incident
@@ -210,7 +210,7 @@ export default function RcaCases() {
                 }
               </p>
               {(!searchTerm && statusFilter === "all") && (
-                <Link href="/incident-reporting">
+                <Link to="/incident-reporting">
                   <Button>
                     <FileText className="h-4 w-4 mr-2" />
                     Report New Incident

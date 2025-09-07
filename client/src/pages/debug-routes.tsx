@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function DebugRoutes() {
@@ -11,9 +11,9 @@ export default function DebugRoutes() {
         <CardContent>
           <p>This page loads to test if routing is working.</p>
           <div className="mt-4 space-y-2">
-            <Link href="/" className="block text-blue-600 hover:underline">Go to Home</Link>
-            <Link href="/incident-reporting" className="block text-blue-600 hover:underline" rel="noopener noreferrer">Go to Incident Reporting</Link>
-            <Link href="/equipment-selection" className="block text-blue-600 hover:underline">Go to Equipment Selection</Link>
+            <Link to="/" className="block text-blue-600 hover:underline">Go to Home</Link>
+            <Link to="/incident-reporting" className="block text-blue-600 hover:underline" rel="noopener noreferrer">Go to Incident Reporting</Link>
+            <Link to="/equipment-selection" className="block text-blue-600 hover:underline">Go to Equipment Selection</Link>
           </div>
         </CardContent>
       </Card>
