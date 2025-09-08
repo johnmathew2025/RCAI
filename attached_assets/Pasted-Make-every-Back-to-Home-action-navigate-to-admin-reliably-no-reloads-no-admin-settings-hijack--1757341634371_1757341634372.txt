@@ -1,0 +1,104 @@
+Make every “Back to Home” action navigate to /admin reliably (no reloads, no /admin/settings hijack), and ensure SPA fallback works in Replit.
+1) Normalize the router (no basename, one home: /admin)
+•	Open the main router file (likely client/src/App.tsx).
+•	Ensure there is no basename on BrowserRouter.
+•	Ensure all app routes live under /admin.
+Replace the router with this exact structure:
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AdminLayout from './AdminLayout';
+import Dashboard from './pages/Dashboard';
+// import other pages...
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Dashboard />} />
+          {/* other admin pages here, e.g. <Route path="settings" element={<Settings />} /> */}
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+2) Make “Back to Home” unbreakable
+•	Find all buttons/links labeled “Back to Home”, “Home”, or similar.
+Rules to apply everywhere:
+•	If it’s a button inside a form, set type="button".
+•	Use React Router only: navigate('/admin') or <Link to="/admin">.
+•	Do not use href="/", relative paths, or window.location.
+If it’s a component, enforce this:
+// client/src/components/BackToHome.tsx
+import { useNavigate } from 'react-router-dom';
+export default function BackToHome() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" data-testid="back-home" onClick={() => navigate('/admin')}>
+      ← Back to Home
+    </button>
+  );
+}
+3) Remove hijacks/rogue redirects
+Search and eliminate any unconditional redirects that force /admin/settings or similar.
+Run:
+rg -n "navigate\\(['\"]/admin/settings" client/src
+rg -n "<Navigate\\s+to=['\"]/admin/settings" client/src
+rg -n "window\\.location(?:\\.href)?\\s*=\\s*['\"]/admin" client/src
+•	For any matches in layouts, guards, or effects: guard them so they only redirect when location.pathname === '/admin' (index), or remove them entirely.
+4) SPA fallback on server (Replit preview fix)
+•	Open server entry (e.g., server/index.ts or index.js).
+•	Ensure static assets are served and all non-API routes return index.html.
+Add/replace with:
+import path from 'path';
+import express from 'express';
+const app = express();
+
+app.use('/assets', express.static(path.join(__dirname, 'client/dist/assets')));
+app.use(express.static(path.join(__dirname, 'client/dist')));
+
+// SPA fallback: send index.html for any non-API route
+app.get(/^\/(?!api).*/, (_req, res) => {
+  res.sendFile(path.join(__dirname, 'client/dist/index.html'));
+});
+5) Vite base check (avoid double prefixes)
+•	Open client/vite.config.ts.
+•	Ensure base is not set to '/admin'. It should be the default ('/') or omitted.
+6) Block deprecated endpoint (defense in depth)
+•	Ensure the old route is dead so no component can misbehave:
+app.get('/api/ai/providers', (_req, res) => res.sendStatus(410));
+7) Quick audits (must pass)
+Run:
+# No basename
+rg -n "BrowserRouter\\s*.*basename" client/src || true
+
+# No internal anchors
+rg -n "<a[^>]+href=['\"]/admin" client/src
+
+# No links to "/" for Home (must be /admin)
+rg -n "<Link[^>]*to=['\"]/['\"]" client/src | grep -v "/admin" || true
+
+# Back buttons aren’t submitting forms
+rg -n "<button[^>]*Back|Home" client/src
+•	Fix any findings to comply with the rules above.
+8) Verify (deterministic)
+•	Start the app. In the Replit preview:
+1.	Navigate to two different deep pages (e.g., /admin/settings, /admin/evidence).
+2.	Click Back to Home → URL must become /admin without reloading.
+3.	Ctrl/Cmd-click “Back to Home” to open in a new tab → must open at /admin.
+•	(Optional E2E) If Playwright is configured, add:
+import { test, expect } from '@playwright/test';
+test('Back to Home goes to /admin', async ({ page }) => {
+  await page.goto('/admin/settings');
+  await page.getByTestId('back-home').click();
+  await expect(page).toHaveURL(/\/admin$/);
+});
+Acceptance criteria:
+•	No basename in router.
+•	All “Back to Home” navigate to /admin via React Router.
+•	No unconditional redirects to /admin/settings.
+•	Server serves index.html for all non-API routes (Replit preview works).
+•	Audits above return no violations.
+Make these changes now and confirm the acceptance criteria pass.
+
