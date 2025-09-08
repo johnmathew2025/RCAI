@@ -1014,12 +1014,7 @@ export default function AdminSettings() {
       {/* AI STATUS INDICATOR - SHOWS EXACTLY WHERE AI KEYS COME FROM */}
       <AIStatusIndicator />
 
-      {/* Add New AI Provider */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Add AI Provider</CardTitle>
-          <p className="text-sm text-muted-foreground">Configure a new AI provider for root cause analysis</p>
-        </CardHeader>
+      {/* DUPLICATE FORM REMOVED - USING UNIFIED INTERFACE BELOW */}
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
