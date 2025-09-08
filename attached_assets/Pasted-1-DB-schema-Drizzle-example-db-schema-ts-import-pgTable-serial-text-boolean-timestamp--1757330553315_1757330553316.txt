@@ -1,0 +1,137 @@
+1) DB schema (Drizzle example)
+// db/schema.ts
+import { pgTable, serial, text, boolean, timestamp } from 'drizzle-orm/pg-core';
+
+export const aiSettings = pgTable('ai_settings', {
+  id: serial('id').primaryKey(),
+  provider: text('provider').notNull(),          // e.g. 'openai'
+  modelId: text('model_id').notNull(),           // e.g. 'gpt-4o-mini'
+  apiKeyCipher: text('api_key_cipher').notNull(),// base64(GCM ciphertext)
+  apiKeyIv: text('api_key_iv').notNull(),        // base64(iv)
+  isActive: boolean('is_active').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+2) Crypto utils (AES-256-GCM)
+// server/crypto.ts
+import crypto from 'crypto';
+const key = Buffer.from(process.env.ENCRYPTION_SECRET || '', 'utf8');
+if (key.length !== 32) throw new Error('ENCRYPTION_SECRET must be 32 bytes');
+
+export function encrypt(raw: string) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const enc = Buffer.concat([cipher.update(raw, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    iv: iv.toString('base64'),
+    cipher: Buffer.concat([enc, tag]).toString('base64'),
+  };
+}
+
+export function decrypt(ivB64: string, cipherB64: string) {
+  const iv = Buffer.from(ivB64, 'base64');
+  const buf = Buffer.from(cipherB64, 'base64');
+  const tag = buf.subarray(buf.length - 16);
+  const data = buf.subarray(0, buf.length - 16);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  return decipher.update(data, undefined, 'utf8') + decipher.final('utf8');
+}
+
+export const mask = (s: string) => s.length <= 6 ? '•••' : s.slice(0,3) + '••••' + s.slice(-3);
+3) Canonical API (DB-only)
+// server/routes/aiSettings.ts
+import { Router } from 'express';
+import { db } from '../db';
+import { aiSettings } from '../db/schema';
+import { encrypt, decrypt, mask } from '../crypto';
+import { eq } from 'drizzle-orm';
+
+export const r = Router();
+
+// ❌ Kill the old endpoint to prevent regressions
+// app.get('/api/ai/providers', (_req, res) => res.sendStatus(410));
+
+r.get('/api/admin/ai-settings', async (_req, res) => {
+  const rows = await db.select().from(aiSettings);
+  // never leak plaintext keys
+  res.json(rows.map(x => ({
+    id: x.id, provider: x.provider, modelId: x.modelId,
+    isActive: x.isActive, createdAt: x.createdAt,
+    apiKeyPreview: '***'    // or `${mask(decrypt(x.apiKeyIv, x.apiKeyCipher))}`
+  })));
+});
+
+r.post('/api/admin/ai-settings', async (req, res) => {
+  const { provider, modelId, apiKey, isActive } = req.body || {};
+  if (!provider || !modelId || !apiKey) return res.status(400).json({ error: 'provider, modelId, apiKey required' });
+  const { iv, cipher } = encrypt(apiKey);
+  if (isActive === true) {
+    await db.update(aiSettings).set({ isActive: false }); // ensure single active
+  }
+  const [row] = await db.insert(aiSettings).values({
+    provider, modelId, apiKeyCipher: cipher, apiKeyIv: iv, isActive: !!isActive,
+  }).returning();
+  res.status(201).json({ id: row.id });
+});
+
+r.delete('/api/admin/ai-settings/:id', async (req, res) => {
+  await db.delete(aiSettings).where(eq(aiSettings.id, Number(req.params.id)));
+  res.sendStatus(204);
+});
+
+// (Optional) server-side helper when you need the key:
+export async function getPlainApiKey(id: number) {
+  const [row] = await db.select().from(aiSettings).where(eq(aiSettings.id, id)).limit(1);
+  if (!row) throw new Error('Missing provider');
+  return decrypt(row.apiKeyIv, row.apiKeyCipher);
+}
+4) Frontend: require API key, single hook, no env path
+// client/src/hooks/useAiSettings.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '../lib/api';
+
+const KEY = ['admin.aiSettings.v2']; // new key to bust old caches
+
+export const useAiSettings = () =>
+  useQuery({ queryKey: KEY, queryFn: async () => (await api.get('/api/admin/ai-settings')).data,
+             staleTime: 0, gcTime: 0, refetchOnMount: 'always', refetchOnWindowFocus: 'always' });
+
+export const useCreateAiSetting = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {provider:string; modelId:string; apiKey:string; isActive?:boolean}) =>
+      api.post('/api/admin/ai-settings', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+};
+// client/src/components/AIProvidersTable.tsx
+import { useAiSettings, useCreateAiSetting } from '../hooks/useAiSettings';
+export default function AIProvidersTable() {
+  const { data = [] } = useAiSettings();
+  const create = useCreateAiSetting();
+
+  // Form: provider, modelId, apiKey (REQUIRED)
+  // onSubmit -> create.mutate({ provider, modelId, apiKey, isActive: true });
+  // Remove any "use server secret" toggle. Do not call /api/ai/providers anywhere.
+}
+5) Clean caches + block regressions
+•	React Query persistence: if you use it, bump the buster (e.g., '2025-09-08-db-only') and/or call queryClient.clear() once on boot (dev).
+•	ESLint guardrails (stop old route from coming back):
+"no-restricted-syntax": [
+  "error",
+  { "selector": "Literal[value='/api/ai/providers']", "message": "Deprecated endpoint. Use /api/admin/ai-settings." }
+]
+•	Server keeps /api/ai/providers returning 410 Gone.
+6) Verify (objective)
+# Must be empty until you add via form
+curl -s http://localhost:5000/api/admin/ai-settings | jq
+
+# Old route must be blocked
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5000/api/ai/providers  # expect 410
+
+# Add via UI: Provider=openai, Model=gpt-4o-mini, API Key=<paste>
+# Then:
+curl -s http://localhost:5000/api/admin/ai-settings | jq   # should show one row (no plaintext key)
+
