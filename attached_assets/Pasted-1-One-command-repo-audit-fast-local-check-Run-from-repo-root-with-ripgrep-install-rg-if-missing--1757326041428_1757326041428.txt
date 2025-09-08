@@ -1,0 +1,125 @@
+1) One-command repo audit (fast local check)
+Run from repo root with ripgrep (install rg if missing):
+# Any direct hardcoded redirects
+rg -n "navigate\(\s*['\"]/admin" client src
+rg -n "<Navigate\s+to=['\"]/admin" client src
+rg -n "window\.location(?:\.href)?\s*=\s*['\"]/admin" client src
+
+# Any raw anchor tags (should be <Link to=...>)
+rg -n "<a[^>]+href=['\"][^#][^'\"]+" client src
+
+# Relative Links that may resolve oddly (lack leading /)
+rg -n "<Link[^>]*\sto=['\"][^/][^'\"]*" client src
+
+# Dual endpoint usage in UI (should return only the chosen one)
+rg -n "/api/(admin/ai-settings|ai/providers)" client src
+Pass criteria
+First 3 groups return no matches (except inside tests/mocks).
+Only one of /api/admin/ai-settings or /api/ai/providers appears in real UI code.
+2) ESLint guardrails (prevents regressions)
+Add to .eslintrc.*:
+{
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      { "selector": "CallExpression[callee.name='navigate'] Literal[value^='/admin/settings']",
+        "message": "Do not hardcode redirects to /admin/settings." },
+      { "selector": "JSXElement[openingElement.name.name='a'] JSXAttribute[name.name='href']",
+        "message": "Use <Link to> instead of <a href> for internal navigation." }
+    ]
+  }
+}
+Optional (stronger): ban any absolute /admin/... inside layout/guard files unless behind a predicate:
+{ "selector": "JSXElement[openingElement.name.name='Navigate'] Literal[value^='/admin/']",
+  "message": "Navigate to /admin/... only from index routes or with guards." }
+3) Unit/contract tests (API single source of truth)
+Pick one endpoint (e.g. /api/ai/providers) and deprecate the other with 410 Gone. Then assert it in tests.
+// server/tests/aiProviders.spec.ts
+import request from 'supertest';
+import app from '../app';
+
+it('serves providers only from /api/ai/providers', async () => {
+  const res = await request(app).get('/api/ai/providers').expect(200);
+  expect(Array.isArray(res.body)).toBe(true);
+});
+
+it('old admin endpoint is gone', async () => {
+  await request(app).get('/api/admin/ai-settings').expect(410); // or 404
+});
+4) E2E “no hijack” test (Playwright)
+Catches the “everything jumps to Settings” problem.
+// e2e/navigation.spec.ts
+import { test, expect } from '@playwright/test';
+
+test('routes do not force-redirect to settings', async ({ page }) => {
+  await page.goto('/admin/dashboard');
+  await expect(page).toHaveURL(/\/admin\/dashboard$/);
+
+  // Try a few pages
+  for (const path of ['/admin/evidence', '/admin/investigation-type', '/admin/engineer-review']) {
+    await page.goto(path);
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    // Sanity: page shouldn’t silently become /admin/settings
+    expect(page.url().endsWith('/admin/settings')).toBeFalsy();
+  }
+});
+
+test('sidebar links use client routing', async ({ page }) => {
+  await page.goto('/admin/dashboard');
+  await page.getByRole('link', { name: 'Evidence Library' }).click();
+  await expect(page).toHaveURL(/\/admin\/evidence$/);
+});
+Run in CI headless—this will fail if any global redirect is still in play.
+5) Runtime sentinel (temporary, for confidence)
+Add a tiny dev-only trap in your AdminLayout:
+useEffect(() => {
+  const u = location.pathname;
+  if (u !== '/admin/settings' && location.pathname === '/admin/settings') {
+    // would only trigger if a rogue redirect just happened
+    console.warn('[SENTINEL] Unexpected jump to /admin/settings from', u);
+  }
+}, [location.pathname]);
+If your console stays clean during normal clicks and new tabs, you’re good.
+6) DB invariant check (for the “empty vs has data” saga)
+If you migrated to a single table (e.g. ai_providers), assert the other is empty and unreferenced:
+-- Should be zero
+SELECT COUNT(*) AS admin_ai_settings_rows FROM ai_settings;
+
+-- App shouldn’t reference it: run the ripgrep above.
+If you must keep both tables for now, add a DB view and point the API to it:
+CREATE OR REPLACE VIEW v_ai_providers AS
+SELECT id, provider, model_id, is_active FROM ai_providers;
+-- Make /api/ai/providers read from v_ai_providers only
+7) CI gate (GitHub Actions)
+Fail the build if audits/tests fail.
+name: hardcoding-guard
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test -- --ci
+      - run: npx playwright install --with-deps
+      - run: npx playwright test
+      - name: Audit for hardcoded routes
+        run: |
+          set -e
+          rg -n "window\.location(?:\.href)?\s*=\s*['\"]/admin" client src && exit 1 || true
+          rg -n "<a[^>]+href=['\"][^#][^'\"]+" client src && exit 1 || true
+          rg -n "/api/(admin/ai-settings|ai/providers)" client src | tee /tmp/endpoints.txt
+          # allow exactly ONE of the endpoints:
+          COUNT=$(rg -n "/api/admin/ai-settings" client src | wc -l)
+          COUNT2=$(rg -n "/api/ai/providers" client src | wc -l)
+          if [ $COUNT -gt 0 ] && [ $COUNT2 -gt 0 ]; then
+            echo "Dual endpoints referenced in UI. Fail."
+            exit 1
+          fi
+8) Manual sanity (takes 30 seconds)
+Open /admin/dashboard, Ctrl+Click 3–4 menu links into new tabs.
+URLs must remain the same (no surprise /admin/settings).
+Browser Back should return to the previous page without bouncing.

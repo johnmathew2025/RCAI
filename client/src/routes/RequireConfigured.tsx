@@ -32,8 +32,8 @@ export default function RequireConfigured({ children }: { children: JSX.Element 
   const providers = Array.isArray(data) ? data : [];
   const hasActive = providers.some(p => p.isActive);
 
-  // Only redirect to admin-settings for analysis pages that need AI
-  if (!hasActive && (location.pathname.includes("analysis") || location.pathname.includes("ai-powered"))) {
+  // Only redirect to admin-settings for analysis pages that need AI - conditional, not hardcoded
+  if (!hasActive && location.pathname !== "/admin-settings" && (location.pathname.includes("analysis") || location.pathname.includes("ai-powered"))) {
     return <Navigate to="/admin-settings" replace state={{ reason: "no-active-provider" }} />;
   }
 
