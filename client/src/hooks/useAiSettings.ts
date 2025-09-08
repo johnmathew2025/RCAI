@@ -1,16 +1,31 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 
-export function useAiSettings() {
-  return useQuery({
-    queryKey: ['admin.aiSettings.v2'],               // NEW key (v2 busts old cache)
+const KEY = ['admin.aiSettings.v2']; // New key to bust old caches
+
+export const useAiSettings = () =>
+  useQuery({ 
+    queryKey: KEY, 
     queryFn: async () => {
       const response = await api('/admin/ai-settings');
       return await response.json();
     },
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: 'always',
+    staleTime: 0, 
+    gcTime: 0, 
+    refetchOnMount: 'always', 
+    refetchOnWindowFocus: 'always' 
   });
-}
+
+export const useCreateAiSetting = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {provider:string; modelId:string; apiKey:string; isActive?:boolean}) => {
+      return api('/admin/ai-settings', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+};
