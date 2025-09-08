@@ -21,8 +21,8 @@ import { aiDebugger } from "@/lib/debug-ai-settings";
 import { useAiSettings } from "@/hooks/useAiSettings";
 import AIProvidersTable from "@/components/AIProvidersTable";
 
-// AI Providers Table Component
-const AIProvidersTable = () => {
+// OLD DUPLICATE COMPONENT REMOVED - USING SINGLE UNIFIED COMPONENT
+const RemovedDuplicateAIProvidersTable_USING_UNIFIED_COMPONENT = () => {
   const { data: providers = [], isLoading: loading, refetch } = useAiSettings();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({

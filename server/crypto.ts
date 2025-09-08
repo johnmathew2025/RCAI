@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 
-const key = Buffer.from(process.env.AI_KEY_ENCRYPTION_SECRET || '', 'utf8');
+// Ensure exactly 32 bytes for AES-256-GCM
+const secret = process.env.AI_KEY_ENCRYPTION_SECRET || '';
+const key = Buffer.from(secret.padEnd(32, '0').slice(0, 32), 'utf8');
 if (key.length !== 32) throw new Error('AI_KEY_ENCRYPTION_SECRET must be 32 bytes');
 
 export function encrypt(raw: string) {
