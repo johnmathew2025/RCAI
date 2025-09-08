@@ -537,7 +537,7 @@ function QuestionRenderer({
 
       case "select":
         return (
-          <Select value={value || ""} onValueChange={onChange}>
+          <Select value={value || SENTINEL.FIELD_EMPTY} onValueChange={onChange}>
             <SelectTrigger className={hasError ? "border-red-500" : ""}>
               <SelectValue placeholder={question.required ? "Please select..." : "Optional"} />
             </SelectTrigger>

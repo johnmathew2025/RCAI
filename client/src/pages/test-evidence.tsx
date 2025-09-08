@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, CheckCircle, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SENTINEL } from '@/constants/sentinels';
 
 interface Answer {
   [key: string]: any;
@@ -141,7 +142,7 @@ export default function TestEvidence() {
       
       case "select":
         return (
-          <Select value={value || ""} onValueChange={(val) => updateAnswer(question.id, val)}>
+          <Select value={value || SENTINEL.FIELD_EMPTY} onValueChange={(val) => updateAnswer(question.id, val)}>
             <SelectTrigger>
               <SelectValue placeholder="Please select..." />
             </SelectTrigger>

@@ -26,6 +26,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
+import { SENTINEL } from '@/constants/sentinels';
 
 // All equipment data loaded dynamically from database via API hooks
 
@@ -257,7 +258,7 @@ export default function ISO14224EvidenceForm() {
       case "select":
         return (
           <div className="space-y-2">
-            <Select value={value || ""} onValueChange={(val) => updateAnswer(questionId, val)}>
+            <Select value={value || SENTINEL.FIELD_EMPTY} onValueChange={(val) => updateAnswer(questionId, val)}>
               <SelectTrigger className={baseClasses}>
                 <SelectValue placeholder="Please select..." />
               </SelectTrigger>
