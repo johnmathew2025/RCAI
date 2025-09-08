@@ -80,6 +80,7 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: 0,
+      gcTime: 0,
       retry: false,
     },
     mutations: {
@@ -87,3 +88,8 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// Cache busting for AI endpoint migration
+export const persistOptions = {
+  buster: '2025-09-08-ai-endpoint-migration-2'
+};

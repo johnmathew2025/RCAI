@@ -50,6 +50,24 @@ function Router() {
   // Initialize bulletproof caching solution
   useEffect(() => {
     initVersionManagement().catch(console.error);
+    
+    // DEV-ONLY: Network watchdog for banned routes
+    if (import.meta.env.DEV) {
+      const _fetch = window.fetch;
+      window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/api/ai/providers')) {
+          console.warn('[HARD-FORBIDDEN] /api/ai/providers requested', new Error().stack);
+        }
+        return _fetch(input, init);
+      };
+      
+      // DEV-ONLY: Clear old caches 
+      queryClient.clear();
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('REACT_QUERY_OFFLINE_CACHE');
+      }
+    }
   }, []);
   
   return (
