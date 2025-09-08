@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,11 +18,12 @@ import AIStatusIndicator from "@/components/ai-status-indicator";
 import { ADMIN_SECTIONS, TAXONOMY_TABS } from "@/config/adminNav";
 import { AIDebugPanel } from "@/components/ai-debug-panel";
 import { aiDebugger } from "@/lib/debug-ai-settings";
+import { useAiSettings } from "@/hooks/useAiSettings";
 
 // AI Providers Table Component
 const AIProvidersTable = () => {
-  const [providers, setProviders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: providers = [], isLoading: loading, refetch } = useAiSettings();
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     provider: '',
     model_id: '',
@@ -57,28 +58,8 @@ const AIProvidersTable = () => {
     }
   };
 
-  // Fetch providers using api() wrapper - ZERO HARDCODING
-  const fetchProviders = async () => {
-    try {
-      const { api } = await import('@/api');
-      const response = await api('/admin/ai-settings');
-      const data = await response.json();
-      setProviders(data);
-    } catch (error) {
-      console.error('Error fetching providers:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    const initializeData = async () => {
-      const metaOk = await fetchApiMeta();
-      if (metaOk) {
-        fetchProviders();
-      }
-    };
-    initializeData();
+    fetchApiMeta();
   }, []);
 
   // Create provider
@@ -94,7 +75,7 @@ const AIProvidersTable = () => {
       
       if (response.ok) {
         setFormData({ provider: '', model_id: '', api_key: '', is_active: false });
-        fetchProviders();
+        queryClient.invalidateQueries({ queryKey: ['admin.aiSettings.v2'] });
       }
     } catch (error) {
       console.error('Error creating provider:', error);
@@ -122,7 +103,7 @@ const AIProvidersTable = () => {
       const response = await apiDelete(`/admin/ai-settings/${id}`);
       
       if (response.ok) {
-        fetchProviders();
+        queryClient.invalidateQueries({ queryKey: ['admin.aiSettings.v2'] });
       }
     } catch (error) {
       console.error('Error deleting provider:', error);
@@ -136,7 +117,7 @@ const AIProvidersTable = () => {
       const response = await apiPost(`/admin/ai-settings/${id}/activate`);
       
       if (response.ok) {
-        fetchProviders();
+        queryClient.invalidateQueries({ queryKey: ['admin.aiSettings.v2'] });
       }
     } catch (error) {
       console.error('Error activating provider:', error);
