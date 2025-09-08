@@ -446,7 +446,7 @@ export default function EvidenceLibraryManagement() {
       {/* Navigation Header */}
       <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
         <div className="flex items-center space-x-4">
-          <Link to="/">
+          <Link to="/admin">
             <Button variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Home

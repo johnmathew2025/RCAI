@@ -951,7 +951,7 @@ export default function AdminSettings() {
       {/* Top-level Admin Navigation - Based on Information Architecture */}
       <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
         <div className="flex items-center space-x-4">
-          <Link to="/">
+          <Link to="/admin">
             <Button variant="outline" size="sm" className="flex items-center space-x-2">
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Home</span>

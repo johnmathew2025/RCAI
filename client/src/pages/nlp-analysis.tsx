@@ -50,13 +50,13 @@ export default function NLPAnalysisPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <Link to="/">
+          <Link to="/admin">
             <Button variant="outline" className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
               Back to Home
             </Button>
           </Link>
-          <Link to="/">
+          <Link to="/admin">
             <Button variant="ghost" size="sm" className="flex items-center gap-2">
               <Home className="h-4 w-4" />
               Home

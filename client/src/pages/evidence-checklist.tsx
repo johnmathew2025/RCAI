@@ -435,7 +435,7 @@ export default function EvidenceChecklist() {
             <div className="flex items-center space-x-4">
               <Button 
                 variant="ghost" 
-                onClick={() => setLocation('/')}
+                onClick={() => setLocation('/admin')}
               >
                 ← Back to Home
               </Button>

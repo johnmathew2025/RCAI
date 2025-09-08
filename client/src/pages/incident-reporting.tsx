@@ -411,7 +411,7 @@ export default function IncidentReporting() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Link to="/">
+            <Link to="/admin">
               <Button variant="outline" size="sm">
                 <Home className="h-4 w-4 mr-2" />
                 Back to Home

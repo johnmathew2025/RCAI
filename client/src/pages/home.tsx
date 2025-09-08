@@ -130,7 +130,7 @@ export default function Home() {
               </div>
               <Button 
                 variant="secondary" 
-                onClick={() => navigate('/admin-settings')}
+                onClick={() => navigate('/admin/settings')}
                 className="text-sm font-medium"
               >
                 <Users className="w-4 h-4 mr-2" />

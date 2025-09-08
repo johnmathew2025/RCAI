@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useGroups, useTypes, useSubtypes } from "@/api/equipment";
 import { SENTINEL } from '@/constants/sentinels';
+import BackToHome from '@/components/BackToHome';
 
 // All equipment data loaded dynamically from database via API hooks
 
@@ -491,10 +492,7 @@ export default function ISO14224EvidenceForm() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-4">
-          <Button variant="ghost" size="sm" onClick={() => setLocation("/")}>
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to Home
-          </Button>
+          <BackToHome />
           <Badge variant="outline">ISO 14224 Compliant</Badge>
           {saveStatus === 'saving' && <Badge variant="outline">Saving...</Badge>}
           {saveStatus === 'saved' && <Badge className="bg-green-100 text-green-800">Saved</Badge>}
