@@ -232,7 +232,7 @@ export default function ISO14224EvidenceForm() {
         return (
           <div className="space-y-2">
             <Input
-              value={value || ""}
+              value={value || SENTINEL.FIELD_EMPTY}
               onChange={(e) => updateAnswer(questionId, e.target.value)}
               placeholder={question.required ? "Required" : "Optional"}
               className={baseClasses}
@@ -245,7 +245,7 @@ export default function ISO14224EvidenceForm() {
         return (
           <div className="space-y-2">
             <Textarea
-              value={value || ""}
+              value={value || SENTINEL.FIELD_EMPTY}
               onChange={(e) => updateAnswer(questionId, e.target.value)}
               placeholder={question.required ? "Required" : "Optional"}
               rows={3}
@@ -279,7 +279,7 @@ export default function ISO14224EvidenceForm() {
           <div className="space-y-2">
             <Input
               type="datetime-local"
-              value={value || ""}
+              value={value || SENTINEL.FIELD_EMPTY}
               onChange={(e) => updateAnswer(questionId, e.target.value)}
               className={baseClasses}
             />
@@ -293,7 +293,7 @@ export default function ISO14224EvidenceForm() {
             <div className="flex gap-2 items-center">
               <Input
                 type="number"
-                value={value || ""}
+                value={value || SENTINEL.FIELD_EMPTY}
                 onChange={(e) => updateAnswer(questionId, parseFloat(e.target.value) || e.target.value)}
                 placeholder={question.required ? "Required" : "Optional"}
                 className={baseClasses}
@@ -312,7 +312,7 @@ export default function ISO14224EvidenceForm() {
         return (
           <div className="space-y-2">
             <RadioGroup 
-              value={value?.toString() || ""} 
+              value={value?.toString() || SENTINEL.FIELD_EMPTY} 
               onValueChange={(val) => updateAnswer(questionId, val === "true")}
               className="flex gap-4"
             >

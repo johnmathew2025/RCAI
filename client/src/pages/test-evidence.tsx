@@ -124,7 +124,7 @@ export default function TestEvidence() {
       case "text":
         return (
           <Input
-            value={value || ""}
+            value={value || SENTINEL.FIELD_EMPTY}
             onChange={(e) => updateAnswer(question.id, e.target.value)}
             placeholder={question.required ? "Required" : "Optional"}
           />
@@ -133,7 +133,7 @@ export default function TestEvidence() {
       case "textarea":
         return (
           <Textarea
-            value={value || ""}
+            value={value || SENTINEL.FIELD_EMPTY}
             onChange={(e) => updateAnswer(question.id, e.target.value)}
             placeholder={question.required ? "Required" : "Optional"}
             rows={3}
@@ -159,7 +159,7 @@ export default function TestEvidence() {
       case "boolean":
         return (
           <RadioGroup 
-            value={value?.toString() || ""} 
+            value={value?.toString() || SENTINEL.FIELD_EMPTY} 
             onValueChange={(val) => updateAnswer(question.id, val === "true")}
             className="flex gap-4"
           >

@@ -1433,7 +1433,7 @@ export default function AdminSettings() {
                         <TableCell>
                           {editingRiskRanking?.id === ranking.id ? (
                             <Input
-                              value={editingRiskRanking?.label || ""}
+                              value={editingRiskRanking?.label || SENTINEL.FIELD_EMPTY}
                               onChange={(e) => setEditingRiskRanking({ id: editingRiskRanking?.id || 0, label: e.target.value })}
                               onKeyPress={(e) => {
                                 if (e.key === 'Enter') {
