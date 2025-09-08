@@ -576,8 +576,8 @@ export default function EvidenceLibraryManagement() {
 
             {/* Filter Dropdowns */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Select value="" onValueChange={(value) => {
-                if (value) {
+              <Select value="FILTER_EQUIPMENT_GROUPS" onValueChange={(value) => {
+                if (value && value !== "FILTER_EQUIPMENT_GROUPS") {
                   setSelectedEquipmentGroups([...selectedEquipmentGroups, value]);
                 }
               }}>
@@ -593,8 +593,8 @@ export default function EvidenceLibraryManagement() {
                 </SelectContent>
               </Select>
 
-              <Select value="" onValueChange={(value) => {
-                if (value) {
+              <Select value="FILTER_EQUIPMENT_TYPES" onValueChange={(value) => {
+                if (value && value !== "FILTER_EQUIPMENT_TYPES") {
                   setSelectedEquipmentTypes([...selectedEquipmentTypes, value]);
                 }
               }}>
@@ -610,8 +610,8 @@ export default function EvidenceLibraryManagement() {
                 </SelectContent>
               </Select>
 
-              <Select value="" onValueChange={(value) => {
-                if (value) {
+              <Select value="FILTER_SUBTYPES" onValueChange={(value) => {
+                if (value && value !== "FILTER_SUBTYPES") {
                   setSelectedSubtypes([...selectedSubtypes, value]);
                 }
               }}>

@@ -333,7 +333,7 @@ export default function EvidenceGathering({ analysis, onComplete }: EvidenceGath
                       onChange={(e) => handleResponseChange(question.id, e.target.value)}
                       className="w-full p-2 border border-gray-300 rounded-md bg-white"
                     >
-                      <option value="">Select an option...</option>
+                      <option value="SELECT_OPTION">Select an option...</option>
                       {question.options?.map(option => (
                         <option key={option} value={option}>{option}</option>
                       ))}
