@@ -61,7 +61,7 @@ const AIProvidersTable = () => {
   const fetchProviders = async () => {
     try {
       const { api } = await import('@/api');
-      const response = await api('/ai/providers');
+      const response = await api('/admin/ai-settings');
       const data = await response.json();
       setProviders(data);
     } catch (error) {
@@ -90,7 +90,7 @@ const AIProvidersTable = () => {
 
     try {
       const { apiPost } = await import('@/api');
-      const response = await apiPost('/ai/providers', formData);
+      const response = await apiPost('/admin/ai-settings', formData);
       
       if (response.ok) {
         setFormData({ provider: '', model_id: '', api_key: '', is_active: false });
@@ -105,7 +105,7 @@ const AIProvidersTable = () => {
   const handleTest = async (id: number) => {
     try {
       const { apiPost } = await import('@/api');
-      const response = await apiPost(`/ai/providers/${id}/test`);
+      const response = await apiPost(`/admin/ai-settings/${id}/test`);
       const result = await response.json();
       alert(result.ok ? 'Test successful!' : `Test failed: ${result.message}`);
     } catch (error) {
@@ -133,7 +133,7 @@ const AIProvidersTable = () => {
   const handleActivate = async (id: number) => {
     try {
       const { apiPost } = await import('@/api');
-      const response = await apiPost(`/ai/providers/${id}/activate`);
+      const response = await apiPost(`/admin/ai-settings/${id}/activate`);
       
       if (response.ok) {
         fetchProviders();
