@@ -370,7 +370,7 @@ export default function FaultReferenceLibrary() {
                   <SelectValue placeholder="Evidence Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+                  <SelectItem value="ALL_EVIDENCE_TYPES">All Types</SelectItem>
                   <SelectItem value="vibration">Vibration</SelectItem>
                   <SelectItem value="temperature">Temperature</SelectItem>
                   <SelectItem value="pressure">Pressure</SelectItem>

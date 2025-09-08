@@ -395,7 +395,7 @@ export default function EvidenceLibraryIntegration() {
                   <SelectValue placeholder="All groups" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Groups</SelectItem>
+                  <SelectItem value="ALL_GROUPS">All Groups</SelectItem>
                   {groups?.map((group: EquipmentGroup) => (
                     <SelectItem key={group.id} value={group.id.toString()}>
                       {group.name}
@@ -420,7 +420,7 @@ export default function EvidenceLibraryIntegration() {
                   <SelectValue placeholder="All types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+                  <SelectItem value="ALL_TYPES">All Types</SelectItem>
                   {types?.map((type: EquipmentType) => (
                     <SelectItem key={type.id} value={type.id.toString()}>
                       {type.name}
@@ -442,7 +442,7 @@ export default function EvidenceLibraryIntegration() {
                   <SelectValue placeholder="All subtypes" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Subtypes</SelectItem>
+                  <SelectItem value="ALL_SUBTYPES">All Subtypes</SelectItem>
                   {subtypes?.map((subtype: EquipmentSubtype) => (
                     <SelectItem key={subtype.id} value={subtype.id.toString()}>
                       {subtype.name}

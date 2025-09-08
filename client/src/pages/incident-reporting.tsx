@@ -543,7 +543,7 @@ export default function IncidentReporting() {
                           </FormControl>
                           <SelectContent>
                             {groupsLoading ? (
-                              <SelectItem value="" disabled>Loading groups...</SelectItem>
+                              <SelectItem value="LOADING_GROUPS" disabled>Loading groups...</SelectItem>
                             ) : (
                               equipmentGroups.map((group) => (
                                 <SelectItem key={group.id} value={group.id.toString()}>
@@ -577,7 +577,7 @@ export default function IncidentReporting() {
                           </FormControl>
                           <SelectContent>
                             {typesLoading ? (
-                              <SelectItem value="" disabled>Loading types...</SelectItem>
+                              <SelectItem value="LOADING_TYPES" disabled>Loading types...</SelectItem>
                             ) : (
                               equipmentTypes.map((type) => (
                                 <SelectItem key={type.id} value={type.id.toString()}>

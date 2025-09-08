@@ -214,7 +214,7 @@ export function AIDebugPanel({ isVisible }: AIDebugPanelProps) {
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All</SelectItem>
+                      <SelectItem value="ALL_STATUS">All</SelectItem>
                       <SelectItem value="success">Success</SelectItem>
                       <SelectItem value="error">Error</SelectItem>
                     </SelectContent>
