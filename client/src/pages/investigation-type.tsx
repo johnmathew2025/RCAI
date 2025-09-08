@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useRoute } from "wouter";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,8 +10,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { AlertTriangle, Shield, Wrench, ArrowRight, CheckCircle } from "lucide-react";
 
 export default function InvestigationType() {
-  const [, setLocation] = useLocation();
-  const [, params] = useRoute("/investigation/:id/type");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = useParams();
   const { toast } = useToast();
   
   const investigationId = params?.id;
@@ -41,7 +42,7 @@ export default function InvestigationType() {
       });
       
       // Navigate to evidence collection
-      setLocation(`/investigation/${investigationId}/evidence`);
+      navigate(`/investigation/${investigationId}/evidence`);
     },
     onError: (error) => {
       toast({

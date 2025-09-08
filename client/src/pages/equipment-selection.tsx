@@ -193,7 +193,7 @@ export default function EquipmentSelection() {
             <p className="text-slate-600 mb-4">
               Please return to the incident reporting form and submit a valid incident.
             </p>
-            <Link href={import.meta.env.VITE_INCIDENT_FORM_ROUTE || '/'}>
+            <Link to={import.meta.env.VITE_INCIDENT_FORM_ROUTE || '/'}>
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Incident Form
@@ -251,7 +251,7 @@ export default function EquipmentSelection() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Link href="/">
+            <Link to="/">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Home

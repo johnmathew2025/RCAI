@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useNavigate } from "react-router-dom";
 import { User, CheckCircle, Edit3, Save, Download, ChevronRight, AlertTriangle, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,7 +42,8 @@ interface FinalRCA {
 }
 
 export default function EngineerReview() {
-  const [, setLocation] = useLocation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [incidentId, setIncidentId] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [reviewData, setReviewData] = useState<EngineerReview>({
@@ -97,7 +98,7 @@ export default function EngineerReview() {
     },
     onSuccess: (data) => {
       if (reviewData.approved) {
-        setLocation(`/final-rca?incident=${incidentId}`);
+        navigate(`/final-rca?incident=${incidentId}`);
       }
     },
     onError: (error: any) => {
@@ -156,7 +157,7 @@ export default function EngineerReview() {
             <div className="flex items-center space-x-4">
               <Button 
                 variant="ghost" 
-                onClick={() => setLocation('/')}
+                onClick={() => navigate('/')}
               >
                 ← Back to Home
               </Button>
@@ -549,13 +550,13 @@ export default function EngineerReview() {
         <div className="mt-8 flex justify-between">
           <Button 
             variant="outline" 
-            onClick={() => setLocation(`/ai-analysis?incident=${incidentId}`)}
+            onClick={() => navigate(`/ai-analysis?incident=${incidentId}`)}
           >
             ← Back to AI Analysis
           </Button>
           {reviewData.approved && (
             <Button 
-              onClick={() => setLocation('/')}
+              onClick={() => navigate('/'))
               className="flex items-center gap-2"
             >
               Complete Investigation

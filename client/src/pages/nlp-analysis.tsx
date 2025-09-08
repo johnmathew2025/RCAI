@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,13 +50,13 @@ export default function NLPAnalysisPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <Link href="/">
+          <Link to="/">
             <Button variant="outline" className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
               Back to Home
             </Button>
           </Link>
-          <Link href="/">
+          <Link to="/">
             <Button variant="ghost" size="sm" className="flex items-center gap-2">
               <Home className="h-4 w-4" />
               Home

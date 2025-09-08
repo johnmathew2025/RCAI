@@ -75,7 +75,7 @@ export function FallbackAnalysisPage() {
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-4">
-          <Link href={`/incidents/${incidentId}/evidence-collection`}>
+          <Link to={`/incidents/${incidentId}/evidence-collection`}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Evidence Collection
@@ -178,13 +178,13 @@ export function FallbackAnalysisPage() {
 
           {/* Navigation */}
           <div className="flex justify-between">
-            <Link href={`/incidents/${incidentId}/evidence-collection`}>
+            <Link to={`/incidents/${incidentId}/evidence-collection`}>
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Evidence Collection
               </Button>
             </Link>
-            <Link href={`/incidents/${incidentId}/analysis`}>
+            <Link to={`/incidents/${incidentId}/analysis`}>
               <Button>
                 View Standard Analysis →
               </Button>

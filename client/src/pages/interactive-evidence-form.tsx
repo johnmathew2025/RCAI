@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -591,7 +591,8 @@ function QuestionRenderer({
 
 export default function InteractiveEvidenceForm() {
   const { id } = useParams();
-  const [, setLocation] = useLocation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -635,7 +636,7 @@ export default function InteractiveEvidenceForm() {
         description: "AI analysis has been started. Redirecting to analysis page..."
       });
       setTimeout(() => {
-        setLocation(`/analysis/${id}`);
+        navigate(`/analysis/${id}`);
       }, parseInt(import.meta.env.VITE_REDIRECT_DELAY || '2000'));
     },
     onError: (error) => {
@@ -760,7 +761,7 @@ export default function InteractiveEvidenceForm() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
-          <Button variant="ghost" size="sm" onClick={() => setLocation("/")}>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
