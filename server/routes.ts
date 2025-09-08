@@ -81,6 +81,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(410).json({ error: 'Deprecated. Use /api/admin/ai-settings.' });
   });
   
+  // NEW DATABASE-ONLY AI SETTINGS ROUTES
+  const { router: aiSettingsRouter } = await import('./routes/aiSettings');
+  app.use(aiSettingsRouter);
+  
   // Apply AI Settings debug middleware to all AI routes
   app.use('/api/admin/ai-settings', aiDebugMiddleware.middleware());
   

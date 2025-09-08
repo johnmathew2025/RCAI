@@ -19,6 +19,7 @@ import { ADMIN_SECTIONS, TAXONOMY_TABS } from "@/config/adminNav";
 import { AIDebugPanel } from "@/components/ai-debug-panel";
 import { aiDebugger } from "@/lib/debug-ai-settings";
 import { useAiSettings } from "@/hooks/useAiSettings";
+import AIProvidersTable from "@/components/AIProvidersTable";
 
 // AI Providers Table Component
 const AIProvidersTable = () => {
@@ -1181,16 +1182,8 @@ export default function AdminSettings() {
         </CardContent>
       </Card>
 
-      {/* AI PROVIDERS - Simple Universal Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle>AI Providers (Universal)</CardTitle>
-          <p className="text-sm text-muted-foreground">Simple universal provider management - enter any provider and model</p>
-        </CardHeader>
-        <CardContent>
-          <AIProvidersTable />
-        </CardContent>
-      </Card>
+      {/* SINGLE AI PROVIDER MANAGEMENT - NO DUPLICATION */}
+      <AIProvidersTable />
       
       {/* Debug Panel - only visible in debug mode */}
       <AIDebugPanel isVisible={aiDebugger.isEnabled()} />
