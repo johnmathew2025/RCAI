@@ -119,7 +119,7 @@ const AIProvidersTable = () => {
     
     try {
       const { apiDelete } = await import('@/api');
-      const response = await apiDelete(`/ai/providers/${id}`);
+      const response = await apiDelete(`/admin/ai-settings/${id}`);
       
       if (response.ok) {
         fetchProviders();
