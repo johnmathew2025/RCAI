@@ -1,0 +1,114 @@
+1) Replace empty strings with named sentinels (centralized)
+// client/src/constants/sentinels.ts
+export const SENTINEL = {
+  NONE: 'NONE',          // placeholder / unselected
+  ALL_STATUS: 'ALL_STATUS',
+  ALL_TYPES: 'ALL_TYPES',
+  // add others here, but only if truly needed
+} as const;
+2) Safe Select wrapper (prevents passing "" ever)
+// client/src/components/SelectSafe.tsx
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { SENTINEL } from "@/constants/sentinels";
+
+type Option = { label: string; value: string }; // value must be non-empty
+type Props = {
+  value: string | undefined;
+  onChange: (v: string | undefined) => void;
+  options: Option[];
+  placeholder?: string;
+  allowAll?: boolean;
+  allValue?: string;   // default SENTINEL.ALL_STATUS or similar
+  allLabel?: string;   // default "All"
+};
+
+export default function SelectSafe({
+  value,
+  onChange,
+  options,
+  placeholder = "Select…",
+  allowAll = false,
+  allValue = SENTINEL.ALL_STATUS,
+  allLabel = "All",
+}: Props) {
+  const val = value ?? SENTINEL.NONE;
+
+  const handle = (v: string) => {
+    if (v === SENTINEL.NONE) onChange(undefined);
+    else onChange(v);
+  };
+
+  return (
+    <Select value={val} onValueChange={handle}>
+      <SelectTrigger aria-label={placeholder}><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value={SENTINEL.NONE} disabled>{placeholder}</SelectItem>
+        {allowAll && <SelectItem value={allValue}>{allLabel}</SelectItem>}
+        {options.map(o => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+3) Use it (no empty strings, ever)
+import SelectSafe from "@/components/SelectSafe";
+import { SENTINEL } from "@/constants/sentinels";
+
+const [status, setStatus] = useState<string | undefined>(undefined);
+
+<SelectSafe
+  value={status}
+  onChange={setStatus}
+  options={statusOptions /* from DB or API */}
+  placeholder="Choose status"
+  allowAll
+/>;
+
+// When submitting to API (DB-only):
+const payload = {
+  // …
+  status: status && status !== SENTINEL.ALL_STATUS ? status : undefined,
+};
+4) Validation to enforce non-empty (client + server)
+Client (zod):
+import { z } from "zod";
+const nonEmpty = z.string().min(1, "Required");
+const FilterSchema = z.object({
+  status: z.string().min(1).optional(), // we send undefined for NONE/ALL
+});
+Server (DTO):
+if (typeof req.body.status === 'string' && req.body.status.trim().length === 0) {
+  return res.status(400).json({ error: "status must be non-empty or omitted" });
+}
+5) Repo guardrails (block regressions)
+ESLint rule (no empty string for Select values):
+{
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "JSXAttribute[name.name='value'] Literal[value='']",
+        "message": "Do not use empty string as a Select value. Use a named SENTINEL."
+      },
+      {
+        "selector": "JSXElement[openingElement.name.name='SelectItem'] JSXAttribute[name.name='value'] Literal[value='']",
+        "message": "Empty SelectItem value is forbidden."
+      }
+    ]
+  }
+}
+Quick audit (run now):
+# Any empty Select values?
+rg -n --glob 'client/src/**/*.{ts,tsx}' 'Select(Item)?[^>]*value=["'\'']\s*["'\'']'
+
+# Any state defaults to '' ?
+rg -n --glob 'client/src/**/*.{ts,tsx}' "useState\\(['\"]{2}\\)"
+6) Source options from DB (avoid hardcoded lists)
+Where a dropdown reflects domain data (statuses, types, equipment, etc.), fetch options from a meta endpoint and map to Option[]. Do not inline arrays in components.
+// GET /api/meta/statuses -> [{id:'OPEN', name:'Open'}, ...]
+const { data = [] } = useQuery({
+  queryKey: ['meta.statuses.v1'],
+  queryFn: () => api.get('/api/meta/statuses').then(r => r.data),
+});
+const statusOptions = data.map((s: any) => ({ value: s.id, label: s.name }));
