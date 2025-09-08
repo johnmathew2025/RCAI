@@ -16,6 +16,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { UniversalRCAHypothesisReview } from '@/components/universal-rca-hypothesis-review';
 import { HumanConfirmationFlow } from '@/components/human-confirmation-flow';
 import { useToast } from '@/hooks/use-toast';
+import { SENTINEL } from '@/constants/sentinels';
 
 interface EvidenceItem {
   id: string;
@@ -1166,7 +1167,7 @@ function EvidenceItemCard({
             <Label className="text-xs font-medium">Notes (optional)</Label>
             <Textarea
               placeholder="Add notes about this evidence item..."
-              value={item.notes || ''}
+              value={item.notes || SENTINEL.FIELD_EMPTY}
               onChange={(e) => onNotesUpdate(item.id, e.target.value)}
               className="mt-1 text-sm"
               rows={2}

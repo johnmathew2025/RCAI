@@ -858,7 +858,7 @@ export default function IncidentReporting() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Issue Severity</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <Select onValueChange={field.onChange} value={field.value || SENTINEL.FIELD_EMPTY}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select severity..." />

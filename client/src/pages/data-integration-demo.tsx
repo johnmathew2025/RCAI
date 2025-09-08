@@ -23,6 +23,7 @@ import {
   BarChart3, FileText, Shield, Target, Cloud, HardDrive, Wifi, Plus, X
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import { SENTINEL } from '@/constants/sentinels';
 
 interface DataSource {
   sourceId: string;
@@ -523,7 +524,7 @@ export default function DataIntegrationDemo() {
                     <Label htmlFor="sourceName">Source Name *</Label>
                     <Input
                       id="sourceName"
-                      value={newDataSource.sourceName || ''}
+                      value={newDataSource.sourceName || SENTINEL.FIELD_EMPTY}
                       onChange={(e) => setNewDataSource(prev => ({ ...prev, sourceName: e.target.value }))}
                       placeholder="Enter descriptive name (e.g., 'Production CMMS')"
                     />
@@ -554,7 +555,7 @@ export default function DataIntegrationDemo() {
                     <Label htmlFor="endpoint">Connection Endpoint</Label>
                     <Input
                       id="endpoint"
-                      value={newDataSource.connectionConfig?.endpoint || ''}
+                      value={newDataSource.connectionConfig?.endpoint || SENTINEL.FIELD_EMPTY}
                       onChange={(e) => setNewDataSource(prev => ({ 
                         ...prev, 
                         connectionConfig: { ...prev.connectionConfig!, endpoint: e.target.value }
@@ -633,7 +634,7 @@ export default function DataIntegrationDemo() {
                     <Input
                       id="apiKey"
                       type="password"
-                      value={newDataSource.connectionConfig?.apiKey || ''}
+                      value={newDataSource.connectionConfig?.apiKey || SENTINEL.FIELD_EMPTY}
                       onChange={(e) => setNewDataSource(prev => ({ 
                         ...prev, 
                         connectionConfig: { ...prev.connectionConfig!, apiKey: e.target.value }
@@ -646,7 +647,7 @@ export default function DataIntegrationDemo() {
                     <Label htmlFor="username">Username</Label>
                     <Input
                       id="username"
-                      value={newDataSource.connectionConfig?.username || ''}
+                      value={newDataSource.connectionConfig?.username || SENTINEL.FIELD_EMPTY}
                       onChange={(e) => setNewDataSource(prev => ({ 
                         ...prev, 
                         connectionConfig: { ...prev.connectionConfig!, username: e.target.value }
@@ -709,7 +710,7 @@ export default function DataIntegrationDemo() {
                       <div className="space-y-1">
                         <Label className="text-xs">Default Value</Label>
                         <Input
-                          value={field.defaultValue || ''}
+                          value={field.defaultValue || SENTINEL.FIELD_EMPTY}
                           onChange={(e) => updateSourceField(index, { defaultValue: e.target.value })}
                           placeholder="default"
                           className="h-8"
@@ -775,7 +776,7 @@ export default function DataIntegrationDemo() {
                     <Input
                       id="interval"
                       type="number"
-                      value={newDataSource.syncSchedule?.interval || ''}
+                      value={newDataSource.syncSchedule?.interval || SENTINEL.FIELD_EMPTY}
                       onChange={(e) => setNewDataSource(prev => ({ 
                         ...prev, 
                         syncSchedule: { ...prev.syncSchedule!, interval: parseInt(e.target.value) }

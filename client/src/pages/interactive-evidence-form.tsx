@@ -16,6 +16,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CheckCircle, Search, Brain, ArrowLeft, ArrowRight, Clock, FileText, AlertCircle, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import SelectSafe from "@/components/SelectSafe";
+import { SENTINEL } from '@/constants/sentinels';
 
 interface QuestionDefinition {
   id: string;

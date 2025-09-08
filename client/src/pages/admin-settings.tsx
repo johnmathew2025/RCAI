@@ -16,6 +16,8 @@ import { Link } from "react-router-dom";
 import type { AiSettings, InsertAiSettings, EquipmentGroup, RiskRanking } from "@shared/schema";
 import AIStatusIndicator from "@/components/ai-status-indicator";
 import { ADMIN_SECTIONS, TAXONOMY_TABS } from "@/config/adminNav";
+import SelectSafe from "@/components/SelectSafe";
+import { SENTINEL } from '@/constants/sentinels';
 import { AIDebugPanel } from "@/components/ai-debug-panel";
 import { aiDebugger } from "@/lib/debug-ai-settings";
 import { useAiSettings } from "@/hooks/useAiSettings";
@@ -1182,7 +1184,7 @@ export default function AdminSettings() {
       
       {/* Debug Panel - only visible in debug mode */}
       <AIDebugPanel isVisible={aiDebugger.isEnabled()} />
-        </TabsContent>
+    </TabsContent>
 
         {/* Equipment Groups Tab */}
         <TabsContent value="groups" className="space-y-6">

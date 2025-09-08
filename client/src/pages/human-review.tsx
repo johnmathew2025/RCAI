@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { SENTINEL } from '@/constants/sentinels';
 
 interface EvidenceFile {
   id: string;
@@ -349,7 +350,7 @@ export default function HumanReview() {
                 <div className="space-y-3 pt-3 border-t">
                   <Textarea
                     placeholder="Add review comments (optional)..."
-                    value={reviewComments[file.id] || ''}
+                    value={reviewComments[file.id] || SENTINEL.FIELD_EMPTY}
                     onChange={(e) => setReviewComments(prev => ({ ...prev, [file.id]: e.target.value }))}
                     rows={2}
                     className="text-sm"

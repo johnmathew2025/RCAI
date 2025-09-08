@@ -15,6 +15,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Clock, Users, Settings, FileText, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import SelectSafe from "@/components/SelectSafe";
+import { SENTINEL } from '@/constants/sentinels';
 
 interface Incident {
   id: number;
@@ -196,38 +198,17 @@ export function WorkflowIntegration() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Select
-              value={selectedIncidentId?.toString() || ''}
-              onValueChange={(value) => setSelectedIncidentId(parseInt(value))}
-              data-testid="select-incident"
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Choose incident to analyze..." />
-              </SelectTrigger>
-              <SelectContent>
-                {incidentsLoading ? (
-                  <SelectItem value="loading" disabled>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Loading incidents...
-                  </SelectItem>
-                ) : (
-                  incidents?.map((incident) => (
-                    <SelectItem key={incident.id} value={incident.id.toString()}>
-                      <div className="flex items-center justify-between w-full">
-                        <span>INC_{incident.id.toString().padStart(6, '0')}</span>
-                        <Badge variant={
-                          incident.priority === 'Critical' ? 'destructive' :
-                          incident.priority === 'High' ? 'default' :
-                          'secondary'
-                        }>
-                          {incident.priority}
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            <SelectSafe
+              value={selectedIncidentId?.toString()}
+              onChange={(value) => setSelectedIncidentId(value ? parseInt(value) : undefined)}
+              options={incidents?.map((incident) => ({
+                value: incident.id.toString(),
+                label: `INC_${incident.id.toString().padStart(6, '0')} - ${incident.priority}`
+              })) || []}
+              placeholder="Choose incident to analyze..."
+              disabled={incidentsLoading}
+              className="data-testid-select-incident"
+            />
 
             {selectedIncident && (
               <div className="border rounded-lg p-4 space-y-2">
