@@ -32,6 +32,7 @@ import DebugRoutes from "@/pages/debug-routes";
 import FaultReferenceLibrary from "@/pages/admin/fault-reference-library";
 import TaxonomyManagement from "@/pages/admin/taxonomy-management";
 import RequireConfigured from "@/routes/RequireConfigured";
+import MainLayout from "@/components/main-layout";
 // import EvidenceLibraryIntegration from "@/pages/evidence-library-integration"; // Removed - causing errors
 import EvidenceAnalysisDemo from "@/pages/evidence-analysis-demo";
 import RCAAnalysisDemo from "@/pages/rca-analysis-demo";
@@ -71,19 +72,19 @@ function Router() {
   }, []);
   
   return (
-    <BrowserRouter basename="/">
+    <BrowserRouter>
       <Routes>
-        <Route path="/" element={<RequireConfigured><Home /></RequireConfigured>} />
+        <Route path="/admin" element={<MainLayout><RequireConfigured><Home /></RequireConfigured></MainLayout>}>
+          <Route index element={<RequireConfigured><Home /></RequireConfigured>} />
         <Route path="/new" element={<NewInvestigation />} />
         <Route path="/investigation/:id/type" element={<InvestigationType />} />
         <Route path="/investigation/:id/evidence" element={<EvidenceCollectionOld />} />
         <Route path="/investigation/:id" element={<AnalysisDetail />} />
-        <Route path="/admin" element={<AdminSettings />} />
-        <Route path="/admin-settings" element={<AdminSettings />} />
-        {/* Canonical Admin Routes - Configuration Tools Only */}
-        <Route path="/admin/evidence" element={<EvidenceLibraryManagement />} />
-        <Route path="/admin/integrations" element={<WorkflowIntegrationDemo />} />
-        <Route path="/admin/taxonomy" element={<TaxonomyManagement />} />
+          <Route path="settings" element={<AdminSettings />} />
+          {/* Canonical Admin Routes - Configuration Tools Only */}
+          <Route path="evidence" element={<EvidenceLibraryManagement />} />
+          <Route path="integrations" element={<WorkflowIntegrationDemo />} />
+          <Route path="taxonomy" element={<TaxonomyManagement />} />
       
         {/* Main User Workflow Routes - For Investigators & Analysts */}
         <Route path="/incident-reporting" element={<IncidentReporting />} />
@@ -126,7 +127,9 @@ function Router() {
         <Route path="/incidents/:id/fallback-analysis" element={<FallbackAnalysisPage />} />
         <Route path="/summary-report/:incidentId" element={<SummaryReport />} />
         <Route path="/analysis-details/:incidentId" element={<AnalysisDetails />} />
-        <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </BrowserRouter>
   );
