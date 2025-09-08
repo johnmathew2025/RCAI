@@ -11,6 +11,11 @@ export const SENTINEL = {
   LOADING_TYPES: 'LOADING_TYPES',        // Loading types state
   LOADING_SUBTYPES: 'LOADING_SUBTYPES',  // Loading subtypes state
   NO_RISK_RANKINGS: 'NO_RISK_RANKINGS',  // No risk rankings available
+  FIELD_EMPTY: 'FIELD_EMPTY',            // Form field empty state
+  SELECT_OPTION: 'SELECT_OPTION',        // Select option placeholder
+  FILTER_EQUIPMENT_GROUPS: 'FILTER_EQUIPMENT_GROUPS', // Filter placeholder
+  FILTER_EQUIPMENT_TYPES: 'FILTER_EQUIPMENT_TYPES',   // Filter placeholder
+  FILTER_SUBTYPES: 'FILTER_SUBTYPES',    // Filter placeholder
 } as const;
 
 export type SentinelValue = typeof SENTINEL[keyof typeof SENTINEL];

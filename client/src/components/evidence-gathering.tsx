@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { SENTINEL } from '@/constants/sentinels';
 import { apiRequest } from "@/lib/queryClient";
 import { MessageCircle, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import type { Analysis } from "@shared/schema";
@@ -311,7 +312,7 @@ export default function EvidenceGathering({ analysis, onComplete }: EvidenceGath
                   
                   {question.type === 'text' && (
                     <Textarea
-                      value={responses[question.id] || ''}
+                      value={responses[question.id] || SENTINEL.FIELD_EMPTY}
                       onChange={(e) => handleResponseChange(question.id, e.target.value)}
                       placeholder="Please provide details..."
                       className="min-h-[80px]"
@@ -321,7 +322,7 @@ export default function EvidenceGathering({ analysis, onComplete }: EvidenceGath
                   {question.type === 'number' && (
                     <Input
                       type="number"
-                      value={responses[question.id] || ''}
+                      value={responses[question.id] || SENTINEL.FIELD_EMPTY}
                       onChange={(e) => handleResponseChange(question.id, e.target.value)}
                       placeholder="Enter value..."
                     />
@@ -329,7 +330,7 @@ export default function EvidenceGathering({ analysis, onComplete }: EvidenceGath
                   
                   {question.type === 'select' && (
                     <select
-                      value={responses[question.id] || ''}
+                      value={responses[question.id] || SENTINEL.FIELD_EMPTY}
                       onChange={(e) => handleResponseChange(question.id, e.target.value)}
                       className="w-full p-2 border border-gray-300 rounded-md bg-white"
                     >

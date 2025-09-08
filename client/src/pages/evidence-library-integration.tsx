@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Search, Filter, Plus, Edit, Trash2, RefreshCw, Database, FileText, AlertTriangle, CheckCircle, ArrowRight, Settings } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { ADMIN_SECTIONS } from '@/config/adminNav';
+import { SENTINEL } from '@/constants/sentinels';
 
 interface EquipmentGroup {
   id: number;
@@ -384,7 +385,7 @@ export default function EvidenceLibraryIntegration() {
             <div className="space-y-2">
               <Label htmlFor="group-filter">Equipment Group</Label>
               <Select 
-                value={selectedGroupId?.toString() || ""} 
+                value={selectedGroupId?.toString() || SENTINEL.FIELD_EMPTY} 
                 onValueChange={(value) => {
                   setSelectedGroupId(value ? parseInt(value) : null);
                   setSelectedTypeId(null);
@@ -409,7 +410,7 @@ export default function EvidenceLibraryIntegration() {
             <div className="space-y-2">
               <Label htmlFor="type-filter">Equipment Type</Label>
               <Select 
-                value={selectedTypeId?.toString() || ""} 
+                value={selectedTypeId?.toString() || SENTINEL.FIELD_EMPTY} 
                 onValueChange={(value) => {
                   setSelectedTypeId(value ? parseInt(value) : null);
                   setSelectedSubtypeId(null);
@@ -434,7 +435,7 @@ export default function EvidenceLibraryIntegration() {
             <div className="space-y-2">
               <Label htmlFor="subtype-filter">Equipment Subtype</Label>
               <Select 
-                value={selectedSubtypeId?.toString() || ""} 
+                value={selectedSubtypeId?.toString() || SENTINEL.FIELD_EMPTY} 
                 onValueChange={(value) => setSelectedSubtypeId(value ? parseInt(value) : null)}
                 disabled={!selectedTypeId}
               >

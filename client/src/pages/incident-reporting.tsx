@@ -23,6 +23,7 @@ import type { CreateIncidentResponse } from '@/../../shared/types';
 import { FORM_NAME_PREFIX, LOCALSTORAGE_DRAFT_PREFIX, EDIT_PARAM, REACT_QUERY_KEYS, DEFAULTS, PERSIST_DRAFTS_SERVER } from "@/config/incidentForm";
 import { purgeAllDrafts } from "@/utils/storage";
 import { useAutosave } from "@/hooks/use-autosave";
+import { SENTINEL } from '@/constants/sentinels';
 
 // Helper function: Convert datetime-local to ISO 8601 with timezone
 function localDatetimeToISO(dtLocal: string): string | undefined {
@@ -534,7 +535,7 @@ export default function IncidentReporting() {
                         <FormLabel>Equipment Group</FormLabel>
                         <Select 
                           onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
-                          value={field.value?.toString() || ""}
+                          value={field.value?.toString() || SENTINEL.FIELD_EMPTY}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -567,7 +568,7 @@ export default function IncidentReporting() {
                         <FormLabel>Equipment Type</FormLabel>
                         <Select 
                           onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
-                          value={field.value?.toString() || ""}
+                          value={field.value?.toString() || SENTINEL.FIELD_EMPTY}
                           disabled={!selectedGroupId}
                         >
                           <FormControl>
@@ -601,7 +602,7 @@ export default function IncidentReporting() {
                         <FormLabel>Equipment Subtype</FormLabel>
                         <Select 
                           onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
-                          value={field.value?.toString() || ""}
+                          value={field.value?.toString() || SENTINEL.FIELD_EMPTY}
                           disabled={!selectedTypeId}
                         >
                           <FormControl>
@@ -833,7 +834,7 @@ export default function IncidentReporting() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Issue Frequency</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <Select onValueChange={field.onChange} value={field.value || SENTINEL.FIELD_EMPTY}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select frequency..." />
