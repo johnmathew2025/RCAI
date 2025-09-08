@@ -81,7 +81,7 @@ export function AIDebugPanel({ isVisible }: AIDebugPanelProps) {
       
       let providerStats = undefined;
       try {
-        const debugResponse = await api('/ai/providers/debug');
+        const debugResponse = await api('/admin/ai-settings/debug');
         if (debugResponse.ok) {
           providerStats = await debugResponse.json();
         }

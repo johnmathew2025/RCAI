@@ -21,11 +21,11 @@ export const API_ENDPOINTS = {
   health: () => buildApiEndpoint('/health'),
   
   // AI Provider endpoints  
-  aiProviders: () => buildApiEndpoint('/ai/providers'),
-  aiProviderById: (id: number | string) => buildApiEndpoint(`/ai/providers/${id}`),
-  aiProviderTest: (id: number | string) => buildApiEndpoint(`/ai/providers/${id}/test`),
-  aiProviderActivate: (id: number | string) => buildApiEndpoint(`/ai/providers/${id}/activate`),
-  aiProvidersDebug: () => buildApiEndpoint('/ai/providers/debug'),
+  aiProviders: () => buildApiEndpoint('/admin/ai-settings'),
+  aiProviderById: (id: number | string) => buildApiEndpoint(`/admin/ai-settings/${id}`),
+  aiProviderTest: (id: number | string) => buildApiEndpoint(`/admin/ai-settings/${id}/test`),
+  aiProviderActivate: (id: number | string) => buildApiEndpoint(`/admin/ai-settings/${id}/activate`),
+  aiProvidersDebug: () => buildApiEndpoint('/admin/ai-settings/debug'),
   
   // Equipment Management endpoints
   equipmentGroups: () => buildApiEndpoint('/equipment-groups'),
