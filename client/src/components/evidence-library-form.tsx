@@ -414,7 +414,7 @@ export default function EvidenceLibraryForm({ isOpen, onClose, item, onSuccess }
                   <SelectContent>
                     {risks.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                     {riskRankings.length === 0 && (
-                      <SelectItem value="" disabled>
+                      <SelectItem value="NO_RISK_RANKINGS" disabled>
                         No risk rankings configured in admin section
                       </SelectItem>
                     )}

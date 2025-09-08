@@ -611,7 +611,7 @@ export default function IncidentReporting() {
                           </FormControl>
                           <SelectContent>
                             {subtypesLoading ? (
-                              <SelectItem value="" disabled>Loading subtypes...</SelectItem>
+                              <SelectItem value="LOADING_SUBTYPES" disabled>Loading subtypes...</SelectItem>
                             ) : (
                               equipmentSubtypes.map((subtype) => (
                                 <SelectItem key={subtype.id} value={subtype.id.toString()}>
