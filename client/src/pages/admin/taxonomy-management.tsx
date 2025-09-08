@@ -21,6 +21,7 @@ import { Plus, Edit, Trash2, RefreshCw, Database, CheckCircle, AlertCircle, Home
 import { apiRequest } from '@/lib/queryClient';
 import { Link } from 'react-router-dom';
 import { ADMIN_SECTIONS, TAXONOMY_TABS } from '@/config/adminNav';
+import { SENTINEL } from '@/constants/sentinels';
 
 interface EquipmentGroup {
   id: number;
@@ -325,7 +326,7 @@ export default function TaxonomyManagement() {
                   <div className="flex items-center space-x-4">
                     <Label htmlFor="group-select">Equipment Group:</Label>
                     <Select 
-                      value={selectedGroupId?.toString() || ""} 
+                      value={selectedGroupId?.toString() || SENTINEL.FIELD_EMPTY} 
                       onValueChange={(value) => setSelectedGroupId(parseInt(value))}
                     >
                       <SelectTrigger className="w-[200px]">
@@ -344,7 +345,7 @@ export default function TaxonomyManagement() {
                   <div className="flex items-center space-x-4">
                     <Label htmlFor="type-select">Equipment Type:</Label>
                     <Select 
-                      value={selectedTypeId?.toString() || ""} 
+                      value={selectedTypeId?.toString() || SENTINEL.FIELD_EMPTY} 
                       onValueChange={(value) => setSelectedTypeId(parseInt(value))}
                       disabled={!selectedGroupId}
                     >

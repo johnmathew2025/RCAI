@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Save, X } from "lucide-react";
+import { SENTINEL } from '@/constants/sentinels';
 
 // Form validation schema with exact field parity
 const evidenceFormSchema = z.object({
@@ -319,7 +320,7 @@ export default function ComprehensiveEvidenceForm({
                 <FormItem>
                   <FormLabel>Subtype (Optional)</FormLabel>
                   <Select
-                    value={field.value?.toString() || ""}
+                    value={field.value?.toString() || SENTINEL.FIELD_EMPTY}
                     onValueChange={(value) => {
                       field.onChange(value === SENTINEL_NONE_VALUE ? undefined : parseInt(value));
                     }}

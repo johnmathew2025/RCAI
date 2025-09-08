@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Plus, Edit2, Trash2, Link, AlertCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { SENTINEL } from '@/constants/sentinels';
 
 // Types for FK-enforced taxonomy
 interface EquipmentGroup {
@@ -355,7 +356,7 @@ function AddTypeForm({
       <div>
         <Label htmlFor="group-select">Equipment Group *</Label>
         <Select 
-          value={selectedGroupId?.toString() || ''} 
+          value={selectedGroupId?.toString() || SENTINEL.FIELD_EMPTY} 
           onValueChange={(value) => setSelectedGroupId(value ? parseInt(value) : null)}
           required
         >
@@ -421,7 +422,7 @@ function AssignGroupForm({
       <div>
         <Label htmlFor="assign-group-select">Assign to Equipment Group *</Label>
         <Select 
-          value={selectedGroupId?.toString() || ''} 
+          value={selectedGroupId?.toString() || SENTINEL.FIELD_EMPTY} 
           onValueChange={(value) => setSelectedGroupId(value ? parseInt(value) : null)}
           required
         >
