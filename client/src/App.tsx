@@ -41,7 +41,6 @@ import DeploymentReadyDashboard from "@/pages/deployment-ready-dashboard";
 import { WorkflowIntegration } from "@/pages/WorkflowIntegration";
 import RcaTriage from "@/pages/rca-triage";
 import RcaCases from "@/pages/rca-cases";
-import RequireConfigured from "@/routes/RequireConfigured";
 
 
 function Router() {

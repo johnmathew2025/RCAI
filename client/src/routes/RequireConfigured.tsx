@@ -18,16 +18,24 @@ export default function RequireConfigured({ children }: { children: JSX.Element 
   });
   const location = useLocation();
 
-  // Never block the admin-settings page itself
-  if (location.pathname.startsWith("/admin-settings") || location.pathname.startsWith("/admin")) {
+  // Never block admin pages or home
+  if (location.pathname.startsWith("/admin") || location.pathname === "/") {
     return children;
   }
 
-  if (isLoading) return null; // or a small skeleton
-  if (error) return <Navigate to="/admin-settings" replace state={{ reason: "load-error" }} />;
+  if (isLoading) return null;
+  if (error) {
+    console.log("[RequireConfigured] API error - allowing access");
+    return children;
+  }
 
   const providers = Array.isArray(data) ? data : [];
   const hasActive = providers.some(p => p.isActive);
 
-  return hasActive ? children : <Navigate to="/admin-settings" replace state={{ reason: "no-active-provider" }} />;
+  // Only redirect to admin-settings for analysis pages that need AI
+  if (!hasActive && (location.pathname.includes("analysis") || location.pathname.includes("ai-powered"))) {
+    return <Navigate to="/admin-settings" replace state={{ reason: "no-active-provider" }} />;
+  }
+
+  return children;
 }

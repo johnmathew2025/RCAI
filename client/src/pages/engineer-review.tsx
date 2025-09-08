@@ -556,7 +556,7 @@ export default function EngineerReview() {
           </Button>
           {reviewData.approved && (
             <Button 
-              onClick={() => navigate('/'))
+              onClick={() => navigate('/')}
               className="flex items-center gap-2"
             >
               Complete Investigation

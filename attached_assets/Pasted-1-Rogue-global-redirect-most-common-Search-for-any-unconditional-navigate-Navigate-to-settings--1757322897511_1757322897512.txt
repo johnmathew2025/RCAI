@@ -1,0 +1,101 @@
+1) Rogue global redirect (most common)
+Search for any unconditional navigate/Navigate to settings:
+•	navigate('/admin/settings'
+•	<Navigate to="/admin/settings"
+•	window.location = '/admin/settings'
+If you see it inside App.tsx, AdminLayout, AuthGate, or a top-level useEffect, it will hijack all navigation (including new tabs).
+❌ Bad (fires on every render):
+useEffect(() => {
+  navigate('/admin/settings', { replace: true });
+}, []); // ← no guard
+✅ Good (only when path is the bare /admin):
+const location = useLocation();
+useEffect(() => {
+  if (location.pathname === '/admin') {
+    navigate('/admin/dashboard', { replace: true }); // or your desired default
+  }
+}, [location.pathname, navigate]);
+2) Over-eager wildcard / catch-all route
+In React Router v6, a catch-all placed too high will swallow everything.
+❌ Bad:
+<Routes>
+  <Route path="/admin/*" element={<Navigate to="/admin/settings" replace />} />
+</Routes>
+✅ Good (put your real admin routes first; wildcard last and to a NotFound):
+<Routes>
+  <Route path="/admin" element={<AdminLayout />}>
+    <Route index element={<Navigate to="dashboard" replace />} />
+    <Route path="dashboard" element={<Dashboard />} />
+    <Route path="settings" element={<Settings />} />
+    {/* ...other pages... */}
+    <Route path="*" element={<NotFound />} />
+  </Route>
+</Routes>
+3) Wrong basename + relative links
+If you’re serving under /admin, set a basename and use leading slashes.
+✅ Router:
+<BrowserRouter basename="/admin">
+  {/* routes here */}
+</BrowserRouter>
+✅ Links (absolute):
+<Link to="/settings" />   // not "settings" if basename is used
+If you don’t use basename, then use full paths:
+<Link to="/admin/settings" />
+4) Sidebar/menu onClick that always “restores last tab”
+Check shared nav components for code like:
+const last = localStorage.getItem('lastAdminTab') ?? '/admin/settings';
+navigate(last, { replace: true });
+Guard it so it only runs on initial mount and only when you don’t already have a concrete route.
+5) Auth/tenant guard auto-routing
+Auth wrappers sometimes redirect after login:
+❌
+if (isAuthed) return <Navigate to="/admin/settings" replace />;
+✅ Only redirect when landing on a neutral route:
+if (isAuthed && location.pathname === '/admin') {
+  return <Navigate to="/admin/dashboard" replace />;
+}
+6) Mixed href left in layout template
+Even if pages use <Link to>, a single href="/admin/settings" in the shell (logo, brand, or “Home” button) can hijack new-tab opens. Grep the layout/header/sidebar for href= and convert to <Link to>.
+7) Relative to paths causing all links to resolve under /admin/settings
+If you render links inside a nested route and use to="something" (no slash), they become relative. If your current route is /admin/settings, to="evidence-library" becomes /admin/settings/evidence-library and may miss your intended route—then your wildcard or guard might bounce back to settings. Fix by making them absolute (/admin/evidence-library) or add the proper nesting in your routes.
+8) Server rewrite defaulting to /admin/settings
+Your server (or Replit static handler) might rewrite unknown routes to /admin/settings instead of /index.html. Ensure SPA rewrites send all paths to the app entry (e.g., index.html), not to a feature path.
+________________________________________
+Quick “find everything” commands
+Run these in the repo root to smoke out offenders:
+rg -n "Navigate\s*\(\s*to\s*=\s*[\"']\/admin\/settings"
+rg -n "navigate\(\s*[\"']\/admin\/settings"
+rg -n "window\.location(?:\.href)?\s*=\s*[\"']\/admin\/settings"
+rg -n "<a[^>]*href=['\"][^'\"]+"
+rg -n "<Link[^>]*to=['\"][^/'\"]"  # relative links without leading slash
+ 
+Minimal, known-good router skeleton (drop-in sanity check)
+Use this to validate your structure; if this works, add pages back one by one until the redirect reappears:
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AdminLayout from './AdminLayout';
+import Dashboard from './pages/Dashboard';
+import Settings from './pages/Settings';
+import Evidence from './pages/Evidence';
+import NotFound from './pages/NotFound';
+
+export default function App() {
+  return (
+    <BrowserRouter basename="/admin">
+      <Routes>
+        <Route path="/" element={<Navigate to="/admin" replace />} />
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="evidence" element={<Evidence />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+ 
+Why “new tab” also goes to Settings
+Opening in a new tab reloads the SPA at the target URL; if your default/index route or a layout effect force-navigates to /admin/settings, the fresh tab will always land there—exactly what you’re seeing.
+
