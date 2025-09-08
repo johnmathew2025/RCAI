@@ -67,8 +67,21 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   console.log("[ROUTES] Starting registerRoutes function - CRITICAL DEBUG");
   
+  // KILL OLD HARDCODED ENDPOINT - PERMANENTLY BLOCKED
+  app.get('/api/ai/providers', (_req, res) => {
+    res.status(410).json({ error: 'Deprecated. Use /api/admin/ai-settings.' });
+  });
+  app.post('/api/ai/providers*', (_req, res) => {
+    res.status(410).json({ error: 'Deprecated. Use /api/admin/ai-settings.' });
+  });
+  app.put('/api/ai/providers*', (_req, res) => {
+    res.status(410).json({ error: 'Deprecated. Use /api/admin/ai-settings.' });
+  });
+  app.delete('/api/ai/providers*', (_req, res) => {
+    res.status(410).json({ error: 'Deprecated. Use /api/admin/ai-settings.' });
+  });
+  
   // Apply AI Settings debug middleware to all AI routes
-  app.use('/api/ai/providers', aiDebugMiddleware.middleware());
   app.use('/api/admin/ai-settings', aiDebugMiddleware.middleware());
   
   // Stable version endpoint using single source of truth

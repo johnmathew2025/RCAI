@@ -1,0 +1,67 @@
+A) Kill the old endpoint at the server (can’t be used again)
+// server (before your router exports)
+app.get('/api/ai/providers', (_req, res) => {
+  res.status(410).json({ error: 'Deprecated. Use /api/admin/ai-settings.' });
+});
+B) Make the “Universal” table use the single source of truth
+Create one hook and use it everywhere (including the Universal table).
+// client/src/hooks/useAiSettings.ts
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
+
+export function useAiSettings() {
+  return useQuery({
+    queryKey: ['admin.aiSettings.v2'],               // NEW key (v2 busts old cache)
+    queryFn: async () => (await api.get('/api/admin/ai-settings')).data,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+  });
+}
+In AIProvidersTable (the “Universal” section), replace any previous fetch/query with:
+const { data = [] } = useAiSettings();
+And in any mutations (add/delete/toggle):
+queryClient.invalidateQueries({ queryKey: ['admin.aiSettings.v2'] });
+If you still have useQuery(['aiProviders'], ...) anywhere, change it to ['admin.aiSettings.v2'].
+C) If you use React Query persistence, bust it
+If you use @tanstack/query-persist-client:
+// client/src/lib/queryClient.ts
+export const persistOptions = {
+  // change this string to force a full cache reset
+  buster: '2025-09-08-ai-endpoint-migration-2'
+};
+On app bootstrap (one-time), you can also hard clear in dev:
+// DEV-ONLY: clear any old caches
+queryClient.clear();
+localStorage.removeItem('REACT_QUERY_OFFLINE_CACHE'); // or your chosen key
+D) Guardrail: dev-only network watchdog
+Drop this in dev to catch any future calls to the banned route and show a stack trace:
+if (import.meta.env.DEV) {
+  const _fetch = window.fetch;
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    if (url.includes('/api/ai/providers')) {
+      console.warn('[HARD-FORBIDDEN] /api/ai/providers requested', new Error().stack);
+    }
+    return _fetch(input, init);
+  };
+}
+E) Browser-side hard refresh + cache purge (once)
+Open the app → press Cmd/Ctrl+Shift+R (bypass cache).
+DevTools → Application → Local Storage and IndexedDB: delete any React Query cache keys.
+DevTools → Application → Service Workers: Unregister; Clear storage → select all → Clear site data.
+F) Verify (objective)
+Terminal (server running):
+# Canonical endpoint returns empty
+curl -s http://localhost:5000/api/admin/ai-settings | jq
+
+# Old endpoint must be blocked
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5000/api/ai/providers
+# expect 410
+Browser (Network tab):
+Filter: providers
+Interact with the “AI Providers (Universal)” table.
+You should see only requests to /api/admin/ai-settings.
+Zero requests to /api/ai/providers.
+Table should now be empty (matching the top box).
