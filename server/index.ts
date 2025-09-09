@@ -8,32 +8,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-// UNIVERSAL PROTOCOL STANDARD: Validate encryption secret at startup
-const encryptionKeyBase64 = process.env.AI_KEY_ENCRYPTION_SECRET;
-if (!encryptionKeyBase64) {
-  console.error("🚨 PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET not found");
-  console.error("Please set AI_KEY_ENCRYPTION_SECRET to a Base64-encoded 32-byte key using Replit secrets manager");
-  process.exit(1);
-}
-
-// Validate Base64 encoding and decode to bytes
-let encryptionKeyBytes: Buffer;
-try {
-  // Support both standard and URL-safe Base64
-  const normalizedBase64 = encryptionKeyBase64.replace(/-/g, '+').replace(/_/g, '/');
-  encryptionKeyBytes = Buffer.from(normalizedBase64, 'base64');
-} catch (error) {
-  console.error("🚨 PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET is not valid Base64");
-  console.error("Please provide a valid Base64-encoded 32-byte key");
-  process.exit(1);
-}
-
-if (encryptionKeyBytes.length !== 32) {
-  console.error(`🚨 PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET must decode to exactly 32 bytes, got ${encryptionKeyBytes.length} bytes`);
-  console.error("AES-256-CBC encryption requires exactly 32 bytes (256 bits)");
-  process.exit(1);
-}
-console.log(`✅ AI_KEY_ENCRYPTION_SECRET loaded successfully (${encryptionKeyBase64.length} chars -> ${encryptionKeyBytes.length} bytes)`);
+// UNIVERSAL PROTOCOL STANDARD: Validate crypto key at startup
+// Replaced AI_KEY_ENCRYPTION_SECRET with CRYPTO_KEY_32 system
 
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
@@ -45,6 +21,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { UniversalAIConfig } from "./universal-ai-config";
+import { loadCryptoKey } from "./config/crypto-key";
+
+// Fail-fast boot: ensure crypto key is available
+loadCryptoKey(); // throws if missing → process exits with clear message
 
 const app = express();
 
