@@ -524,7 +524,7 @@ export default function DataIntegrationDemo() {
                     <Label htmlFor="sourceName">Source Name *</Label>
                     <Input
                       id="sourceName"
-                      value={newDataSource.sourceName || SENTINEL.FIELD_EMPTY}
+                      value={newDataSource.sourceName || undefined}
                       onChange={(e) => setNewDataSource(prev => ({ ...prev, sourceName: e.target.value }))}
                       placeholder="Enter descriptive name (e.g., 'Production CMMS')"
                     />
@@ -555,7 +555,7 @@ export default function DataIntegrationDemo() {
                     <Label htmlFor="endpoint">Connection Endpoint</Label>
                     <Input
                       id="endpoint"
-                      value={newDataSource.connectionConfig?.endpoint || SENTINEL.FIELD_EMPTY}
+                      value={newDataSource.connectionConfig?.endpoint || undefined}
                       onChange={(e) => setNewDataSource(prev => ({ 
                         ...prev, 
                         connectionConfig: { ...prev.connectionConfig!, endpoint: e.target.value }
@@ -634,7 +634,7 @@ export default function DataIntegrationDemo() {
                     <Label htmlFor="username">Username</Label>
                     <Input
                       id="username"
-                      value={newDataSource.connectionConfig?.username || SENTINEL.FIELD_EMPTY}
+                      value={newDataSource.connectionConfig?.username || undefined}
                       onChange={(e) => setNewDataSource(prev => ({ 
                         ...prev, 
                         connectionConfig: { ...prev.connectionConfig!, username: e.target.value }
@@ -697,7 +697,7 @@ export default function DataIntegrationDemo() {
                       <div className="space-y-1">
                         <Label className="text-xs">Default Value</Label>
                         <Input
-                          value={field.defaultValue || SENTINEL.FIELD_EMPTY}
+                          value={field.defaultValue || undefined}
                           onChange={(e) => updateSourceField(index, { defaultValue: e.target.value })}
                           placeholder="default"
                           className="h-8"
@@ -763,7 +763,7 @@ export default function DataIntegrationDemo() {
                     <Input
                       id="interval"
                       type="number"
-                      value={newDataSource.syncSchedule?.interval || SENTINEL.FIELD_EMPTY}
+                      value={newDataSource.syncSchedule?.interval || undefined}
                       onChange={(e) => setNewDataSource(prev => ({ 
                         ...prev, 
                         syncSchedule: { ...prev.syncSchedule!, interval: parseInt(e.target.value) }

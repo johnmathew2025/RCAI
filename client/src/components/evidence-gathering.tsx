@@ -312,7 +312,7 @@ export default function EvidenceGathering({ analysis, onComplete }: EvidenceGath
                   
                   {question.type === 'text' && (
                     <Textarea
-                      value={responses[question.id] || SENTINEL.FIELD_EMPTY}
+                      value={responses[question.id] || undefined}
                       onChange={(e) => handleResponseChange(question.id, e.target.value)}
                       placeholder="Please provide details..."
                       className="min-h-[80px]"
@@ -322,7 +322,7 @@ export default function EvidenceGathering({ analysis, onComplete }: EvidenceGath
                   {question.type === 'number' && (
                     <Input
                       type="number"
-                      value={responses[question.id] || SENTINEL.FIELD_EMPTY}
+                      value={responses[question.id] || undefined}
                       onChange={(e) => handleResponseChange(question.id, e.target.value)}
                       placeholder="Enter value..."
                     />
@@ -330,7 +330,7 @@ export default function EvidenceGathering({ analysis, onComplete }: EvidenceGath
                   
                   {question.type === 'select' && (
                     <select
-                      value={responses[question.id] || SENTINEL.FIELD_EMPTY}
+                      value={responses[question.id] || undefined}
                       onChange={(e) => handleResponseChange(question.id, e.target.value)}
                       className="w-full p-2 border border-gray-300 rounded-md bg-white"
                     >

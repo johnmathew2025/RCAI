@@ -4721,6 +4721,42 @@ Respond in JSON format:
   }
 });
 
+// server/rbac-middleware.ts
+async function requireAdmin(req, res, next) {
+  try {
+    const userId = req.user?.id || req.headers["x-user-id"];
+    if (!userId) {
+      console.log("[RBAC] No user ID provided - denying access");
+      return res.status(403).json({ reason: "forbidden", message: "Authentication required" });
+    }
+    const user = await investigationStorage.getUser(userId);
+    if (!user) {
+      console.log(`[RBAC] User ${userId} not found - denying access`);
+      return res.status(403).json({ reason: "forbidden", message: "User not found" });
+    }
+    if (user.role !== "admin") {
+      console.log(`[RBAC] User ${userId} has role '${user.role}', not 'admin' - denying access`);
+      return res.status(403).json({ reason: "forbidden", message: "Admin role required" });
+    }
+    req.user = {
+      id: user.id,
+      role: user.role,
+      email: user.email || void 0
+    };
+    console.log(`[RBAC] Admin access granted to user ${userId}`);
+    next();
+  } catch (error) {
+    console.error("[RBAC] Error checking admin permissions:", error);
+    res.status(500).json({ error: "Permission check failed" });
+  }
+}
+var init_rbac_middleware = __esm({
+  "server/rbac-middleware.ts"() {
+    "use strict";
+    init_storage();
+  }
+});
+
 // src/db/connection.ts
 import { drizzle as drizzle2 } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
@@ -4884,13 +4920,189 @@ var init_evidence_service = __esm({
   }
 });
 
+// server/config/crypto-key.ts
+var crypto_key_exports = {};
+__export(crypto_key_exports, {
+  loadCryptoKey: () => loadCryptoKey
+});
+import fs2 from "fs";
+function loadCryptoKey() {
+  const env = process.env.CRYPTO_KEY_32;
+  if (env) {
+    try {
+      if (env.length === 44) {
+        const decoded = Buffer.from(env, "base64");
+        if (decoded.length === 32) {
+          return decoded.toString("utf8");
+        }
+        throw new Error(
+          `Invalid CRYPTO_KEY_32: Base64 decodes to ${decoded.length} bytes. Must be exactly 32 bytes.`
+        );
+      } else if (env.length === 32) {
+        return env;
+      } else {
+        throw new Error(
+          `Invalid CRYPTO_KEY_32 format: ${env.length} chars. Must be 32 chars or Base64-encoded 32 bytes (44 chars).`
+        );
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("Invalid CRYPTO_KEY_32")) {
+        throw error;
+      }
+      throw new Error(`Invalid CRYPTO_KEY_32: Not valid Base64 - ${error}`);
+    }
+  }
+  const file = process.env.CRYPTO_KEY_FILE;
+  if (file && fs2.existsSync(file)) {
+    const k = fs2.readFileSync(file, "utf8").trim();
+    if (k.length === 32) return k;
+    try {
+      const decoded = Buffer.from(k, "base64");
+      if (decoded.length === 32) {
+        return decoded.toString("utf8");
+      }
+    } catch {
+    }
+    throw new Error(
+      `Invalid CRYPTO_KEY_FILE: Must be 32 chars or Base64-encoded 32 bytes.`
+    );
+  }
+  throw new Error(
+    "Missing CRYPTO_KEY_32. Admin must set a 32-byte key (Base64 encoded) via Replit secrets."
+  );
+}
+var init_crypto_key = __esm({
+  "server/config/crypto-key.ts"() {
+    "use strict";
+  }
+});
+
+// server/security/crypto.ts
+import crypto3 from "crypto";
+var ALG, KEY, encrypt, decrypt;
+var init_crypto = __esm({
+  "server/security/crypto.ts"() {
+    "use strict";
+    init_crypto_key();
+    ALG = "aes-256-gcm";
+    KEY = Buffer.from(loadCryptoKey(), "utf8");
+    encrypt = (s) => {
+      const iv = crypto3.randomBytes(12);
+      const c = crypto3.createCipheriv(ALG, KEY, iv);
+      const ct = Buffer.concat([c.update(s, "utf8"), c.final()]);
+      const tag = c.getAuthTag();
+      return Buffer.concat([iv, tag, ct]).toString("base64");
+    };
+    decrypt = (b64) => {
+      const raw = Buffer.from(b64, "base64");
+      const iv = raw.subarray(0, 12);
+      const tag = raw.subarray(12, 28);
+      const ct = raw.subarray(28);
+      const d = crypto3.createDecipheriv(ALG, KEY, iv);
+      d.setAuthTag(tag);
+      return Buffer.concat([d.update(ct), d.final()]).toString("utf8");
+    };
+  }
+});
+
+// server/crypto.ts
+var init_crypto2 = __esm({
+  "server/crypto.ts"() {
+    "use strict";
+    init_crypto();
+  }
+});
+
+// server/routes/aiSettings.ts
+var aiSettings_exports = {};
+__export(aiSettings_exports, {
+  getPlainApiKey: () => getPlainApiKey,
+  router: () => router4
+});
+import { Router as Router4 } from "express";
+async function getPlainApiKey(id) {
+  const result = await db.execute(`
+    SELECT api_key_cipher, api_key_iv 
+    FROM ai_settings 
+    WHERE id = $1 LIMIT 1
+  `, [id]);
+  const row = result.rows[0];
+  if (!row) throw new Error("Missing provider");
+  return decrypt(row.api_key_iv, row.api_key_cipher);
+}
+var router4;
+var init_aiSettings = __esm({
+  "server/routes/aiSettings.ts"() {
+    "use strict";
+    init_db();
+    init_crypto2();
+    init_rbac_middleware();
+    router4 = Router4();
+    router4.get("/api/admin/ai-settings", requireAdmin, async (_req, res) => {
+      try {
+        const rows = await db.execute(`
+      SELECT id, provider, model_id, is_active, created_at 
+      FROM ai_settings 
+      ORDER BY created_at DESC
+    `);
+        const result = rows.rows.map((row) => ({
+          id: row.id,
+          provider: row.provider,
+          modelId: row.model_id,
+          isActive: row.is_active,
+          createdAt: row.created_at,
+          apiKeyPreview: "***"
+        }));
+        console.log(`[ADMIN] Retrieved ${result.length} AI settings (NO HARDCODING)`);
+        res.json(result);
+      } catch (error) {
+        console.error("[ADMIN] Error fetching AI settings:", error);
+        res.status(500).json({ error: "Failed to fetch AI settings" });
+      }
+    });
+    router4.post("/api/admin/ai-settings", requireAdmin, async (req, res) => {
+      try {
+        const { provider, modelId, apiKey, isActive } = req.body || {};
+        if (!provider || !modelId || !apiKey) {
+          return res.status(400).json({ error: "provider, modelId, apiKey required" });
+        }
+        const { iv, cipher } = encrypt(apiKey);
+        if (isActive === true) {
+          await db.execute("UPDATE ai_settings SET is_active = false");
+        }
+        const result = await db.execute(`
+      INSERT INTO ai_settings (provider, model_id, api_key_cipher, api_key_iv, is_active, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+      RETURNING id
+    `, [provider, modelId, cipher, iv, !!isActive]);
+        const id = result.rows[0]?.id;
+        console.log(`[ADMIN] Created AI setting ID ${id} for ${provider}`);
+        res.status(201).json({ id });
+      } catch (error) {
+        console.error("[ADMIN] Error creating AI setting:", error);
+        res.status(500).json({ error: "Failed to create AI setting" });
+      }
+    });
+    router4.delete("/api/admin/ai-settings/:id", requireAdmin, async (req, res) => {
+      try {
+        await db.execute("DELETE FROM ai_settings WHERE id = $1", [Number(req.params.id)]);
+        console.log(`[ADMIN] Deleted AI setting ID ${req.params.id}`);
+        res.sendStatus(204);
+      } catch (error) {
+        console.error("[ADMIN] Error deleting AI setting:", error);
+        res.status(500).json({ error: "Failed to delete AI setting" });
+      }
+    });
+  }
+});
+
 // server/version.ts
 var version_exports = {};
 __export(version_exports, {
   APP_BUILT_AT: () => APP_BUILT_AT,
   APP_VERSION: () => APP_VERSION
 });
-import fs2 from "fs";
+import fs3 from "fs";
 var fallbackVersion, version, APP_VERSION, APP_BUILT_AT;
 var init_version = __esm({
   "server/version.ts"() {
@@ -4899,7 +5111,7 @@ var init_version = __esm({
     version = process.env.GIT_COMMIT || "";
     if (!version) {
       try {
-        const buildFile = JSON.parse(fs2.readFileSync("./build-version.json", "utf8"));
+        const buildFile = JSON.parse(fs3.readFileSync("./build-version.json", "utf8"));
         version = buildFile?.commit || buildFile?.version || "";
       } catch {
       }
@@ -4916,7 +5128,7 @@ __export(equipment_exports, {
   default: () => equipment_default,
   validateEquipmentChain: () => validateEquipmentChain
 });
-import { Router as Router4 } from "express";
+import { Router as Router5 } from "express";
 import { eq as eq5, and as and4 } from "drizzle-orm";
 async function validateEquipmentChain(groupId, typeId, subtypeId) {
   console.log(`[EQUIPMENT-API] Validating chain: group=${groupId}, type=${typeId}, subtype=${subtypeId}`);
@@ -4937,14 +5149,14 @@ async function validateEquipmentChain(groupId, typeId, subtypeId) {
   console.log("[EQUIPMENT-API] Equipment chain validation passed");
   return true;
 }
-var router4, equipment_default;
+var router5, equipment_default;
 var init_equipment = __esm({
   "server/routes/equipment.ts"() {
     "use strict";
     init_db();
     init_schema();
-    router4 = Router4();
-    router4.get("/groups", async (req, res) => {
+    router5 = Router5();
+    router5.get("/groups", async (req, res) => {
       console.log("[EQUIPMENT-API] Fetching equipment groups");
       const active = req.query.active === "1";
       try {
@@ -4963,7 +5175,7 @@ var init_equipment = __esm({
         });
       }
     });
-    router4.get("/types", async (req, res) => {
+    router5.get("/types", async (req, res) => {
       const groupId = Number(req.query.groupId || 0);
       console.log(`[EQUIPMENT-API] Fetching equipment types for groupId=${groupId}`);
       if (!groupId) {
@@ -4991,7 +5203,7 @@ var init_equipment = __esm({
         });
       }
     });
-    router4.get("/subtypes", async (req, res) => {
+    router5.get("/subtypes", async (req, res) => {
       const typeId = Number(req.query.typeId || 0);
       console.log(`[EQUIPMENT-API] Fetching equipment subtypes for typeId=${typeId}`);
       if (!typeId) {
@@ -5019,7 +5231,7 @@ var init_equipment = __esm({
         });
       }
     });
-    equipment_default = router4;
+    equipment_default = router5;
   }
 });
 
@@ -7745,15 +7957,15 @@ var assets_exports = {};
 __export(assets_exports, {
   default: () => assets_default
 });
-import { Router as Router5 } from "express";
+import { Router as Router6 } from "express";
 import { eq as eq6, and as and5, or as or2, ilike, desc } from "drizzle-orm";
-var router5, simpleAuth, simpleAuthorize, assets_default;
+var router6, simpleAuth, simpleAuthorize, assets_default;
 var init_assets = __esm({
   "src/api/assets.ts"() {
     "use strict";
     init_connection();
     init_schema();
-    router5 = Router5();
+    router6 = Router6();
     simpleAuth = (req, res, next) => {
       req.user = {
         id: "test-user-" + Date.now(),
@@ -7772,8 +7984,8 @@ var init_assets = __esm({
       }
       next();
     };
-    router5.use(simpleAuth);
-    router5.get("/", async (req, res) => {
+    router6.use(simpleAuth);
+    router6.get("/", async (req, res) => {
       try {
         const { query, manufacturerId, modelId, group, type, limit = "50" } = req.query;
         console.log("[ASSETS] Searching assets:", { query, manufacturerId, modelId, group, type, limit });
@@ -7822,7 +8034,7 @@ var init_assets = __esm({
         });
       }
     });
-    router5.get("/:id", async (req, res) => {
+    router6.get("/:id", async (req, res) => {
       try {
         const assetId = req.params.id;
         console.log("[ASSETS] Getting asset:", assetId);
@@ -7851,7 +8063,7 @@ var init_assets = __esm({
         });
       }
     });
-    router5.post("/", simpleAuthorize("CREATE_ASSET"), async (req, res) => {
+    router6.post("/", simpleAuthorize("CREATE_ASSET"), async (req, res) => {
       try {
         console.log("[ASSETS] Creating asset:", req.body);
         const {
@@ -7941,7 +8153,7 @@ var init_assets = __esm({
         });
       }
     });
-    assets_default = router5;
+    assets_default = router6;
   }
 });
 
@@ -7950,16 +8162,16 @@ var manufacturers_exports = {};
 __export(manufacturers_exports, {
   default: () => manufacturers_default
 });
-import { Router as Router6 } from "express";
+import { Router as Router7 } from "express";
 import { ilike as ilike2 } from "drizzle-orm";
-var router6, manufacturers_default;
+var router7, manufacturers_default;
 var init_manufacturers = __esm({
   "src/api/manufacturers.ts"() {
     "use strict";
     init_connection();
     init_schema();
-    router6 = Router6();
-    router6.get("/", async (req, res) => {
+    router7 = Router7();
+    router7.get("/", async (req, res) => {
       try {
         const { query, limit = "20" } = req.query;
         console.log("[MANUFACTURERS] Searching manufacturers:", { query, limit });
@@ -7982,7 +8194,7 @@ var init_manufacturers = __esm({
         });
       }
     });
-    manufacturers_default = router6;
+    manufacturers_default = router7;
   }
 });
 
@@ -7991,16 +8203,16 @@ var models_exports = {};
 __export(models_exports, {
   default: () => models_default
 });
-import { Router as Router7 } from "express";
+import { Router as Router8 } from "express";
 import { eq as eq7, and as and6, ilike as ilike3 } from "drizzle-orm";
-var router7, models_default;
+var router8, models_default;
 var init_models = __esm({
   "src/api/models.ts"() {
     "use strict";
     init_connection();
     init_schema();
-    router7 = Router7();
-    router7.get("/", async (req, res) => {
+    router8 = Router8();
+    router8.get("/", async (req, res) => {
       try {
         const { manufacturerId, query, limit = "20" } = req.query;
         console.log("[MODELS] Searching models:", { manufacturerId, query, limit });
@@ -8028,7 +8240,7 @@ var init_models = __esm({
         });
       }
     });
-    models_default = router7;
+    models_default = router8;
   }
 });
 
@@ -8281,7 +8493,7 @@ var incidents_exports = {};
 __export(incidents_exports, {
   default: () => incidents_default
 });
-import { Router as Router8 } from "express";
+import { Router as Router9 } from "express";
 import { z as z3 } from "zod";
 import { eq as eq9 } from "drizzle-orm";
 function toISOOrUndefined(input) {
@@ -8298,7 +8510,7 @@ function toISOOrUndefined(input) {
   const d2 = new Date(input);
   return isNaN(d2.getTime()) ? void 0 : d2.toISOString();
 }
-var router8, createIncidentSchema, addSymptomSchema, evidenceUploadSchema, simpleAuth2, simpleAuthorize2, incidents_default;
+var router9, createIncidentSchema, addSymptomSchema, evidenceUploadSchema, simpleAuth2, simpleAuthorize2, incidents_default;
 var init_incidents = __esm({
   "src/api/incidents.ts"() {
     "use strict";
@@ -8307,7 +8519,7 @@ var init_incidents = __esm({
     init_evidence_service();
     init_connection();
     init_schema();
-    router8 = Router8();
+    router9 = Router9();
     createIncidentSchema = z3.object({
       title: z3.string().min(1, "Title is required"),
       description: z3.string().min(1, "Description is required"),
@@ -8370,8 +8582,8 @@ var init_incidents = __esm({
       }
       next();
     };
-    router8.use(simpleAuth2);
-    router8.post("/", simpleAuthorize2("CREATE_INCIDENT"), async (req, res) => {
+    router9.use(simpleAuth2);
+    router9.post("/", simpleAuthorize2("CREATE_INCIDENT"), async (req, res) => {
       try {
         const validatedData = createIncidentSchema.parse(req.body);
         let assetSnapshots = {};
@@ -8455,7 +8667,7 @@ var init_incidents = __esm({
         });
       }
     });
-    router8.get("/:id", simpleAuthorize2("READ_INCIDENT_OWN"), async (req, res) => {
+    router9.get("/:id", simpleAuthorize2("READ_INCIDENT_OWN"), async (req, res) => {
       try {
         const { id } = req.params;
         let incident;
@@ -8536,7 +8748,7 @@ var init_incidents = __esm({
         });
       }
     });
-    router8.get("/", simpleAuthorize2("READ_INCIDENT_OWN"), async (req, res) => {
+    router9.get("/", simpleAuthorize2("READ_INCIDENT_OWN"), async (req, res) => {
       try {
         const filters = {
           status: req.query.status,
@@ -8567,7 +8779,7 @@ var init_incidents = __esm({
         });
       }
     });
-    router8.put("/:id", authorize("UPDATE_INCIDENT_OWN"), async (req, res) => {
+    router9.put("/:id", authorize("UPDATE_INCIDENT_OWN"), async (req, res) => {
       try {
         const { id } = req.params;
         const validatedData = createIncidentSchema.partial().parse(req.body);
@@ -8593,7 +8805,7 @@ var init_incidents = __esm({
         });
       }
     });
-    router8.post("/:id/symptoms", authorize("UPDATE_INCIDENT_OWN"), async (req, res) => {
+    router9.post("/:id/symptoms", authorize("UPDATE_INCIDENT_OWN"), async (req, res) => {
       try {
         const { id } = req.params;
         const validatedData = addSymptomSchema.parse(req.body);
@@ -8616,7 +8828,7 @@ var init_incidents = __esm({
         });
       }
     });
-    router8.post("/:id/evidence", authorize("ADD_EVIDENCE"), async (req, res) => {
+    router9.post("/:id/evidence", authorize("ADD_EVIDENCE"), async (req, res) => {
       try {
         const { id } = req.params;
         const validatedData = evidenceUploadSchema.parse(req.body);
@@ -8642,7 +8854,7 @@ var init_incidents = __esm({
         });
       }
     });
-    router8.get("/:id/evidence", authorize("VIEW_EVIDENCE"), async (req, res) => {
+    router9.get("/:id/evidence", authorize("VIEW_EVIDENCE"), async (req, res) => {
       try {
         const { id } = req.params;
         const evidence2 = await evidenceService.getIncidentEvidence(id, req.user);
@@ -8658,7 +8870,7 @@ var init_incidents = __esm({
         });
       }
     });
-    router8.get("/search/workflow", authorize("INITIATE_WORKFLOW"), async (req, res) => {
+    router9.get("/search/workflow", authorize("INITIATE_WORKFLOW"), async (req, res) => {
       try {
         const searchQuery = req.query.q;
         const incidents2 = await incidentService.getIncidentsForWorkflow(req.user, searchQuery);
@@ -8678,7 +8890,7 @@ var init_incidents = __esm({
         });
       }
     });
-    router8.get("/stats", authorize("READ_INCIDENT_OWN"), async (req, res) => {
+    router9.get("/stats", authorize("READ_INCIDENT_OWN"), async (req, res) => {
       try {
         const stats = await incidentService.getIncidentStats(req.user);
         res.json({
@@ -8693,7 +8905,7 @@ var init_incidents = __esm({
         });
       }
     });
-    incidents_default = router8;
+    incidents_default = router9;
   }
 });
 
@@ -8761,17 +8973,17 @@ var incidents_exports2 = {};
 __export(incidents_exports2, {
   default: () => incidents_default2
 });
-import { Router as Router9 } from "express";
+import { Router as Router10 } from "express";
 import { z as z5 } from "zod";
-var router9, incidents_default2;
+var router10, incidents_default2;
 var init_incidents3 = __esm({
   "server/src/api/v1/incidents.ts"() {
     "use strict";
     init_incidents2();
     init_storage();
     init_decision();
-    router9 = Router9();
-    router9.delete("/draft", async (req, res) => {
+    router10 = Router10();
+    router10.delete("/draft", async (req, res) => {
       try {
         console.log("[V1_INCIDENTS] Draft clear requested");
         res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
@@ -8786,7 +8998,7 @@ var init_incidents3 = __esm({
         });
       }
     });
-    router9.post("/", async (req, res) => {
+    router10.post("/", async (req, res) => {
       const parsed = IncidentCreateReqSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(422).json({
@@ -8817,7 +9029,7 @@ var init_incidents3 = __esm({
         });
       }
     });
-    router9.post("/:id/triage", async (req, res) => {
+    router10.post("/:id/triage", async (req, res) => {
       try {
         const { id } = req.params;
         const triageSchema = z5.object({
@@ -8857,7 +9069,7 @@ var init_incidents3 = __esm({
         });
       }
     });
-    router9.get("/:id/triage", async (req, res) => {
+    router10.get("/:id/triage", async (req, res) => {
       try {
         const { id } = req.params;
         const triage = await investigationStorage.getRcaTriage(String(id));
@@ -8880,7 +9092,7 @@ var init_incidents3 = __esm({
         });
       }
     });
-    incidents_default2 = router9;
+    incidents_default2 = router10;
   }
 });
 
@@ -8894,6 +9106,7 @@ var init_ai_status_monitor = __esm({
   "server/ai-status-monitor.ts"() {
     "use strict";
     init_storage();
+    init_crypto_key();
     AIStatusMonitor = class {
       static storage = new DatabaseInvestigationStorage();
       static lastAIOperation = null;
@@ -8906,6 +9119,13 @@ var init_ai_status_monitor = __esm({
         try {
           const aiSettings2 = await this.storage.getAllAiSettings();
           const activeProvider = aiSettings2.find((setting) => setting.isActive);
+          let cryptoKeyStatus = "missing";
+          try {
+            loadCryptoKey();
+            cryptoKeyStatus = "configured";
+          } catch (error) {
+            cryptoKeyStatus = "missing";
+          }
           const violations = [];
           let systemHealth = "configuration-required";
           if (activeProvider) {
@@ -8950,12 +9170,20 @@ var init_ai_status_monitor = __esm({
             systemHealth,
             lastAIOperation: this.lastAIOperation,
             complianceStatus: violations.length === 0 ? "compliant" : "hardcoding-detected",
-            violations
+            violations,
+            cryptoKey: cryptoKeyStatus
           };
           console.log(`[AI STATUS MONITOR] Status: ${systemHealth}, Compliance: ${statusReport.complianceStatus}`);
           return statusReport;
         } catch (error) {
           console.error("[AI STATUS MONITOR] Status check failed:", error);
+          let cryptoKeyStatus = "missing";
+          try {
+            loadCryptoKey();
+            cryptoKeyStatus = "configured";
+          } catch {
+            cryptoKeyStatus = "missing";
+          }
           return {
             timestamp: timestamp2,
             configurationSource: "admin-database",
@@ -8964,7 +9192,8 @@ var init_ai_status_monitor = __esm({
             systemHealth: "error",
             lastAIOperation: null,
             complianceStatus: "hardcoding-detected",
-            violations: ["Failed to access admin AI configuration"]
+            violations: ["Failed to access admin AI configuration"],
+            cryptoKey: cryptoKeyStatus
           };
         }
       }
@@ -9214,7 +9443,7 @@ var universal_evidence_analyzer_exports = {};
 __export(universal_evidence_analyzer_exports, {
   UniversalEvidenceAnalyzer: () => UniversalEvidenceAnalyzer
 });
-import * as fs3 from "fs";
+import * as fs4 from "fs";
 import { spawn } from "child_process";
 import * as mime from "mime-types";
 var UniversalEvidenceAnalyzer;
@@ -9252,7 +9481,7 @@ var init_universal_evidence_analyzer = __esm({
           } else {
             analysisEngine = "ai-text";
             console.log(`[UNIVERSAL EVIDENCE] Unknown file type, defaulting to AI/GPT text analysis`);
-            const textContent = fs3.readFileSync(filePath, "utf-8");
+            const textContent = fs4.readFileSync(filePath, "utf-8");
             const aiResult = await this.analyzeTextWithAI(textContent, fileName, equipmentContext);
             parsedData = aiResult.data;
             adequacyScore = aiResult.confidence;
@@ -9462,7 +9691,7 @@ Format response as JSON:
       static async analyzeVisualWithAI(filePath, fileName, equipmentContext) {
         try {
           const { DynamicAIConfig: DynamicAIConfig2 } = await Promise.resolve().then(() => (init_dynamic_ai_config(), dynamic_ai_config_exports));
-          const fileBuffer = fs3.readFileSync(filePath);
+          const fileBuffer = fs4.readFileSync(filePath);
           const base64Data = fileBuffer.toString("base64");
           const mimeType = mime.lookup(fileName) || "application/octet-stream";
           const visionPrompt = `
@@ -10586,7 +10815,7 @@ import express2 from "express";
 // server/routes.ts
 init_storage();
 import { createServer } from "http";
-import * as fs4 from "fs";
+import * as fs5 from "fs";
 import * as path2 from "path";
 
 // server/investigation-engine.ts
@@ -11984,39 +12213,7 @@ var aiDebugMiddleware = AISettingsDebugMiddleware.getInstance();
 init_universal_ai_config();
 init_dynamic_ai_config();
 init_ai_service();
-
-// server/rbac-middleware.ts
-init_storage();
-async function requireAdmin(req, res, next) {
-  try {
-    const userId = req.user?.id || req.headers["x-user-id"];
-    if (!userId) {
-      console.log("[RBAC] No user ID provided - denying access");
-      return res.status(403).json({ reason: "forbidden", message: "Authentication required" });
-    }
-    const user = await investigationStorage.getUser(userId);
-    if (!user) {
-      console.log(`[RBAC] User ${userId} not found - denying access`);
-      return res.status(403).json({ reason: "forbidden", message: "User not found" });
-    }
-    if (user.role !== "admin") {
-      console.log(`[RBAC] User ${userId} has role '${user.role}', not 'admin' - denying access`);
-      return res.status(403).json({ reason: "forbidden", message: "Admin role required" });
-    }
-    req.user = {
-      id: user.id,
-      role: user.role,
-      email: user.email || void 0
-    };
-    console.log(`[RBAC] Admin access granted to user ${userId}`);
-    next();
-  } catch (error) {
-    console.error("[RBAC] Error checking admin permissions:", error);
-    res.status(500).json({ error: "Permission check failed" });
-  }
-}
-
-// server/routes.ts
+init_rbac_middleware();
 import * as os from "os";
 
 // src/api/workflows.ts
@@ -13063,7 +13260,20 @@ var upload = multer({
 });
 async function registerRoutes(app3) {
   console.log("[ROUTES] Starting registerRoutes function - CRITICAL DEBUG");
-  app3.use("/api/ai/providers", aiDebugMiddleware.middleware());
+  app3.get("/api/ai/providers", (_req, res) => {
+    res.status(410).json({ error: "Deprecated. Use /api/admin/ai-settings." });
+  });
+  app3.post("/api/ai/providers*", (_req, res) => {
+    res.status(410).json({ error: "Deprecated. Use /api/admin/ai-settings." });
+  });
+  app3.put("/api/ai/providers*", (_req, res) => {
+    res.status(410).json({ error: "Deprecated. Use /api/admin/ai-settings." });
+  });
+  app3.delete("/api/ai/providers*", (_req, res) => {
+    res.status(410).json({ error: "Deprecated. Use /api/admin/ai-settings." });
+  });
+  const { router: aiSettingsRouter } = await Promise.resolve().then(() => (init_aiSettings(), aiSettings_exports));
+  app3.use(aiSettingsRouter);
   app3.use("/api/admin/ai-settings", aiDebugMiddleware.middleware());
   const { APP_VERSION: APP_VERSION2, APP_BUILT_AT: APP_BUILT_AT2 } = await Promise.resolve().then(() => (init_version(), version_exports));
   app3.get("/api/meta", (_req, res) => {
@@ -15976,6 +16186,19 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
       res.status(500).json({ message: "Failed to retrieve AI models" });
     }
   });
+  app3.get("/health/crypto", async (req, res) => {
+    try {
+      const { loadCryptoKey: loadCryptoKey2 } = await Promise.resolve().then(() => (init_crypto_key(), crypto_key_exports));
+      const key = loadCryptoKey2();
+      if (key && key.length > 0) {
+        res.json({ ok: true });
+      } else {
+        res.status(503).json({ ok: false, error: "Invalid key returned" });
+      }
+    } catch (error) {
+      res.status(503).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  });
   app3.get("/api/security/check", async (req, res) => {
     try {
       const securityStatus = AIService.getSecurityStatus();
@@ -16214,7 +16437,7 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
       const uniqueId = UniversalAIConfig.generateUUID();
       const fileExtension = path2.extname(file.originalname);
       const tempFilePath = path2.join(os.tmpdir(), `evidence_${incidentId}_${uniqueId}${fileExtension}`);
-      fs4.writeFileSync(tempFilePath, file.buffer);
+      fs5.writeFileSync(tempFilePath, file.buffer);
       try {
         const { UniversalEvidenceAnalyzer: UniversalEvidenceAnalyzer2 } = await Promise.resolve().then(() => (init_universal_evidence_analyzer(), universal_evidence_analyzer_exports));
         const equipmentContext = {
@@ -16319,7 +16542,7 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
         });
       } finally {
         try {
-          fs4.unlinkSync(tempFilePath);
+          fs5.unlinkSync(tempFilePath);
         } catch (cleanupError) {
           console.warn("[UNIVERSAL EVIDENCE] Temp file cleanup failed:", cleanupError);
         }
@@ -18524,7 +18747,7 @@ import { createServer as createServer2 } from "http";
 
 // server/vite.ts
 import express from "express";
-import fs5 from "fs";
+import fs6 from "fs";
 import path4 from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 
@@ -18604,7 +18827,7 @@ async function setupVite(app3, server) {
         "client",
         "index.html"
       );
-      let template = await fs5.promises.readFile(clientTemplate, "utf-8");
+      let template = await fs6.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid4()}"`
@@ -18620,32 +18843,13 @@ async function setupVite(app3, server) {
 
 // server/index.ts
 init_universal_ai_config();
+init_crypto_key();
 import path5 from "path";
 import { fileURLToPath } from "url";
 dotenv.config();
-var encryptionKeyBase64 = process.env.AI_KEY_ENCRYPTION_SECRET;
-if (!encryptionKeyBase64) {
-  console.error("\u{1F6A8} PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET not found");
-  console.error("Please set AI_KEY_ENCRYPTION_SECRET to a Base64-encoded 32-byte key using Replit secrets manager");
-  process.exit(1);
-}
-var encryptionKeyBytes;
-try {
-  const normalizedBase64 = encryptionKeyBase64.replace(/-/g, "+").replace(/_/g, "/");
-  encryptionKeyBytes = Buffer.from(normalizedBase64, "base64");
-} catch (error) {
-  console.error("\u{1F6A8} PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET is not valid Base64");
-  console.error("Please provide a valid Base64-encoded 32-byte key");
-  process.exit(1);
-}
-if (encryptionKeyBytes.length !== 32) {
-  console.error(`\u{1F6A8} PROTOCOL VIOLATION: AI_KEY_ENCRYPTION_SECRET must decode to exactly 32 bytes, got ${encryptionKeyBytes.length} bytes`);
-  console.error("AES-256-CBC encryption requires exactly 32 bytes (256 bits)");
-  process.exit(1);
-}
-console.log(`\u2705 AI_KEY_ENCRYPTION_SECRET loaded successfully (${encryptionKeyBase64.length} chars -> ${encryptionKeyBytes.length} bytes)`);
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path5.dirname(__filename);
+loadCryptoKey();
 var app2 = express2();
 app2.use((req, res, next) => {
   const contentType = req.headers["content-type"] || "";

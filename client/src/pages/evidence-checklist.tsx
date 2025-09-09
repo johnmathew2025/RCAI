@@ -1167,7 +1167,7 @@ function EvidenceItemCard({
             <Label className="text-xs font-medium">Notes (optional)</Label>
             <Textarea
               placeholder="Add notes about this evidence item..."
-              value={item.notes || SENTINEL.FIELD_EMPTY}
+              value={item.notes || undefined}
               onChange={(e) => onNotesUpdate(item.id, e.target.value)}
               className="mt-1 text-sm"
               rows={2}

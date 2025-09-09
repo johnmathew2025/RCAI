@@ -276,7 +276,7 @@ export default function EvidenceAnalysisDemo() {
                 <div className="space-y-2">
                   <Label>Equipment Group</Label>
                   <Select 
-                    value={analysisRequest.equipmentGroupId?.toString() || SENTINEL.FIELD_EMPTY} 
+                    value={analysisRequest.equipmentGroupId?.toString() || undefined} 
                     onValueChange={(value) => {
                       setAnalysisRequest(prev => ({ 
                         ...prev, 

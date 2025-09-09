@@ -350,7 +350,7 @@ export default function HumanReview() {
                 <div className="space-y-3 pt-3 border-t">
                   <Textarea
                     placeholder="Add review comments (optional)..."
-                    value={reviewComments[file.id] || SENTINEL.FIELD_EMPTY}
+                    value={reviewComments[file.id] || undefined}
                     onChange={(e) => setReviewComments(prev => ({ ...prev, [file.id]: e.target.value }))}
                     rows={2}
                     className="text-sm"

@@ -124,7 +124,7 @@ export default function TestEvidence() {
       case "text":
         return (
           <Input
-            value={value || SENTINEL.FIELD_EMPTY}
+            value={value || undefined}
             onChange={(e) => updateAnswer(question.id, e.target.value)}
             placeholder={question.required ? "Required" : "Optional"}
           />
@@ -133,7 +133,7 @@ export default function TestEvidence() {
       case "textarea":
         return (
           <Textarea
-            value={value || SENTINEL.FIELD_EMPTY}
+            value={value || undefined}
             onChange={(e) => updateAnswer(question.id, e.target.value)}
             placeholder={question.required ? "Required" : "Optional"}
             rows={3}

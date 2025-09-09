@@ -1,0 +1,74 @@
+Eliminate the Select/Select.Item crash in the “Report New Incident” flow and prove it with a reproducible UI run + code grep showing no empty-string values remain.
+0) Clean build & cache
+rm -rf node_modules client/node_modules .next dist build .vite .turbo
+pnpm install || npm install
+1) Prove the crash exists (or not) by running the EXACT path
+•	Start the app the same way the user does (not just hitting a health endpoint).
+•	Open the frontend, click Report New Incident, then every Select in that flow.
+•	In DevTools Console, copy any red errors. If none, record “No errors”.
+2) Grep for ALL risky patterns still causing empty-string values
+Run all four:
+rg -n --glob 'client/**/*.{ts,tsx}' 'Select(Item)?[^\\n]*value\\s*=\\s*""'
+rg -n --glob 'client/**/*.{ts,tsx}' 'value\\s*:\\s*""' 
+rg -n --glob 'client/**/*.{ts,tsx}' 'SENTINEL\\.FIELD_EMPTY'
+rg -n --glob 'client/**/*.{ts,tsx}' 'RadioGroup[^\\n]*value\\s*=\\s*""'
+If any hits appear, list each file:line and patch in place so no Select or RadioGroup ever receives "".
+3) Enforce correct controlled/uncontrolled behaviour for all Selects
+•	For every <Select value=... onValueChange=...> pair:
+o	Replace any default "" with undefined for the value when “no choice” is intended.
+o	Ensure every <SelectItem> has a non-empty string value.
+o	When mapping dynamic items, guard against undefined/empty IDs.
+Snippet to apply everywhere
+// Before rendering:
+const safeSelectValue = (v: string | null | undefined) =>
+  v && v.trim().length > 0 ? v : undefined;
+
+// Usage:
+<Select value={safeSelectValue(form.watch('severity'))}
+        onValueChange={(v) => form.setValue('severity', v)}>
+
+  {/* Never render an empty value item */}
+  {SEVERITY_OPTIONS.map(opt => (
+    <SelectItem key={opt.id} value={String(opt.id)}>
+      {opt.label}
+    </SelectItem>
+  ))}
+</Select>
+4) Replace any remaining sentinel fallback
+•	Delete SENTINEL.FIELD_EMPTY usage in UI state. Use undefined (uncontrolled) or a valid default (e.g., 'medium'), but never "".
+5) Fix RadioGroup defaults
+<RadioGroup
+  value={safeSelectValue(form.watch('evidenceType'))}
+  onValueChange={(v) => form.setValue('evidenceType', v)}
+>
+  {/* values must be non-empty */}
+</RadioGroup>
+6) Add a lightweight runtime guard (temporary, remove after green run)
+Create client/src/lib/guardSelectValue.ts:
+export const guardValue = (v: unknown) => {
+  if (v === "") {
+    // eslint-disable-next-line no-console
+    console.error("EMPTY STRING passed to Select/RadioGroup value");
+    return undefined;
+  }
+  return v as string | undefined;
+};
+Use it wherever you pass value={...} to Select/RadioGroup during this fix cycle.
+7) Add a CI lint to prevent regressions (fast check now)
+Create scripts/check-select-empty.sh:
+#!/usr/bin/env bash
+set -e
+rg -n --glob 'client/**/*.{ts,tsx}' 'value\\s*=\\s*""' && { echo "❌ Found empty string value"; exit 1; } || echo "✅ No empty string value props"
+Run it now:
+bash scripts/check-select-empty.sh
+8) Rebuild & retest the actual flow
+pnpm build || npm run build
+pnpm start || npm start
+•	Navigate UI → Report New Incident → click through all Selects/RadioGroups.
+•	Provide a console log or screen capture proving no red errors.
+9) Acceptance checklist to post back
+•	 rg shows 0 matches for: value="", SENTINEL.FIELD_EMPTY, and empty RadioGroup values.
+•	 Screenshot / console dump: No red errors when opening Report New Incident and changing every Select.
+•	 Commit diff(s) showing replacements (file + line ranges).
+
+

@@ -320,7 +320,7 @@ export default function ComprehensiveEvidenceForm({
                 <FormItem>
                   <FormLabel>Subtype (Optional)</FormLabel>
                   <Select
-                    value={field.value?.toString() || SENTINEL.FIELD_EMPTY}
+                    value={field.value?.toString() || undefined}
                     onValueChange={(value) => {
                       field.onChange(value === SENTINEL_NONE_VALUE ? undefined : parseInt(value));
                     }}

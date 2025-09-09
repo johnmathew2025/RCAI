@@ -535,7 +535,7 @@ export default function IncidentReporting() {
                         <FormLabel>Equipment Group</FormLabel>
                         <Select 
                           onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
-                          value={field.value?.toString() || SENTINEL.FIELD_EMPTY}
+                          value={field.value?.toString() || undefined}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -568,7 +568,7 @@ export default function IncidentReporting() {
                         <FormLabel>Equipment Type</FormLabel>
                         <Select 
                           onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
-                          value={field.value?.toString() || SENTINEL.FIELD_EMPTY}
+                          value={field.value?.toString() || undefined}
                           disabled={!selectedGroupId}
                         >
                           <FormControl>
@@ -602,7 +602,7 @@ export default function IncidentReporting() {
                         <FormLabel>Equipment Subtype</FormLabel>
                         <Select 
                           onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
-                          value={field.value?.toString() || SENTINEL.FIELD_EMPTY}
+                          value={field.value?.toString() || undefined}
                           disabled={!selectedTypeId}
                         >
                           <FormControl>

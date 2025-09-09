@@ -972,7 +972,7 @@ export default function EvidenceLibraryAdmin() {
                 <Label>Equipment Type Name</Label>
                 <Input
                   placeholder="e.g., Heat Exchangers"
-                  value={newTrend.name || SENTINEL.FIELD_EMPTY}
+                  value={newTrend.name || undefined}
                   onChange={(e) => setNewTrend(prev => ({ ...prev, name: e.target.value }))}
                 />
               </div>
@@ -980,7 +980,7 @@ export default function EvidenceLibraryAdmin() {
                 <Label>ISO 14224 Code</Label>
                 <Input
                   placeholder="e.g., HE-003"
-                  value={newTrend.id || SENTINEL.FIELD_EMPTY}
+                  value={newTrend.id || undefined}
                   onChange={(e) => setNewTrend(prev => ({ ...prev, id: e.target.value }))}
                 />
               </div>
@@ -989,7 +989,7 @@ export default function EvidenceLibraryAdmin() {
               <Label>Subtypes (comma-separated)</Label>
               <Input
                 placeholder="e.g., Shell and Tube, Plate, Air Cooled"
-                value={newTrend.units || SENTINEL.FIELD_EMPTY}
+                value={newTrend.units || undefined}
                 onChange={(e) => setNewTrend(prev => ({ ...prev, units: e.target.value }))}
               />
             </div>
@@ -997,7 +997,7 @@ export default function EvidenceLibraryAdmin() {
               <Label>Description</Label>
               <Textarea
                 placeholder="Brief description of equipment type and its applications"
-                value={newTrend.description || SENTINEL.FIELD_EMPTY}
+                value={newTrend.description || undefined}
                 onChange={(e) => setNewTrend(prev => ({ ...prev, description: e.target.value }))}
               />
             </div>

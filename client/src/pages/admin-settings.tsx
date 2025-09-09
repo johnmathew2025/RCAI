@@ -982,6 +982,7 @@ export default function AdminSettings() {
       <AIStatusIndicator />
 
       {/* DUPLICATE FORM REMOVED - USING UNIFIED INTERFACE BELOW */}
+      <Card>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -1127,7 +1128,7 @@ export default function AdminSettings() {
       
       {/* Debug Panel - only visible in debug mode */}
       <AIDebugPanel isVisible={aiDebugger.isEnabled()} />
-    </TabsContent>
+      </TabsContent>
 
         {/* Equipment Groups Tab */}
         <TabsContent value="groups" className="space-y-6">
@@ -1376,7 +1377,7 @@ export default function AdminSettings() {
                         <TableCell>
                           {editingRiskRanking?.id === ranking.id ? (
                             <Input
-                              value={editingRiskRanking?.label || SENTINEL.FIELD_EMPTY}
+                              value={editingRiskRanking?.label || undefined}
                               onChange={(e) => setEditingRiskRanking({ id: editingRiskRanking?.id || 0, label: e.target.value })}
                               onKeyPress={(e) => {
                                 if (e.key === 'Enter') {

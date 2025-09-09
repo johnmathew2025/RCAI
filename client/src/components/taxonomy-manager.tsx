@@ -356,7 +356,7 @@ function AddTypeForm({
       <div>
         <Label htmlFor="group-select">Equipment Group *</Label>
         <Select 
-          value={selectedGroupId?.toString() || SENTINEL.FIELD_EMPTY} 
+          value={selectedGroupId?.toString() || undefined} 
           onValueChange={(value) => setSelectedGroupId(value ? parseInt(value) : null)}
           required
         >
@@ -422,7 +422,7 @@ function AssignGroupForm({
       <div>
         <Label htmlFor="assign-group-select">Assign to Equipment Group *</Label>
         <Select 
-          value={selectedGroupId?.toString() || SENTINEL.FIELD_EMPTY} 
+          value={selectedGroupId?.toString() || undefined} 
           onValueChange={(value) => setSelectedGroupId(value ? parseInt(value) : null)}
           required
         >

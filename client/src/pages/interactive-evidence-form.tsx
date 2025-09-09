@@ -493,7 +493,7 @@ function QuestionRenderer({
         return (
           <Input
             id={question.id}
-            value={value || SENTINEL.FIELD_EMPTY}
+            value={value || undefined}
             onChange={(e) => onChange(e.target.value)}
             className={hasError ? "border-red-500" : ""}
             placeholder={question.required ? "Required" : "Optional"}
@@ -504,7 +504,7 @@ function QuestionRenderer({
         return (
           <Textarea
             id={question.id}
-            value={value || SENTINEL.FIELD_EMPTY}
+            value={value || undefined}
             onChange={(e) => onChange(e.target.value)}
             className={hasError ? "border-red-500" : ""}
             placeholder={question.required ? "Required" : "Optional"}
@@ -517,7 +517,7 @@ function QuestionRenderer({
           <Input
             id={question.id}
             type="number"
-            value={value || SENTINEL.FIELD_EMPTY}
+            value={value || undefined}
             onChange={(e) => onChange(e.target.value ? parseFloat(e.target.value) : null)}
             className={hasError ? "border-red-500" : ""}
             placeholder={question.required ? "Required" : "Optional"}
@@ -529,7 +529,7 @@ function QuestionRenderer({
           <Input
             id={question.id}
             type="date"
-            value={value || SENTINEL.FIELD_EMPTY}
+            value={value || undefined}
             onChange={(e) => onChange(e.target.value)}
             className={hasError ? "border-red-500" : ""}
           />

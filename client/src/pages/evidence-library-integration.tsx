@@ -385,7 +385,7 @@ export default function EvidenceLibraryIntegration() {
             <div className="space-y-2">
               <Label htmlFor="group-filter">Equipment Group</Label>
               <Select 
-                value={selectedGroupId?.toString() || SENTINEL.FIELD_EMPTY} 
+                value={selectedGroupId?.toString() || undefined} 
                 onValueChange={(value) => {
                   setSelectedGroupId(value ? parseInt(value) : null);
                   setSelectedTypeId(null);
@@ -410,7 +410,7 @@ export default function EvidenceLibraryIntegration() {
             <div className="space-y-2">
               <Label htmlFor="type-filter">Equipment Type</Label>
               <Select 
-                value={selectedTypeId?.toString() || SENTINEL.FIELD_EMPTY} 
+                value={selectedTypeId?.toString() || undefined} 
                 onValueChange={(value) => {
                   setSelectedTypeId(value ? parseInt(value) : null);
                   setSelectedSubtypeId(null);
@@ -435,7 +435,7 @@ export default function EvidenceLibraryIntegration() {
             <div className="space-y-2">
               <Label htmlFor="subtype-filter">Equipment Subtype</Label>
               <Select 
-                value={selectedSubtypeId?.toString() || SENTINEL.FIELD_EMPTY} 
+                value={selectedSubtypeId?.toString() || undefined} 
                 onValueChange={(value) => setSelectedSubtypeId(value ? parseInt(value) : null)}
                 disabled={!selectedTypeId}
               >
