@@ -20,7 +20,7 @@ import SelectSafe from "@/components/SelectSafe";
 import { SENTINEL } from '@/constants/sentinels';
 import { AIDebugPanel } from "@/components/ai-debug-panel";
 import { aiDebugger } from "@/lib/debug-ai-settings";
-import { useAiSettings } from "@/hooks/useAiSettings";
+// OLD AI SETTINGS HOOK REMOVED
 import AIProvidersTable from "@/components/AIProvidersTable";
 
 // OLD DUPLICATE COMPONENTS COMPLETELY REMOVED
@@ -752,6 +752,11 @@ export default function AdminSettings() {
       
       {/* Debug Panel - only visible in debug mode */}
       <AIDebugPanel isVisible={aiDebugger.isEnabled()} />
+      
+      {/* Build Marker */}
+      <div className="text-xs text-gray-400 text-center pt-4">
+        BUILD_ID={new Date().getTime()}
+      </div>
       </TabsContent>
 
         {/* Equipment Groups Tab */}

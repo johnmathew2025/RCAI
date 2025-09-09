@@ -11,8 +11,8 @@ interface AIProvider {
 
 export default function RequireConfigured({ children }: { children: JSX.Element }) {
   const { data, error, isLoading } = useQuery<AIProvider[]>({
-    queryKey: ["/api/admin/ai-settings"],
-    queryFn: () => apiRequest("/api/admin/ai-settings").then(r => r.json()),
+    queryKey: ["/api/admin/ai/providers"],
+    queryFn: () => apiRequest("/api/admin/ai/providers").then(r => r.json()),
     staleTime: 0,
     refetchOnFocus: false
   });

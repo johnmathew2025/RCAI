@@ -1,0 +1,49 @@
+BLOCKER: AI Provider cannot be created and API Key field is missing. Implement the secure form and API now.
+1) Frontend — render ONLY the secure form
+•	In client/src/pages/admin-settings.tsx, render only <AIProvidersTable /> for the AI Provider section.
+•	Remove/disable all legacy UI that shows:
+o	“Select AI provider” (dropdown),
+o	“Save Settings” button,
+o	“AI Provider Management” quick-add row without an API key.
+•	In client/src/components/AIProvidersTable.tsx (or equivalent), the form must have:
+o	Provider (text input; lowercased on submit)
+o	Model ID (text input)
+o	API Key (password input)
+o	Set as active (checkbox)
+o	Save Provider button
+•	On Save, POST JSON to /api/admin/ai/providers:
+•	{"provider":"openai","modelId":"gpt-4o-mini","apiKey":"<value>","setActive":true|false}
+•	On success: clear the password field and refresh the list.
+•	In the table, show columns: Provider | Model | Active | 🔒 Key (Yes/No). Never show the key.
+•	Delete the bottom quick-add row OR add a password field to it so it posts the same payload as above. Prefer deletion to keep a single interface.
+2) Backend — enforce contract & clear errors
+•	POST /api/admin/ai/providers:
+o	Require provider, modelId, apiKey (non-empty). Lowercase provider.
+o	Encrypt apiKey using AES-256-GCM with CRYPTO_KEY_32 (32 chars).
+o	If setActive:true, set all others inactive (single active).
+o	Return 201 with: { id, provider, modelId, active, hasKey: true }.
+•	GET /api/admin/ai/providers: return array of { id, provider, modelId, active, hasKey }.
+•	POST /api/admin/ai/providers/:id/test: decrypt key, run minimal provider ping for modelId, return { ok, latencyMs, message }.
+•	On validation errors, return HTTP 400 with JSON { code: "MISSING_API_KEY" | "INVALID_PROVIDER" | ... , message: "<human readable>" }. The UI must display this message in the toast.
+3) DB & crypto sanity
+•	Ensure migration created ai_providers with fields: key_ciphertext_b64, key_iv_b64, key_tag_b64 (no plaintext key).
+•	Boot must fail if CRYPTO_KEY_32 is missing or not 32 chars (no fallbacks, no hardcoding).
+4) Build & cache bust
+•	Do a clean build and redeploy (remove old build artifacts).
+•	Add a tiny build marker to the page footer (e.g., BUILD_ID=<timestamp>), so we can verify the new JS is actually loaded.
+•	Disable any service worker; ensure browser cache is bypassed.
+5) Self-test the flow (must run)
+•	Via curl/Postman:
+•	# should return 400 (MISSING_API_KEY)
+•	curl -i -X POST $BASE/api/admin/ai/providers -H "Content-Type: application/json" \
+•	  -d '{"provider":"openai","modelId":"gpt-4o-mini"}'
+•	
+•	# should return 201 with hasKey:true
+•	curl -i -X POST $BASE/api/admin/ai/providers -H "Content-Type: application/json" \
+•	  -d '{"provider":"openai","modelId":"gpt-4o-mini","apiKey":"sk-REDACTED","setActive":true}'
+•	In the browser, confirm:
+o	API Key field is visible (password).
+o	After save, the table shows the row with 🔒 Key: Yes and Active.
+o	Test Key returns a clear success/failure message.
+IMPORTANT: Search the codebase and delete any leftover strings: "Select AI provider", "Save Settings", "AI Provider Management" without API key. These indicate the old, broken UI.
+

@@ -61,7 +61,7 @@ export default function AIProvidersTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI Provider Management</CardTitle>
+        <CardTitle>Secure AI Providers</CardTitle>
         <p className="text-sm text-muted-foreground">
           API keys are encrypted and stored securely on the backend. They are never exposed to client-side code.
         </p>
