@@ -300,12 +300,7 @@ export default function AdminSettings() {
     fetchSystemHealth();
   }, []);
 
-  // Fetch current AI settings - SINGLE QUERY ONLY
-  const { data: aiSettings, isLoading: aiSettingsLoading } = useQuery<AiSettings[]>({
-    queryKey: ["/api/admin/ai-settings"],
-    staleTime: 0,
-    refetchOnMount: true,
-  });
+  // REMOVED OLD AI SETTINGS QUERY - Using secure providers now
 
 
 
@@ -981,147 +976,9 @@ export default function AdminSettings() {
       {/* AI STATUS INDICATOR - SHOWS EXACTLY WHERE AI KEYS COME FROM */}
       <AIStatusIndicator />
 
-      {/* DUPLICATE FORM REMOVED - USING UNIFIED INTERFACE BELOW */}
-      <Card>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="provider">AI Provider</Label>
-              <DynamicProviderSelect 
-                value={formData.provider} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, provider: value }))}
-              />
-            </div>
+      {/* OLD DUPLICATE FORM REMOVED - Using secure AIProvidersTable below */}
 
-          </div>
-
-          {/* Requirement 5: Model ID input field - NO HARDCODING */}
-          <div className="space-y-2">
-            <Label htmlFor="model">Model ID</Label>
-            <Input
-              id="model"
-              type="text"
-              value={formData.model}
-              onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
-              placeholder="e.g., gpt-4o-mini, claude-3-sonnet-20240229, gemini-pro"
-              className="w-full"
-            />
-            <p className="text-sm text-muted-foreground">
-              Enter the specific model ID for your provider. This will be used for API calls.
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="isActive"
-              checked={formData.isActive}
-              onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
-              className="rounded"
-            />
-            <Label htmlFor="isActive">Set as active provider</Label>
-          </div>
-
-          <div className="flex space-x-2">
-            <Button 
-              onClick={handleTestKey}
-              disabled={testKeyMutation.isPending}
-              variant="outline"
-            >
-              <TestTube className="w-4 h-4 mr-2" />
-              {testKeyMutation.isPending ? "Testing..." : "Test Key"}
-            </Button>
-            
-            <Button 
-              onClick={handleSave}
-              disabled={saveSettingsMutation.isPending || formData.testStatus !== "success"}
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
-            </Button>
-          </div>
-
-          {formData.testStatus && (
-            <div className="mt-2">
-              {getStatusBadge(formData.testStatus, formData.isActive)}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Current AI Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Current AI Providers</CardTitle>
-          <p className="text-sm text-muted-foreground">Manage existing AI provider configurations</p>
-        </CardHeader>
-        <CardContent>
-
-          
-          {aiSettingsLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading settings...</div>
-          ) : !aiSettings || aiSettings.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No AI providers configured. Add one above to get started.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Provider</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Tested</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {aiSettings.map((setting) => (
-                  <TableRow key={setting.id}>
-                    <TableCell className="font-medium">
-                      {getProviderName(setting.provider)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {setting.model || 'Not specified'}
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(setting.testStatus, setting.isActive)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {setting.lastTestedAt ? new Date(setting.lastTestedAt).toLocaleDateString() : "Never"}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {setting.createdAt ? new Date(setting.createdAt).toLocaleDateString() : "Unknown"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => testProviderMutation.mutate(setting.id)}
-                          disabled={testProviderMutation.isPending}
-                        >
-                          <TestTube className="w-4 h-4 mr-1" />
-                          {testProviderMutation.isPending ? "Testing..." : "Test"}
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={() => deleteProviderMutation.mutate(setting.id)}
-                          disabled={deleteProviderMutation.isPending}
-                        >
-                          {deleteProviderMutation.isPending ? "Removing..." : "Remove"}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {/* OLD DUPLICATE TABLE REMOVED - Using secure AIProvidersTable below */}
 
       {/* SINGLE AI PROVIDER MANAGEMENT - NO DUPLICATION */}
       <AIProvidersTable />
