@@ -1,0 +1,173 @@
+Add a secure API Key field to the AI Provider section. When Admin saves:
+•	Key is never exposed back to the client.
+•	Key is encrypted at rest in DB.
+•	“Test Key” validates against the chosen provider/model using the stored secret.
+•	Management table shows Provider + Model ID and a 🔒 Has key badge (masked).
+ 
+Frontend (React) — Admin → AI Settings
+Form fields (single source of truth)
+•	Provider (select: e.g., openai, anthropic, google…)
+•	Model ID (text)
+•	API Key (password input) — visible to Admin only at entry time; never shown again after save
+•	Set as active provider (checkbox)
+•	Buttons:
+o	Save Provider
+o	Test Key (disabled until a provider row exists with a stored key, or enabled in “unsaved draft” mode that first saves then tests)
+UX rules
+•	Mask the API key input (type=password).
+•	After successful save:
+o	Clear the API Key input box (do not repopulate from server).
+o	In the Current AI Providers table: show 🔒 key stored indicator (never the key).
+•	Prevent navigation loss: confirm dialog if API Key field has unsaved changes.
+•	Client never stores keys in local storage, redux, etc.
+ 
+API Contract (Backend)
+Endpoints (all behind Admin auth)
+•	POST /api/admin/ai/providers
+o	Body: { provider: string, modelId: string, apiKey: string, setActive?: boolean }
+o	Behavior: encrypt apiKey, store record; if setActive, mark others inactive.
+o	Returns: { id, provider, modelId, active, hasKey: true }
+•	GET /api/admin/ai/providers
+o	Returns array of providers: { id, provider, modelId, active, hasKey }[]
+•	PATCH /api/admin/ai/providers/:id
+o	Body (any subset): { modelId?, apiKey?, setActive? }
+o	If apiKey present, re-encrypt + overwrite.
+o	Returns: { id, provider, modelId, active, hasKey }
+•	POST /api/admin/ai/providers/:id/test
+o	Uses the stored encrypted key, decrypts server-side, performs a minimal provider-specific “whoami/ping/model-capability” check.
+o	Returns: { ok: boolean, providerLatencyMs?: number, message?: string }
+•	DELETE /api/admin/ai/providers/:id
+o	Soft-delete or archive; never return key.
+•	(Optional) POST /api/admin/ai/providers/:id/rotate
+o	For key rotation if needed; same encryption rules.
+Response hygiene
+•	Never include apiKey in any response.
+•	Add hasKey: boolean so the UI can show the 🔒 badge.
+ 
+Data Model (Drizzle/SQL)
+// example Drizzle schema
+export const aiProviders = pgTable('ai_providers', {
+  id: serial('id').primaryKey(),
+  provider: varchar('provider', { length: 64 }).notNull(),   // 'openai' | 'anthropic' | 'google'
+  modelId: varchar('model_id', { length: 128 }).notNull(),
+  // AES-256-GCM artifacts
+  keyCiphertextB64: text('key_ciphertext_b64').notNull(),
+  keyIvB64: varchar('key_iv_b64', { length: 48 }).notNull(),  // 12-byte IV -> base64 ~16 chars; pad
+  keyTagB64: varchar('key_tag_b64', { length: 48 }).notNull(),// 16-byte tag -> base64
+  active: boolean('active').default(false).notNull(),
+  createdBy: varchar('created_by', { length: 128 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+}, (t) => ({
+  uniqActivePerProvider: uniqueIndex().on(t.provider, t.modelId).where(t.deletedAt.isNull()),
+}));
+If you’re using Prisma, mirror the same fields.
+ 
+Encryption (server-side only)
+•	Cipher: AES-256-GCM.
+•	Key source: CRYPTO_KEY_32 environment variable (exactly 32 chars).
+•	Per-save random IV (12 bytes), store IV + auth tag (GCM) alongside ciphertext (all Base64).
+•	Zero hardcoding: no inline keys, no fallback keys.
+•	Rotation: if CRYPTO_KEY_32 rotates, provide an internal script to decrypt-recrypt all rows.
+Pseudocode
+import crypto from 'crypto';
+
+const ENC_KEY = process.env.CRYPTO_KEY_32; // must be 32 bytes
+assert(ENC_KEY && ENC_KEY.length === 32, 'CRYPTO_KEY_32 must be 32 chars');
+
+export function encryptSecret(plain: string) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENC_KEY), iv);
+  const ciphertext = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    keyCiphertextB64: ciphertext.toString('base64'),
+    keyIvB64: iv.toString('base64'),
+    keyTagB64: tag.toString('base64'),
+  };
+}
+
+export function decryptSecret(row) {
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    Buffer.from(ENC_KEY),
+    Buffer.from(row.keyIvB64, 'base64'),
+  );
+  decipher.setAuthTag(Buffer.from(row.keyTagB64, 'base64'));
+  const plaintext = Buffer.concat([
+    decipher.update(Buffer.from(row.keyCiphertextB64, 'base64')),
+    decipher.final(),
+  ]).toString('utf8');
+  return plaintext;
+}
+ 
+Provider “Test Key” Adapters
+Create a tiny interface so you can add providers cleanly:
+interface ProviderTester {
+  test(modelId: string, apiKey: string): Promise<{ ok: boolean; message?: string; latencyMs?: number }>;
+}
+Adapters:
+•	OpenAI: POST https://api.openai.com/v1/chat/completions with model=modelId and a tiny prompt; or GET /v1/models scoped auth. Fail fast on 401/403/404.
+•	Anthropic: POST https://api.anthropic.com/v1/messages with minimal input; or models list endpoint.
+•	Google: Vertex/AI Studio depending on your integration; call a minimal method.
+All adapters timebox to 3s and return a friendly failure reason.
+ 
+Audit & Compliance
+•	Security Notice in UI stays true: “API keys are encrypted and stored securely on the backend. They are never exposed to client-side code. All changes are logged…”
+•	Log: action, admin user, provider/model, timestamp, IP (if available), never the key.
+•	Emit Last updated timestamp in the status panel (already shown in your UI).
+ 
+Acceptance Checklist (must pass)
+1.	UI shows API Key field in AI Provider section (page shows Provider, Model ID, API Key, Set Active, Test Key) (modified to include API Key).
+2.	Saving creates a DB record with encrypted key (verify DB has ciphertext, IV, tag; not plaintext).
+3.	Current AI Providers table shows Provider | Model ID | 🔒 Has key (no plaintext).
+4.	Test Key succeeds/fails based on the stored key; works for at least one provider.
+5.	Set as active marks one active provider, unsets others.
+6.	No key ever appears in network responses, logs, or page source.
+7.	Environment requires CRYPTO_KEY_32 (32 chars); server refuses to boot without it.
+8.	Rotation path documented (admin-only script).
+9.	All old, redundant key inputs elsewhere are deleted (zero hardcoding, single interface).
+10.	Status panel reflects “No active AI provider configured” until one is set active; timestamp updates after changes.
+ 
+Minimal UI Wire (TSX sketch)
+// Pseudocode – do not hardcode anything sensitive
+function AIProviderForm() {
+  const [provider, setProvider] = useState('');
+  const [modelId, setModelId] = useState('');
+  const [apiKey, setApiKey] = useState(''); // password input
+  const [setActive, setSetActive] = useState(false);
+
+  const save = async () => {
+    await fetch('/api/admin/ai/providers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, modelId, apiKey, setActive }),
+      credentials: 'include',
+    });
+    setApiKey(''); // clear after save
+    // refresh list
+  };
+
+  const test = async (id?: number) => {
+    // If this is a new row and not saved yet, save first then test
+    const rowId = id ?? (await saveAndReturnId());
+    const res = await fetch(`/api/admin/ai/providers/${rowId}/test`, { method: 'POST', credentials: 'include' });
+    const json = await res.json();
+    // toast json.ok ? 'OK' : json.message
+  };
+
+  return (/* render fields + buttons */);
+}
+ 
+This is Exactly What To Do-
+1.	Add “API Key (password)” field to the AI Provider section UI next to Provider + Model ID (Admin-only).
+2.	Implement POST /api/admin/ai/providers to store {provider, modelId, apiKey} with AES-256-GCMencryption using CRYPTO_KEY_32 (32 chars).
+3.	Never return or render plaintext keys. Expose hasKey: true/false only.
+4.	Implement POST /api/admin/ai/providers/:id/test that decrypts the key server-side and performs a minimal API call to validate it; return {ok, message, latencyMs}.
+5.	Extend the management table to show 🔒 key stored and a Set Active control; ensure only one active row.
+6.	Clear the API Key input after successful save; do not preload it from backend.
+7.	Block startup if CRYPTO_KEY_32 is missing or not exactly 32 chars.
+8.	Delete any other legacy key inputs/routes so this is the only interface.
+9.	Log admin actions (no secrets), and update the status panel timestamp and “active provider” indicator.
+
