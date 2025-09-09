@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta name="app-ls-prefix" content="incident:">
+    <base href="/" />
+    <script>
+/* Runs BEFORE any framework or persist lib */
+(async function () {
+  try {
+    // 1) Purge localStorage & sessionStorage by prefix (kept, no hardcoded keys)
+    var p = (document.querySelector('meta[name="app-ls-prefix"]')?.content) || '';
+    try {
+      var rm=[]; for (var i=0;i<localStorage.length;i++){var k=localStorage.key(i); if(k&&k.indexOf(p)===0) rm.push(k)}
+      rm.forEach(function(k){ localStorage.removeItem(k) });
+    } catch(e){}
+    try {
+      var rm2=[]; for (var j=0;j<sessionStorage.length;j++){var k2=sessionStorage.key(j); if(k2&&k2.indexOf(p)===0) rm2.push(k2)}
+      rm2.forEach(function(k){ sessionStorage.removeItem(k) });
+    } catch(e){}
+
+    // 2) Unregister ALL Service Workers (prevents offline cache rehydrate)
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+    } catch(e){}
+
+    // 3) Delete ALL Cache Storage entries (no names hardcoded)
+    try {
+      if ('caches' in window) {
+        const names = await caches.keys();
+        await Promise.all(names.map(n => caches.delete(n)));
+      }
+    } catch(e){}
+
+    // 4) Delete ALL IndexedDB databases (best-effort, no names hardcoded)
+    try {
+      if (indexedDB && indexedDB.databases) {
+        const dbs = await indexedDB.databases();   // not in all browsers; ignore if missing
+        await Promise.all((dbs || []).map(db => {
+          if (db && db.name) return new Promise(res => { const req = indexedDB.deleteDatabase(db.name); req.onsuccess=req.onerror=req.onblocked=() => res(); });
+          return Promise.resolve();
+        }));
+      }
+    } catch(e){}
+
+  } catch (e) {
+    /* ignore */
+  }
+})();
+    </script>
+    <script>
+(function () {
+  function sniff(body, url){
+    try {
+      const j = JSON.parse(body);
+      const val = (k) => {
+        const v = j?.[k];
+        return typeof v === 'string' ? v.trim() : (v ?? '');
+      };
+      const hits = ['incidentDetails','initialObservations','priority','operatingParams','title','description','equipmentId','manufacturer','model','location','immediateActions','safetyImplications']
+        .filter(k => val(k));
+      if (hits.length) {
+        console.warn('[BOOT-RESP WRITER]', url, 'keys=', hits, 'values=', hits.map(k => j[k]));
+      }
+    } catch(_) {}
+  }
+
+  // fetch
+  const ofetch = window.fetch;
+  window.fetch = async function(input, init){
+    const res = await ofetch(input, init);
+    try {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const clone = res.clone();
+        const text = await clone.text();
+        sniff(text, (typeof input === 'string') ? input : input?.url || '');
+      }
+    } catch(_) {}
+    return res;
+  };
+
+  // XHR
+  const O = window.XMLHttpRequest;
+  window.XMLHttpRequest = function(){
+    const x = new O();
+    const open = x.open, send = x.send;
+    let url = '';
+    x.open = function(m,u){ url = u; return open.apply(x, arguments); };
+    x.send = function(){
+      x.addEventListener('load', function(){
+        try {
+          const ct = x.getResponseHeader('content-type') || '';
+          if (ct.includes('application/json')) sniff(x.responseText, url);
+        } catch(_) {}
+      });
+      return send.apply(x, arguments);
+    };
+    return x;
+  };
+})();
+    </script>
+    <script>
+(function () {
+  try {
+    var u = new URL(window.location.href);
+    if (!u.searchParams.has('__seed')) {
+      u.searchParams.set('__seed', Date.now().toString(36));
+      history.replaceState(null, '', u.toString());
+    }
+  } catch (_) {}
+})();
+    </script>
+    <script>
+(function(){
+  try {
+    var setIn = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+    Object.defineProperty(HTMLInputElement.prototype,'value',{ configurable:true,
+      set:function(v){ try { console.warn('SET INPUT', this.name||this.id, '→', v, new Error().stack); } catch(e){} return setIn.call(this,v); }
+    });
+    var setTa = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set;
+    Object.defineProperty(HTMLTextAreaElement.prototype,'value',{ configurable:true,
+      set:function(v){ try { console.warn('SET TEXTAREA', this.name||this.id, '→', v, new Error().stack); } catch(e){} return setTa.call(this,v); }
+    });
+  } catch(e){}
+})();
+    </script>
+    <script type="module" crossorigin src="/assets/index-CsGBPDGc.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-dmQD5KeY.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
+    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
+  </body>
+</html>
