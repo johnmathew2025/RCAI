@@ -19,6 +19,7 @@
 
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, Camera, Download, CheckCircle, AlertTriangle, ChevronRight, Brain, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -239,11 +240,12 @@ export default function EvidenceCollection() {
 
   // STAGE 3B: MANDATORY HUMAN REVIEW PANEL (Per RCA_Stage_4B_Human_Review Instruction)
   // SIMPLIFIED APPROACH: Direct navigation to human review without complex backend processing
+  const navigate = useNavigate();
   const handleProceedToHumanReview = () => {
     if (incidentId) {
       console.log('[EVIDENCE COLLECTION] Proceeding to MANDATORY Stage 3B Human Review');
-      // Direct navigation using window.location to avoid wouter encoding issues
-      window.location.href = `/human-review?incident=${incidentId}`;
+      // SPA navigation using React Router
+      navigate(`/human-review?incident=${incidentId}`);
     }
   };
 

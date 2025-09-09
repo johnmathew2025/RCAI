@@ -72,7 +72,6 @@ function Router() {
   }, []);
   
   return (
-    <BrowserRouter>
       <Routes>
         <Route path="/admin" element={<RequireConfigured><Home /></RequireConfigured>} />
         <Route path="/admin/settings" element={<AdminSettings />} />
@@ -129,7 +128,6 @@ function Router() {
         <Route path="/" element={<Navigate to="/admin" replace />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
-    </BrowserRouter>
   );
 }
 

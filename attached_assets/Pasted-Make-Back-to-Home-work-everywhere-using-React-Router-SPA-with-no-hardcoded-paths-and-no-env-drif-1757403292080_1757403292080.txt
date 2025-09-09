@@ -1,0 +1,69 @@
+Make Back to Home work everywhere using React Router (SPA), with no hardcoded paths, and no env drift.
+1) Use Router basename as the single source of truth
+client/src/config/routes.ts
+export const BASENAME = import.meta.env.VITE_ROUTER_BASENAME || '/';
+// App-level paths (router-relative)
+export const PATHS = {
+  home: '/', // always router-relative
+};
+client/src/main.tsx (or wherever the router mounts)
+import { BrowserRouter } from 'react-router-dom';
+import { BASENAME } from '@/config/routes';
+
+root.render(
+  <BrowserRouter basename={BASENAME}>
+    <App />
+  </BrowserRouter>
+);
+Remove VITE_HOME_ROUTE usage. Link to="/" and navigate('/') are correct; BrowserRouter will prepend basename (e.g., /admin) automatically.
+2) Fix the Home navigation components
+BackToHome button
+import { useNavigate } from 'react-router-dom';
+import { PATHS } from '@/config/routes';
+
+export function BackToHomeButton() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate(PATHS.home)}>
+      Back to Home
+    </button>
+  );
+}
+Link version
+import { Link } from 'react-router-dom';
+import { PATHS } from '@/config/routes';
+
+export const BackToHomeLink = () => <Link to={PATHS.home}>Back to Home</Link>;
+3) Remove fragile env-based paths & hard redirects
+# kill custom home env usage
+rg -n --glob 'client/**/*.{ts,tsx}' 'VITE_HOME_ROUTE|getHomeRoute\\(|homeRoute\\b'
+
+# no window.location for SPA nav (allow only in ErrorBoundary if you *want* a hard reset)
+rg -n --glob 'client/**/*.{ts,tsx}' 'window\\.location\\.(href|assign|replace)'
+•	Replace any window.location.* in normal components with navigate(PATHS.home).
+•	If you keep a single window.location.href in an ErrorBoundary to recover from fatal crashes, that’s acceptable; ensure it uses PATHS.home computed by the router (not a full URL).
+4) Ensure Home route exists
+<Route path="/" element={<Home />} />
+// or
+<Route path="/" element={<Layout />}>
+  <Route index element={<Home />} />
+  <Route path="*" element={<NotFound />} />
+</Route>
+5) Fix common gotchas
+•	If the Back button is inside a <form>, ensure type="button".
+•	Check overlays/modals aren’t intercepting clicks (pointer-events: none on overlays).
+•	Don’t force a catch-all redirect to a specific admin page. If needed, send * to <NotFound /> or to "/".
+6) Verify in both modes
+# Dev
+pnpm build && pnpm start
+# Navigate to several deep pages and click Back to Home → should SPA-navigate (no full reload).
+
+# Prod-like with basename
+VITE_ROUTER_BASENAME=/admin pnpm build && pnpm start
+# Back to Home should go to /admin/ and render Home, still SPA (no full reload).
+7) Acceptance proof to post back
+•	 rg shows 0 matches for VITE_HOME_ROUTE, getHomeRoute(, homeRoute outside the central config.
+•	 rg shows 0 matches for window.location except (optionally) in ErrorBoundary.
+•	 Link to="/" and navigate('/') are used consistently (router-relative).
+•	 Video/console showing Back to Home works from multiple pages without a full reload.
+
