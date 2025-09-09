@@ -170,13 +170,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/ai/providers", requireAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { sql } = await import('drizzle-orm');
-      const rows = await db.execute(sql`
+      const result = await db.execute(sql`
         select id, provider, model_id as "modelId", is_active as "active",
                (key_ciphertext_b64 is not null) as "hasKey",
                created_at as "createdAt", updated_at as "updatedAt"
         from ai_providers order by created_at desc
       `);
-      res.json(rows);
+      res.json(result.rows);  // Return plain array, not full result object
     } catch (e) {
       return res.status(500).json({ code:'SERVER_ERROR', message:String(e?.message||e) });
     }
