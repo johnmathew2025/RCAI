@@ -1,0 +1,1 @@
+async function e(n,t){const o=await fetch(`/api${n}`,{cache:"no-store",...t});if(!o.ok)throw new Error(await o.text());return o}async function i(n,t){return e(n,{method:"POST",headers:{"Content-Type":"application/json"},body:t?JSON.stringify(t):void 0})}export{e as api,i as apiPost};

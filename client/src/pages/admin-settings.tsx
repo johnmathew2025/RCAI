@@ -109,7 +109,7 @@ export default function AdminSettings() {
   // Test API key mutation
   const testKeyMutation = useMutation({
     mutationFn: async (data: { provider: string }) => {
-      return await apiRequest("/api/admin/ai-settings/test", {
+      return await apiRequest("/api/admin/ai/providers/test", {
         method: "POST",
         body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
@@ -381,7 +381,7 @@ export default function AdminSettings() {
   // Save AI settings mutation
   const saveSettingsMutation = useMutation({
     mutationFn: async (data: InsertAiSettings) => {
-      return await apiRequest("/api/admin/ai-settings", {
+      return await apiRequest("/api/admin/ai/providers", {
         method: "POST",
         body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
@@ -392,7 +392,7 @@ export default function AdminSettings() {
         title: "Settings Saved",
         description: "AI settings have been updated successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["secure-ai-providers"] });
       // Clear form and reset test status
       setFormData({
         provider: "", 
@@ -429,7 +429,7 @@ export default function AdminSettings() {
   const testProviderMutation = useMutation({
     mutationFn: async (id: number): Promise<import("@/lib/aiTestNormalize").AITestResp> => {
       const { normalizeAITest } = await import("@/lib/aiTestNormalize");
-      const raw = await postJSON(`/api/admin/ai-settings/${id}/test`);
+      const raw = await postJSON(`/api/admin/ai/providers/${id}/test`);
       return normalizeAITest(raw);
     },
     
@@ -466,7 +466,7 @@ export default function AdminSettings() {
         });
       }
       // Always refresh the table row after test
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["secure-ai-providers"] });
     },
 
     onError: () => {
@@ -481,7 +481,7 @@ export default function AdminSettings() {
   // Delete AI provider mutation - FIXED RESPONSE HANDLING  
   const deleteProviderMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest(`/api/admin/ai-settings/${id}`, {
+      return await apiRequest(`/api/admin/ai/providers/${id}`, {
         method: "DELETE",
       });
     },
@@ -490,7 +490,7 @@ export default function AdminSettings() {
         title: "Provider Deleted",
         description: data.message || "AI provider deleted successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["secure-ai-providers"] });
     },
     onError: (error) => {
       toast({

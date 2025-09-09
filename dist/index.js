@@ -90,7 +90,8 @@ import {
   unique,
   uuid,
   bigint,
-  char
+  char,
+  uniqueIndex
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -363,16 +364,23 @@ var init_schema = __esm({
     }));
     aiProviders = pgTable("ai_providers", {
       id: serial("id").primaryKey(),
-      provider: text("provider").notNull(),
-      // e.g., "openai", "anthropic", "google" - free text
-      modelId: text("model_id").notNull(),
-      // e.g., "gpt-4o-mini", "claude-3-sonnet-20240229"
-      apiKeyEnc: text("api_key_enc").notNull(),
-      // server-side encrypted API key
-      isActive: boolean("is_active").notNull().default(false),
-      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-      updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
-    });
+      provider: varchar("provider", { length: 64 }).notNull(),
+      // 'openai' | 'anthropic' | 'google'
+      modelId: varchar("model_id", { length: 128 }).notNull(),
+      // AES-256-GCM encryption artifacts
+      keyCiphertextB64: text("key_ciphertext_b64").notNull(),
+      keyIvB64: varchar("key_iv_b64", { length: 48 }).notNull(),
+      // 12-byte IV -> base64 ~16 chars; pad
+      keyTagB64: varchar("key_tag_b64", { length: 48 }).notNull(),
+      // 16-byte tag -> base64
+      active: boolean("active").default(false).notNull(),
+      createdBy: varchar("created_by", { length: 128 }).notNull(),
+      createdAt: timestamp("created_at").defaultNow().notNull(),
+      updatedAt: timestamp("updated_at").defaultNow().notNull(),
+      deletedAt: timestamp("deleted_at")
+    }, (t) => ({
+      uniqActivePerProvider: uniqueIndex().on(t.provider, t.modelId).where(sql`${t.deletedAt} IS NULL`)
+    }));
     insertInvestigationSchema = createInsertSchema(investigations);
     insertAiSettingsSchema = createInsertSchema(aiSettings);
     insertAiProvidersSchema = createInsertSchema(aiProviders);
@@ -5107,6 +5115,177 @@ var init_aiSettings = __esm({
         res.status(500).json({ error: "Failed to delete AI setting" });
       }
     });
+  }
+});
+
+// server/security/crypto-gcm.ts
+var crypto_gcm_exports = {};
+__export(crypto_gcm_exports, {
+  decryptSecret: () => decryptSecret,
+  encryptSecret: () => encryptSecret
+});
+import crypto4 from "crypto";
+function encryptSecret(plaintext) {
+  const iv = crypto4.randomBytes(12);
+  const cipher = crypto4.createCipheriv("aes-256-gcm", Buffer.from(ENC_KEY, "utf8"), iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    keyCiphertextB64: ciphertext.toString("base64"),
+    keyIvB64: iv.toString("base64"),
+    keyTagB64: tag.toString("base64")
+  };
+}
+function decryptSecret(encrypted) {
+  const decipher = crypto4.createDecipheriv(
+    "aes-256-gcm",
+    Buffer.from(ENC_KEY, "utf8"),
+    Buffer.from(encrypted.keyIvB64, "base64")
+  );
+  decipher.setAuthTag(Buffer.from(encrypted.keyTagB64, "base64"));
+  const plaintext = Buffer.concat([
+    decipher.update(Buffer.from(encrypted.keyCiphertextB64, "base64")),
+    decipher.final()
+  ]).toString("utf8");
+  return plaintext;
+}
+var ENC_KEY;
+var init_crypto_gcm = __esm({
+  "server/security/crypto-gcm.ts"() {
+    "use strict";
+    init_crypto_key();
+    ENC_KEY = loadCryptoKey();
+  }
+});
+
+// server/ai-provider-testers.ts
+var ai_provider_testers_exports = {};
+__export(ai_provider_testers_exports, {
+  getProviderTester: () => getProviderTester,
+  getSupportedProviders: () => getSupportedProviders
+});
+function getProviderTester(provider) {
+  return testers[provider.toLowerCase()] || null;
+}
+function getSupportedProviders() {
+  return Object.keys(testers);
+}
+var OpenAITester, AnthropicTester, GoogleTester, testers;
+var init_ai_provider_testers = __esm({
+  "server/ai-provider-testers.ts"() {
+    "use strict";
+    OpenAITester = class {
+      async test(modelId, apiKey) {
+        const start = Date.now();
+        try {
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model: modelId,
+              messages: [{ role: "user", content: "Test" }],
+              max_tokens: 5
+            }),
+            signal: AbortSignal.timeout(3e3)
+          });
+          const latencyMs = Date.now() - start;
+          if (response.ok) {
+            return { ok: true, latencyMs };
+          } else if (response.status === 401) {
+            return { ok: false, message: "Invalid API key" };
+          } else if (response.status === 404) {
+            return { ok: false, message: `Model '${modelId}' not found` };
+          } else {
+            return { ok: false, message: `HTTP ${response.status}` };
+          }
+        } catch (error) {
+          const latencyMs = Date.now() - start;
+          if (error.name === "AbortError") {
+            return { ok: false, message: "Timeout (>3s)", latencyMs };
+          }
+          return { ok: false, message: error.message, latencyMs };
+        }
+      }
+    };
+    AnthropicTester = class {
+      async test(modelId, apiKey) {
+        const start = Date.now();
+        try {
+          const response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": apiKey,
+              "Content-Type": "application/json",
+              "anthropic-version": "2023-06-01"
+            },
+            body: JSON.stringify({
+              model: modelId,
+              max_tokens: 5,
+              messages: [{ role: "user", content: "Test" }]
+            }),
+            signal: AbortSignal.timeout(3e3)
+          });
+          const latencyMs = Date.now() - start;
+          if (response.ok) {
+            return { ok: true, latencyMs };
+          } else if (response.status === 401) {
+            return { ok: false, message: "Invalid API key" };
+          } else if (response.status === 404) {
+            return { ok: false, message: `Model '${modelId}' not found` };
+          } else {
+            return { ok: false, message: `HTTP ${response.status}` };
+          }
+        } catch (error) {
+          const latencyMs = Date.now() - start;
+          if (error.name === "AbortError") {
+            return { ok: false, message: "Timeout (>3s)", latencyMs };
+          }
+          return { ok: false, message: error.message, latencyMs };
+        }
+      }
+    };
+    GoogleTester = class {
+      async test(modelId, apiKey) {
+        const start = Date.now();
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "Test" }] }],
+              generationConfig: { maxOutputTokens: 5 }
+            }),
+            signal: AbortSignal.timeout(3e3)
+          });
+          const latencyMs = Date.now() - start;
+          if (response.ok) {
+            return { ok: true, latencyMs };
+          } else if (response.status === 401 || response.status === 403) {
+            return { ok: false, message: "Invalid API key" };
+          } else if (response.status === 404) {
+            return { ok: false, message: `Model '${modelId}' not found` };
+          } else {
+            return { ok: false, message: `HTTP ${response.status}` };
+          }
+        } catch (error) {
+          const latencyMs = Date.now() - start;
+          if (error.name === "AbortError") {
+            return { ok: false, message: "Timeout (>3s)", latencyMs };
+          }
+          return { ok: false, message: error.message, latencyMs };
+        }
+      }
+    };
+    testers = {
+      openai: new OpenAITester(),
+      anthropic: new AnthropicTester(),
+      google: new GoogleTester()
+    };
   }
 });
 
@@ -13289,6 +13468,151 @@ async function registerRoutes(app3) {
   const { router: aiSettingsRouter } = await Promise.resolve().then(() => (init_aiSettings(), aiSettings_exports));
   app3.use(aiSettingsRouter);
   app3.use("/api/admin/ai-settings", aiDebugMiddleware.middleware());
+  const { encryptSecret: encryptSecret2, decryptSecret: decryptSecret2 } = await Promise.resolve().then(() => (init_crypto_gcm(), crypto_gcm_exports));
+  const { getProviderTester: getProviderTester2 } = await Promise.resolve().then(() => (init_ai_provider_testers(), ai_provider_testers_exports));
+  const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+  const { eq: eq10, and: and8, isNull } = await import("drizzle-orm");
+  const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+  app3.post("/api/admin/ai/providers", requireAdmin, async (req, res) => {
+    try {
+      const { provider, modelId, apiKey, setActive } = req.body;
+      if (!provider || !modelId || !apiKey) {
+        return res.status(400).json({ message: "Provider, modelId, and apiKey are required" });
+      }
+      const encrypted = encryptSecret2(apiKey);
+      if (setActive) {
+        await db3.update(aiProviders2).set({ active: false, updatedAt: /* @__PURE__ */ new Date() }).where(isNull(aiProviders2.deletedAt));
+      }
+      const [newProvider] = await db3.insert(aiProviders2).values({
+        provider,
+        modelId,
+        keyCiphertextB64: encrypted.keyCiphertextB64,
+        keyIvB64: encrypted.keyIvB64,
+        keyTagB64: encrypted.keyTagB64,
+        active: setActive || false,
+        createdBy: req.user?.id || "admin"
+      }).returning({
+        id: aiProviders2.id,
+        provider: aiProviders2.provider,
+        modelId: aiProviders2.modelId,
+        active: aiProviders2.active
+      });
+      console.log(`[SECURE AI] Created provider ${provider}/${modelId} for user ${req.user?.id}`);
+      res.json({
+        ...newProvider,
+        hasKey: true
+      });
+    } catch (error) {
+      console.error("[SECURE AI] Error creating provider:", error);
+      res.status(500).json({ message: "Failed to create AI provider" });
+    }
+  });
+  app3.get("/api/admin/ai/providers", requireAdmin, async (req, res) => {
+    try {
+      const providers = await db3.select({
+        id: aiProviders2.id,
+        provider: aiProviders2.provider,
+        modelId: aiProviders2.modelId,
+        active: aiProviders2.active,
+        createdAt: aiProviders2.createdAt,
+        updatedAt: aiProviders2.updatedAt
+      }).from(aiProviders2).where(isNull(aiProviders2.deletedAt)).orderBy(aiProviders2.createdAt);
+      const providersWithFlag = providers.map((p) => ({
+        ...p,
+        hasKey: true
+        // All providers in this table have encrypted keys
+      }));
+      res.json(providersWithFlag);
+    } catch (error) {
+      console.error("[SECURE AI] Error retrieving providers:", error);
+      res.status(500).json({ message: "Failed to retrieve AI providers" });
+    }
+  });
+  app3.post("/api/admin/ai/providers/:id/test", requireAdmin, async (req, res) => {
+    try {
+      const providerId = parseInt(req.params.id);
+      const [provider] = await db3.select().from(aiProviders2).where(and8(
+        eq10(aiProviders2.id, providerId),
+        isNull(aiProviders2.deletedAt)
+      ));
+      if (!provider) {
+        return res.status(404).json({ message: "Provider not found" });
+      }
+      const apiKey = decryptSecret2({
+        keyCiphertextB64: provider.keyCiphertextB64,
+        keyIvB64: provider.keyIvB64,
+        keyTagB64: provider.keyTagB64
+      });
+      const tester = getProviderTester2(provider.provider);
+      if (!tester) {
+        return res.status(400).json({
+          ok: false,
+          message: `Provider '${provider.provider}' not supported for testing`
+        });
+      }
+      const result = await tester.test(provider.modelId, apiKey);
+      console.log(`[SECURE AI] Test result for ${provider.provider}/${provider.modelId}: ${result.ok ? "SUCCESS" : "FAILED"}`);
+      res.json(result);
+    } catch (error) {
+      console.error("[SECURE AI] Error testing provider:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Internal error during provider test"
+      });
+    }
+  });
+  app3.patch("/api/admin/ai/providers/:id", requireAdmin, async (req, res) => {
+    try {
+      const providerId = parseInt(req.params.id);
+      const { modelId, apiKey, setActive } = req.body;
+      const updateData = { updatedAt: /* @__PURE__ */ new Date() };
+      if (modelId) updateData.modelId = modelId;
+      if (apiKey) {
+        const encrypted = encryptSecret2(apiKey);
+        updateData.keyCiphertextB64 = encrypted.keyCiphertextB64;
+        updateData.keyIvB64 = encrypted.keyIvB64;
+        updateData.keyTagB64 = encrypted.keyTagB64;
+      }
+      if (setActive) {
+        await db3.update(aiProviders2).set({ active: false, updatedAt: /* @__PURE__ */ new Date() }).where(isNull(aiProviders2.deletedAt));
+        updateData.active = true;
+      }
+      const [updatedProvider] = await db3.update(aiProviders2).set(updateData).where(and8(
+        eq10(aiProviders2.id, providerId),
+        isNull(aiProviders2.deletedAt)
+      )).returning({
+        id: aiProviders2.id,
+        provider: aiProviders2.provider,
+        modelId: aiProviders2.modelId,
+        active: aiProviders2.active
+      });
+      if (!updatedProvider) {
+        return res.status(404).json({ message: "Provider not found" });
+      }
+      res.json({
+        ...updatedProvider,
+        hasKey: true
+      });
+    } catch (error) {
+      console.error("[SECURE AI] Error updating provider:", error);
+      res.status(500).json({ message: "Failed to update AI provider" });
+    }
+  });
+  app3.delete("/api/admin/ai/providers/:id", requireAdmin, async (req, res) => {
+    try {
+      const providerId = parseInt(req.params.id);
+      await db3.update(aiProviders2).set({
+        deletedAt: /* @__PURE__ */ new Date(),
+        active: false,
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq10(aiProviders2.id, providerId));
+      console.log(`[SECURE AI] Soft-deleted provider ${providerId}`);
+      res.json({ message: "Provider deleted successfully" });
+    } catch (error) {
+      console.error("[SECURE AI] Error deleting provider:", error);
+      res.status(500).json({ message: "Failed to delete AI provider" });
+    }
+  });
   const { APP_VERSION: APP_VERSION2, APP_BUILT_AT: APP_BUILT_AT2 } = await Promise.resolve().then(() => (init_version(), version_exports));
   app3.get("/api/meta", (_req, res) => {
     res.set("Cache-Control", "no-store, no-cache, must-revalidate");
@@ -15906,16 +16230,16 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
   });
   app3.get("/api/ai/providers", async (req, res) => {
     try {
-      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const providers = await db3.select({
-        id: aiProviders2.id,
-        provider: aiProviders2.provider,
-        modelId: aiProviders2.modelId,
-        isActive: aiProviders2.isActive,
-        createdAt: aiProviders2.createdAt,
-        updatedAt: aiProviders2.updatedAt
-      }).from(aiProviders2).orderBy(aiProviders2.createdAt);
+      const { db: db4 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const providers = await db4.select({
+        id: aiProviders3.id,
+        provider: aiProviders3.provider,
+        modelId: aiProviders3.modelId,
+        isActive: aiProviders3.isActive,
+        createdAt: aiProviders3.createdAt,
+        updatedAt: aiProviders3.updatedAt
+      }).from(aiProviders3).orderBy(aiProviders3.createdAt);
       console.log(`[AI-PROVIDERS] Retrieved ${providers.length} providers`);
       res.json(providers);
     } catch (error) {
@@ -15935,39 +16259,39 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
       if (!api_key || !api_key.trim()) {
         return res.status(400).json({ message: "API Key is required" });
       }
-      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { db: db4 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { AIService: AIService2 } = await Promise.resolve().then(() => (init_ai_service(), ai_service_exports));
       const encryptedKey = AIService2.encrypt(api_key);
       if (is_active) {
-        await db3.transaction(async (tx) => {
-          await tx.update(aiProviders2).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() });
-          const [newProvider] = await tx.insert(aiProviders2).values({
+        await db4.transaction(async (tx) => {
+          await tx.update(aiProviders3).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() });
+          const [newProvider] = await tx.insert(aiProviders3).values({
             provider: provider.trim(),
             modelId: model_id.trim(),
             apiKeyEnc: encryptedKey,
             isActive: true
           }).returning({
-            id: aiProviders2.id,
-            provider: aiProviders2.provider,
-            modelId: aiProviders2.modelId,
-            isActive: aiProviders2.isActive,
-            createdAt: aiProviders2.createdAt
+            id: aiProviders3.id,
+            provider: aiProviders3.provider,
+            modelId: aiProviders3.modelId,
+            isActive: aiProviders3.isActive,
+            createdAt: aiProviders3.createdAt
           });
           res.json(newProvider);
         });
       } else {
-        const [newProvider] = await db3.insert(aiProviders2).values({
+        const [newProvider] = await db4.insert(aiProviders3).values({
           provider: provider.trim(),
           modelId: model_id.trim(),
           apiKeyEnc: encryptedKey,
           isActive: false
         }).returning({
-          id: aiProviders2.id,
-          provider: aiProviders2.provider,
-          modelId: aiProviders2.modelId,
-          isActive: aiProviders2.isActive,
-          createdAt: aiProviders2.createdAt
+          id: aiProviders3.id,
+          provider: aiProviders3.provider,
+          modelId: aiProviders3.modelId,
+          isActive: aiProviders3.isActive,
+          createdAt: aiProviders3.createdAt
         });
         res.json(newProvider);
       }
@@ -15981,9 +16305,9 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
     try {
       const { id } = req.params;
       const { provider, model_id, api_key, is_active } = req.body;
-      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq10 } = await import("drizzle-orm");
+      const { db: db4 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq11 } = await import("drizzle-orm");
       const updateData = { updatedAt: /* @__PURE__ */ new Date() };
       if (provider !== void 0) updateData.provider = provider.trim();
       if (model_id !== void 0) updateData.modelId = model_id.trim();
@@ -15993,14 +16317,14 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
         updateData.apiKeyEnc = AIService2.encrypt(api_key.trim());
       }
       if (is_active) {
-        await db3.transaction(async (tx) => {
-          await tx.update(aiProviders2).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() });
-          const [updatedProvider] = await tx.update(aiProviders2).set(updateData).where(eq10(aiProviders2.id, parseInt(id))).returning({
-            id: aiProviders2.id,
-            provider: aiProviders2.provider,
-            modelId: aiProviders2.modelId,
-            isActive: aiProviders2.isActive,
-            updatedAt: aiProviders2.updatedAt
+        await db4.transaction(async (tx) => {
+          await tx.update(aiProviders3).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() });
+          const [updatedProvider] = await tx.update(aiProviders3).set(updateData).where(eq11(aiProviders3.id, parseInt(id))).returning({
+            id: aiProviders3.id,
+            provider: aiProviders3.provider,
+            modelId: aiProviders3.modelId,
+            isActive: aiProviders3.isActive,
+            updatedAt: aiProviders3.updatedAt
           });
           if (!updatedProvider) {
             return res.status(404).json({ message: "Provider not found" });
@@ -16008,12 +16332,12 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
           res.json(updatedProvider);
         });
       } else {
-        const [updatedProvider] = await db3.update(aiProviders2).set(updateData).where(eq10(aiProviders2.id, parseInt(id))).returning({
-          id: aiProviders2.id,
-          provider: aiProviders2.provider,
-          modelId: aiProviders2.modelId,
-          isActive: aiProviders2.isActive,
-          updatedAt: aiProviders2.updatedAt
+        const [updatedProvider] = await db4.update(aiProviders3).set(updateData).where(eq11(aiProviders3.id, parseInt(id))).returning({
+          id: aiProviders3.id,
+          provider: aiProviders3.provider,
+          modelId: aiProviders3.modelId,
+          isActive: aiProviders3.isActive,
+          updatedAt: aiProviders3.updatedAt
         });
         if (!updatedProvider) {
           return res.status(404).json({ message: "Provider not found" });
@@ -16029,10 +16353,10 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
   app3.delete("/api/ai/providers/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq10 } = await import("drizzle-orm");
-      const deletedProvider = await db3.delete(aiProviders2).where(eq10(aiProviders2.id, parseInt(id))).returning();
+      const { db: db4 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq11 } = await import("drizzle-orm");
+      const deletedProvider = await db4.delete(aiProviders3).where(eq11(aiProviders3.id, parseInt(id))).returning();
       if (deletedProvider.length === 0) {
         return res.status(404).json({ message: "Provider not found" });
       }
@@ -16046,16 +16370,16 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
   app3.post("/api/ai/providers/:id/activate", async (req, res) => {
     try {
       const { id } = req.params;
-      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq10 } = await import("drizzle-orm");
-      await db3.transaction(async (tx) => {
-        await tx.update(aiProviders2).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() });
-        const [activatedProvider] = await tx.update(aiProviders2).set({ isActive: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq10(aiProviders2.id, parseInt(id))).returning({
-          id: aiProviders2.id,
-          provider: aiProviders2.provider,
-          modelId: aiProviders2.modelId,
-          isActive: aiProviders2.isActive
+      const { db: db4 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq11 } = await import("drizzle-orm");
+      await db4.transaction(async (tx) => {
+        await tx.update(aiProviders3).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() });
+        const [activatedProvider] = await tx.update(aiProviders3).set({ isActive: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq11(aiProviders3.id, parseInt(id))).returning({
+          id: aiProviders3.id,
+          provider: aiProviders3.provider,
+          modelId: aiProviders3.modelId,
+          isActive: aiProviders3.isActive
         });
         if (!activatedProvider) {
           return res.status(404).json({ message: "Provider not found" });
@@ -16071,10 +16395,10 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
   app3.post("/api/ai/providers/:id/test", async (req, res) => {
     try {
       const { id } = req.params;
-      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      const { aiProviders: aiProviders2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq10 } = await import("drizzle-orm");
-      const [provider] = await db3.select().from(aiProviders2).where(eq10(aiProviders2.id, parseInt(id)));
+      const { db: db4 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { aiProviders: aiProviders3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq11 } = await import("drizzle-orm");
+      const [provider] = await db4.select().from(aiProviders3).where(eq11(aiProviders3.id, parseInt(id)));
       if (!provider) {
         return res.status(404).json({ ok: false, message: "Provider not found" });
       }
@@ -16096,7 +16420,7 @@ Recent Changes/Context: ${incident.initialContextualFactors}`;
   });
   app3.get("/api/meta", async (req, res) => {
     try {
-      const { db: db3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { db: db4 } = await Promise.resolve().then(() => (init_db(), db_exports));
       const { Pool: Pool2 } = await import("@neondatabase/serverless");
       const dbUrl = process.env.DATABASE_URL || "";
       const dbName = dbUrl.split("/").pop()?.split("?")[0] || "unknown";
