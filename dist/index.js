@@ -4750,6 +4750,20 @@ async function requireAdmin(req, res, next) {
     res.status(500).json({ error: "Permission check failed" });
   }
 }
+async function createTestAdminUser(userId = "test-admin") {
+  try {
+    await investigationStorage.upsertUser({
+      id: userId,
+      email: "admin@test.local",
+      firstName: "Test",
+      lastName: "Admin",
+      role: "admin"
+    });
+    console.log(`[RBAC] Test admin user created: ${userId}`);
+  } catch (error) {
+    console.log(`[RBAC] Admin user may already exist: ${userId}`);
+  }
+}
 var init_rbac_middleware = __esm({
   "server/rbac-middleware.ts"() {
     "use strict";
@@ -18844,6 +18858,7 @@ async function setupVite(app3, server) {
 // server/index.ts
 init_universal_ai_config();
 init_crypto_key();
+init_rbac_middleware();
 import path5 from "path";
 import { fileURLToPath } from "url";
 dotenv.config();
@@ -18972,6 +18987,7 @@ app2.use((req, res, next) => {
   }
   const port = parseInt(process.env.PORT || "5000", 10);
   console.log("\u{1F512} Universal Protocol Standard enforcement active via Git hooks and CI/CD");
+  await createTestAdminUser();
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
   });

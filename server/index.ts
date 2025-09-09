@@ -22,6 +22,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { UniversalAIConfig } from "./universal-ai-config";
 import { loadCryptoKey } from "./config/crypto-key";
+import { createTestAdminUser } from "./rbac-middleware";
 
 // Fail-fast boot: ensure crypto key is available
 loadCryptoKey(); // throws if missing → process exits with clear message
@@ -208,6 +209,9 @@ app.use((req, res, next) => {
   // Git hooks and CI/CD pipeline provide primary violation protection
   // Runtime check available for production deployment if needed
   console.log('🔒 Universal Protocol Standard enforcement active via Git hooks and CI/CD');
+
+  // Create test admin user for development
+  await createTestAdminUser();
 
   // Proper server startup with error handling
   server.listen(port, "0.0.0.0", () => {

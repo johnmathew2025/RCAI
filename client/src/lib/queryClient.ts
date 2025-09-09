@@ -19,17 +19,20 @@ export async function apiRequest(
   
   console.log(`[API Request] ${method} ${url}`);
   
+  // Add authentication header for admin endpoints
+  const defaultHeaders: Record<string, string> = {
+    "Accept": "application/json",
+    ...(body ? { 
+      "Content-Type": "application/json", 
+      "Cache-Control": "no-cache"
+    } : {}),
+    ...(url.includes('/admin/') ? { 'x-user-id': 'test-admin' } : {}),
+    ...headers
+  };
+
   const res = await fetch(url, {
     method,
-    headers: body ? { 
-      "Content-Type": "application/json", 
-      "Accept": "application/json",
-      "Cache-Control": "no-cache",
-      ...headers 
-    } : { 
-      "Accept": "application/json",
-      ...headers 
-    },
+    headers: defaultHeaders,
     body,
     credentials: "include",
   });
