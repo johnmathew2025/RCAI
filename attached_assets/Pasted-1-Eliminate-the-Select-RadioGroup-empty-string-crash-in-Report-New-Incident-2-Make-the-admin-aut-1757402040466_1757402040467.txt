@@ -1,0 +1,89 @@
+1.	Eliminate the Select/RadioGroup empty-string crash in Report New Incident.
+2.	Make the admin auth header a dev-only feature (no hardcoding in prod).
+3.	Provide hard proof (grep + UI run) that both are fixed.
+0) Clean build
+rm -rf node_modules client/node_modules .next dist build .vite .turbo
+pnpm install || npm install
+1) Reproduce the UI path & capture errors
+•	Start the app normally.
+•	In the frontend: Report New Incident → click through every Select/RadioGroup.
+•	Copy any red DevTools console errors (or state “No errors”).
+2) Find all risky patterns
+rg -n --glob 'client/**/*.{ts,tsx}' 'Select(Item)?[^\\n]*value\\s*=\\s*""'
+rg -n --glob 'client/**/*.{ts,tsx}' 'value\\s*:\\s*""'
+rg -n --glob 'client/**/*.{ts,tsx}' 'SENTINEL\\.FIELD_EMPTY'
+rg -n --glob 'client/**/*.{ts,tsx}' 'RadioGroup[^\\n]*value\\s*=\\s*""'
+If any matches appear, list each file:line and patch them.
+3) Patch all Select/RadioGroup components
+•	Never pass "" as a value. Use undefined for “no choice” or a valid default.
+•	Ensure every <SelectItem> has a non-empty value.
+•	Guard dynamic IDs.
+Helper (use where needed):
+const safeSelectValue = (v: string | null | undefined) =>
+  v && v.trim().length > 0 ? v : undefined;
+Apply pattern:
+<Select
+  value={safeSelectValue(form.watch('severity'))}
+  onValueChange={(v) => form.setValue('severity', v)}
+>
+  {SEVERITY_OPTIONS.map(opt => (
+    <SelectItem key={opt.id} value={String(opt.id)}>{opt.label}</SelectItem>
+  ))}
+</Select>
+RadioGroup:
+<RadioGroup
+  value={safeSelectValue(form.watch('evidenceType'))}
+  onValueChange={(v) => form.setValue('evidenceType', v)}
+>
+  {/* values must be non-empty */}
+</RadioGroup>
+Remove all SENTINEL.FIELD_EMPTY usages from UI state.
+4) Temporary runtime guard (remove after green run)
+client/src/lib/guardSelectValue.ts
+export const guardValue = (v: unknown) => v === "" ? undefined : v as string | undefined;
+Use it on any stubborn value={...} during this fix cycle.
+5) Quick regression check script
+scripts/check-select-empty.sh
+#!/usr/bin/env bash
+set -e
+rg -n --glob 'client/**/*.{ts,tsx}' 'value\\s*=\\s*""' \
+ && { echo "❌ Found empty string value"; exit 1; } \
+ || echo "✅ No empty string value props"
+Run: bash scripts/check-select-empty.sh
+6) Dev-only auth header (no prod backdoor)
+Server (server/index.ts):
+if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_AUTH === '1') {
+  await createTestAdminUser(); // existing helper
+  app.use((req, _res, next) => {
+    if (!req.headers['x-user-id']) req.headers['x-user-id'] = process.env.DEV_USER_ID || 'test-admin';
+    next();
+  });
+}
+Client (client/src/lib/queryClient.ts or API wrapper):
+const devAuth = import.meta.env.VITE_DEV_AUTH === '1';
+const userId  = import.meta.env.VITE_DEV_USER_ID || 'test-admin';
+const headers = devAuth ? { 'x-user-id': userId } : {};
+// merge headers into all admin API requests
+Verify no hardcoding leaks:
+rg -n --glob 'server/**/*.{ts,tsx,js}' 'x-user-id.*test-admin'
+rg -n --glob 'client/**/*.{ts,tsx,js}' 'x-user-id.*test-admin'
+# Expect 0 matches except inside the guarded blocks above.
+Prod sanity check (must be forbidden):
+NODE_ENV=production ENABLE_DEV_AUTH=0 pnpm build && pnpm start
+curl -i http://localhost:5000/api/admin/ai-settings                    # expect 401/403
+curl -i -H 'x-user-id: test-admin' http://localhost:5000/api/admin/ai-settings  # still 401/403
+7) Rebuild & retest UI path
+pnpm build || npm run build
+pnpm start || npm start
+•	Click through Report New Incident and exercise all Selects/RadioGroups.
+•	Provide console screenshot/text: no red errors.
+8) AI Settings end-to-end (dev with VITE_DEV_AUTH=1)
+•	Create provider → Save → Refresh → provider persists.
+•	Update & Delete also persist after refresh.
+9) Deliver back
+•	Output of the 4 rg searches (0 matches).
+•	Console screenshot/log showing no errors in the incident flow.
+•	Diffs (file + lines) for the patches.
+•	Prod-mode curl results showing admin endpoints are forbidden without real auth.
+
+
