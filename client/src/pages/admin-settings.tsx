@@ -30,7 +30,6 @@ const RemovedDuplicateAIProvidersTable_USING_UNIFIED_COMPONENT = () => {
   const [formData, setFormData] = useState({
     provider: '',
     model_id: '',
-    api_key: '',
     is_active: false
   });
 
@@ -67,7 +66,7 @@ const RemovedDuplicateAIProvidersTable_USING_UNIFIED_COMPONENT = () => {
 
   // Create provider
   const handleCreate = async () => {
-    if (!formData.provider || !formData.model_id || !formData.api_key) {
+    if (!formData.provider || !formData.model_id) {
       alert('Please fill all fields');
       return;
     }
@@ -166,12 +165,6 @@ const RemovedDuplicateAIProvidersTable_USING_UNIFIED_COMPONENT = () => {
           placeholder="Model ID (e.g., gpt-4o-mini)"
           value={formData.model_id}
           onChange={(e) => setFormData(prev => ({ ...prev, model_id: e.target.value }))}
-        />
-        <Input
-          type="password"
-          placeholder="API Key"
-          value={formData.api_key}
-          onChange={(e) => setFormData(prev => ({ ...prev, api_key: e.target.value }))}
         />
         <Button onClick={handleCreate}>
           <Plus className="w-4 h-4 mr-2" />

@@ -80,7 +80,6 @@ export default function AIProvidersTable() {
                 <TableHead>Model</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead>API Key</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -97,9 +96,6 @@ export default function AIProvidersTable() {
                     {new Date(provider.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <code className="bg-muted px-2 py-1 rounded text-xs">
-                      {provider.apiKeyPreview}
-                    </code>
                   </TableCell>
                 </TableRow>
               ))}

@@ -629,19 +629,6 @@ export default function DataIntegrationDemo() {
                 <h4 className="font-semibold">Authentication</h4>
                 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="apiKey">API Key</Label>
-                    <Input
-                      id="apiKey"
-                      type="password"
-                      value={newDataSource.connectionConfig?.apiKey || SENTINEL.FIELD_EMPTY}
-                      onChange={(e) => setNewDataSource(prev => ({ 
-                        ...prev, 
-                        connectionConfig: { ...prev.connectionConfig!, apiKey: e.target.value }
-                      }))}
-                      placeholder="Enter API key if required"
-                    />
-                  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="username">Username</Label>
