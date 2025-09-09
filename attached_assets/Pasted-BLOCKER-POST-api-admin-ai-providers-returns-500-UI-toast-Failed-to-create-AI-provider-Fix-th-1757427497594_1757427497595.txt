@@ -1,0 +1,113 @@
+BLOCKER: POST /api/admin/ai/providers returns 500 (UI toast: "Failed to create AI provider"). Fix the create path, schema mapping, and crypto. GET now returns 200 and whoami shows authenticated:true.
+
+DO EXACTLY THIS:
+
+1) CRYPTO (server/config/crypto-key.ts or crypto-gcm.ts)
+- Use RAW 32-char env key (utf8), not base64.
+  const K = process.env.CRYPTO_KEY_32 || process.env.AI_KEY_ENCRYPTION_SECRET;
+  if (!K || K.length !== 32) throw new Error('CRYPTO_KEY_32 must be exactly 32 chars');
+  export const ENC_KEY = Buffer.from(K, 'utf8');
+- AES-256-GCM with 12-byte IV and auth tag:
+  import { randomBytes, createCipheriv } from 'crypto';
+  export function encryptSecret(plain: string) {
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', ENC_KEY, iv);
+    const ct = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return {
+      keyCiphertextB64: ct.toString('base64'),
+      keyIvB64: iv.toString('base64'),
+      keyTagB64: tag.toString('base64'),
+    };
+  }
+
+2) DB SCHEMA MAPPING (shared/schema + server)
+- Map snake_case columns correctly. If DB has columns:
+  provider, model_id, key_ciphertext_b64, key_iv_b64, key_tag_b64, is_active, created_by, created_at, updated_at, deleted_at
+  then in code use:
+    modelId  <-> model_id
+    hasKey   -> computed from key_ciphertext_b64
+    active   <-> is_active
+- Ensure migration exists. If missing columns cause 500, create them or run migration so insert works.
+
+3) CREATE ROUTE (server/routes.ts or routes/providers.ts)
+router.post('/api/admin/ai/providers', adminOnly, async (req,res) => {
+  try {
+    const { provider, modelId, apiKey, setActive } = req.body ?? {};
+    if (!provider || !modelId || !apiKey)
+      return res.status(400).json({ code:'MISSING_FIELDS', message:'provider, modelId, apiKey are required' });
+
+    const p = String(provider).trim().toLowerCase();
+    const m = String(modelId).trim();
+
+    const enc = encryptSecret(String(apiKey));
+
+    // INSERT (Drizzle example; adjust names to your ORM)
+    const [row] = await db.insert(aiProviders).values({
+      provider: p,
+      modelId: m,                // maps to model_id
+      keyCiphertextB64: enc.keyCiphertextB64,   // -> key_ciphertext_b64
+      keyIvB64: enc.keyIvB64,                   // -> key_iv_b64
+      keyTagB64: enc.keyTagB64,                 // -> key_tag_b64
+      isActive: !!setActive,                    // -> is_active
+      createdBy: req.session.user?.email || 'dev@local', // created_by (NOT NULL safe in dev)
+    }).returning({ id: aiProviders.id });
+
+    if (setActive) {
+      // single-active constraint
+      await db.execute(sql`
+        update ai_providers set is_active=false where id <> ${row.id} and deleted_at is null
+      `);
+      await db.execute(sql`update ai_providers set is_active=true where id=${row.id}`);
+    }
+
+    return res.status(201).json({
+      id: row.id, provider: p, modelId: m, active: !!setActive, hasKey: true
+    });
+  } catch (e:any) {
+    const msg = String(e?.message || e);
+    // Map common DB errors to clear client messages
+    if (msg.includes('relation "ai_providers" does not exist'))
+      return res.status(500).json({ code:'MIGRATION_MISSING', message:'Run DB migration for ai_providers' });
+    if (e.code === '23505' || msg.includes('unique'))
+      return res.status(409).json({ code:'DUPLICATE_PROVIDER_MODEL', message:'Provider+Model already exists' });
+    if (msg.includes('null value in column') && msg.includes('created_by'))
+      return res.status(400).json({ code:'CREATED_BY_REQUIRED', message:'created_by missing' });
+    if (msg.includes('Invalid key length'))
+      return res.status(500).json({ code:'CRYPTO_KEY_INVALID', message:'CRYPTO_KEY_32 must be 32 chars' });
+    if (msg.includes('Invalid IV length'))
+      return res.status(500).json({ code:'CRYPTO_IV_INVALID', message:'GCM IV must be 12 bytes' });
+    console.error('Create AI provider error:', e);
+    return res.status(500).json({ code:'SERVER_ERROR', message: msg });
+  }
+});
+
+4) LIST ROUTE (no decryption; must never 500)
+router.get('/api/admin/ai/providers', adminOnly, async (req,res,next) => {
+  try {
+    const rows = await db.execute(sql`
+      select id, provider, model_id as "modelId", is_active as "active",
+             (key_ciphertext_b64 is not null) as "hasKey"
+      from ai_providers where deleted_at is null order by created_at desc
+    `);
+    res.json(rows);
+  } catch (e) {
+    return res.status(500).json({ code:'SERVER_ERROR', message:String(e?.message||e) });
+  }
+});
+
+5) FRONTEND
+- Ensure POST includes credentials:'include' and shows server error text in the toast.
+- Lowercase provider before submit.
+
+6) SELF-TEST (must paste results)
+# with server running locally:
+curl -i -X POST http://localhost:5000/api/auth/dev-login
+curl -s  http://localhost:5000/api/admin/whoami
+curl -i  http://localhost:5000/api/admin/ai/providers
+curl -i -X POST http://localhost:5000/api/admin/ai/providers \
+  -H 'Content-Type: application/json' \
+  --data '{"provider":"openai","modelId":"gpt-4o-mini","apiKey":"sk-TEST","setActive":true}'
+# Expect: 201 with {id, provider, modelId, active, hasKey:true}; and GET should show the row.
+
+CONFIRM when done: In browser DevTools → Network, the POST /api/admin/ai/providers returns 201 JSON and the table shows the new row with 🔒 Key: Yes and Active.

@@ -100,72 +100,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/admin/ai/providers - Create provider with encrypted key
   app.post("/api/admin/ai/providers", requireAdmin, async (req: AuthenticatedRequest, res) => {
     try {
-      const { provider, modelId, apiKey, setActive } = req.body;
-      
-      if (!provider || !modelId || !apiKey) {
-        return res.status(400).json({ message: "Provider, modelId, and apiKey are required" });
-      }
+      const { provider, modelId, apiKey, setActive } = req.body ?? {};
+      if (!provider || !modelId || !apiKey)
+        return res.status(400).json({ code:'MISSING_FIELDS', message:'provider, modelId, apiKey are required' });
 
-      // Encrypt the API key
-      const encrypted = encryptSecret(apiKey);
-      
+      const p = String(provider).trim().toLowerCase();
+      const m = String(modelId).trim();
+
+      const enc = encryptSecret(String(apiKey));
+
       // If setActive is true, deactivate all other providers first
       if (setActive) {
         await db.update(aiProviders)
           .set({ active: false, updatedAt: new Date() });
       }
 
-      // Insert new provider
-      const [newProvider] = await db.insert(aiProviders).values({
-        provider,
-        modelId,
-        keyCiphertextB64: encrypted.keyCiphertextB64,
-        keyIvB64: encrypted.keyIvB64,
-        keyTagB64: encrypted.keyTagB64,
-        active: setActive || false,
-        createdBy: req.user?.id || 'admin',
-      }).returning({
-        id: aiProviders.id,
-        provider: aiProviders.provider,
-        modelId: aiProviders.modelId,
-        active: aiProviders.active,
-      });
+      // INSERT (Drizzle with proper schema mapping)
+      const [row] = await db.insert(aiProviders).values({
+        provider: p,
+        modelId: m,                // maps to model_id
+        keyCiphertextB64: enc.keyCiphertextB64,   // -> key_ciphertext_b64
+        keyIvB64: enc.keyIvB64,                   // -> key_iv_b64
+        keyTagB64: enc.keyTagB64,                 // -> key_tag_b64
+        active: !!setActive,                      // -> is_active
+        createdBy: req.session.user?.email || 'dev@local', // created_by (NOT NULL safe in dev)
+      }).returning({ id: aiProviders.id });
 
-      console.log(`[SECURE AI] Created provider ${provider}/${modelId} for user ${req.user?.id}`);
-      
-      res.json({
-        ...newProvider,
-        hasKey: true,
+      if (setActive) {
+        // single-active constraint - use raw SQL for reliability
+        const { sql } = await import('drizzle-orm');
+        await db.execute(sql`
+          update ai_providers set is_active=false where id <> ${row.id}
+        `);
+        await db.execute(sql`update ai_providers set is_active=true where id=${row.id}`);
+      }
+
+      return res.status(201).json({
+        id: row.id, provider: p, modelId: m, active: !!setActive, hasKey: true
       });
-    } catch (error) {
-      console.error('[SECURE AI] Error creating provider:', error);
-      res.status(500).json({ message: "Failed to create AI provider" });
+    } catch (e:any) {
+      const msg = String(e?.message || e);
+      // Map common DB errors to clear client messages
+      if (msg.includes('relation "ai_providers" does not exist'))
+        return res.status(500).json({ code:'MIGRATION_MISSING', message:'Run DB migration for ai_providers' });
+      if (e.code === '23505' || msg.includes('unique'))
+        return res.status(409).json({ code:'DUPLICATE_PROVIDER_MODEL', message:'Provider+Model already exists' });
+      if (msg.includes('null value in column') && msg.includes('created_by'))
+        return res.status(400).json({ code:'CREATED_BY_REQUIRED', message:'created_by missing' });
+      if (msg.includes('Invalid key length'))
+        return res.status(500).json({ code:'CRYPTO_KEY_INVALID', message:'CRYPTO_KEY_32 must be 32 chars' });
+      if (msg.includes('Invalid IV length'))
+        return res.status(500).json({ code:'CRYPTO_IV_INVALID', message:'GCM IV must be 12 bytes' });
+      console.error('Create AI provider error:', e);
+      return res.status(500).json({ code:'SERVER_ERROR', message: msg });
     }
   });
 
-  // GET /api/admin/ai/providers - List providers with hasKey flag (never expose keys)
+  // GET /api/admin/ai/providers - List providers with hasKey flag (never expose keys) 
   app.get("/api/admin/ai/providers", requireAdmin, async (req: AuthenticatedRequest, res) => {
     try {
-      const providers = await db.select({
-        id: aiProviders.id,
-        provider: aiProviders.provider,
-        modelId: aiProviders.modelId,
-        active: aiProviders.active,
-        createdAt: aiProviders.createdAt,
-        updatedAt: aiProviders.updatedAt,
-      }).from(aiProviders)
-        .orderBy(aiProviders.createdAt);
-
-      // Add hasKey flag to each provider (never expose actual keys)
-      const providersWithFlag = providers.map(p => ({
-        ...p,
-        hasKey: true, // All providers in this table have encrypted keys
-      }));
-
-      res.json(providersWithFlag);
-    } catch (error) {
-      console.error('[SECURE AI] Error retrieving providers:', error);
-      res.status(500).json({ message: "Failed to retrieve AI providers" });
+      const { sql } = await import('drizzle-orm');
+      const rows = await db.execute(sql`
+        select id, provider, model_id as "modelId", is_active as "active",
+               (key_ciphertext_b64 is not null) as "hasKey",
+               created_at as "createdAt", updated_at as "updatedAt"
+        from ai_providers order by created_at desc
+      `);
+      res.json(rows);
+    } catch (e) {
+      return res.status(500).json({ code:'SERVER_ERROR', message:String(e?.message||e) });
     }
   });
 
