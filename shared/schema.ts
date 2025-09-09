@@ -311,7 +311,7 @@ export const aiProviders = pgTable("ai_providers", {
   keyCiphertextB64: text("key_ciphertext_b64").notNull(),
   keyIvB64: varchar("key_iv_b64", { length: 48 }).notNull(), // 12-byte IV -> base64 ~16 chars; pad
   keyTagB64: varchar("key_tag_b64", { length: 48 }).notNull(), // 16-byte tag -> base64
-  active: boolean("active").default(false).notNull(),
+  active: boolean("is_active").default(false).notNull(),
   createdBy: varchar("created_by", { length: 128 }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
