@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,8 @@ interface WorkflowStep {
 }
 
 export default function NewAnalysis() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   
   const [currentStep, setCurrentStep] = useState(1);

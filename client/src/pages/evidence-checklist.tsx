@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle, Circle, FileText, Upload, AlertTriangle, ChevronRight, Brain, Lightbulb, X, AlertCircle } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";

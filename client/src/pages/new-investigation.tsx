@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { AlertTriangle, FileText, Search, ArrowRight } from "lucide-react";
 
 export default function NewInvestigation() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   
   const [formData, setFormData] = useState({

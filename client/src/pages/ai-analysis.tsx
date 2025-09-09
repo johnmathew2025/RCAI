@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useParams, useLocation } from "react-router-dom";
 import { Brain, CheckCircle, AlertTriangle, ChevronRight, FileText, Zap, Target, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

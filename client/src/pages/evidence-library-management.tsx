@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus, Upload, Download, Edit, Edit2, Trash2, AlertTriangle, CheckCircle, Home, ArrowLeft, Library } from "lucide-react";
 import { format } from "date-fns";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import ComprehensiveEvidenceForm from "@/components/comprehensive-evidence-form";

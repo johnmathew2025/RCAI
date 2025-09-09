@@ -35,5 +35,11 @@ export function navigateTo(path: string, search?: Record<string, string>) {
   }
   
   // Use full URL to avoid relative path issues
-  window.location.href = url.toString();
+  // Guard: Only external URLs get hard navigation - internal URLs break SPA
+  const isExternal = /^https?:\/\//i.test(url.toString()) || url.toString().startsWith('mailto:') || url.toString().startsWith('tel:');
+  if (isExternal) {
+    window.location.href = url.toString();
+  } else {
+    console.warn('[SPA WARNING] Internal URL blocked from hard navigation:', url.toString());
+  }
 }

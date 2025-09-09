@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useParams } from "wouter";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -210,7 +210,7 @@ export default function ISO14224EvidenceForm() {
         description: "Evidence has been validated and analysis will begin.",
       });
       
-      setLocation(`/analysis/${id}`);
+      navigate(`/analysis/${id}`);
     } catch (error) {
       toast({
         title: "Error",

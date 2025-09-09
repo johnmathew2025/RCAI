@@ -1,0 +1,41 @@
+two likely gaps remain:
+1.	window.location in “utils (external navigation)” — acceptable only for external links. If that util is ever used for internal paths, it will break SPA navigation.
+2.	Server catch-all for deep links — they didn’t show it. Without it, reloading a deep URL (e.g. /incidents/123) can 404.
+Here’s a quick acceptance checklist you (or the agent) can run to truly close this:
+1) One router + correct basename
+rg -n --glob 'client/**/*.{ts,tsx}' '<BrowserRouter|<HashRouter|basename='
+rg -n --glob 'client/**/*.{ts,tsx}' '<BrowserRouter' | wc -l   # expect: 1
+2) No wouter left
+rg -n --glob 'client/**/*.{ts,tsx}' 'from\\s+[\"\\']wouter[\"\\']'  # expect: no matches
+3) No hard reloads in app code
+rg -n --glob 'client/**/*.{ts,tsx}' 'window\\.location\\.(href|assign|replace)'
+# Acceptable: exactly ONE in ErrorBoundary. Everything else must be SPA (Link/navigate).
+4) Guard the “external navigation” util
+Ensure it only hard-navigates external URLs:
+// client/src/utils/nav.ts
+export const isExternalUrl = (u: string) => /^https?:\/\//i.test(u) || u.startsWith('mailto:') || u.startsWith('tel:');
+
+export function go(u: string, navigate: (p: string)=>void) {
+  if (isExternalUrl(u)) { window.location.assign(u); return; }
+  navigate(u); // internal → SPA
+}
+5) Home + NotFound routes exist
+rg -n --glob 'client/**/*.{ts,tsx}' 'Route.+path=\\s*[\"\\'']/\\s*|<Route index'
+rg -n --glob 'client/**/*.{ts,tsx}' 'Route.+path=\\s*[\"\\'']\\*'
+6) BackToHome components are SPA-safe
+•	Buttons have type="button".
+•	Use navigate('/') or <Link to="/" /> (router-relative).
+7) Deep-link reload works (server rewrite)
+Try a deep URL directly:
+curl -i http://localhost:5000/some/deep/route
+•	Should be 200 and serve your SPA, not 404.
+If it fails, add a catch-all (Express example):
+app.use(express.static(path.join(__dirname, 'dist')));
+app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
+8) Basename under a subpath (prod-like)
+VITE_ROUTER_BASENAME=/admin pnpm build && pnpm start
+# Manually visit a few pages, click “Back to Home” → should go to /admin/ with no full reload.
+Final call
+•	If all checks pass and Back to Home SPA-navigates from multiple pages (no full page reload, no console errors), then yes—the job is complete.
+•	If any of 3), 4), or 7) fail, ask them to fix those specific items; those are the usual last-mile blockers.
+

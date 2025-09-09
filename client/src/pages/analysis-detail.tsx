@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ import StepwiseReasoning from "@/components/stepwise-reasoning";
 import MissingDataPrompts from "@/components/missing-data-prompts";
 
 export default function AnalysisDetail() {
-  const [, params] = useRoute("/investigation/:id");
+  const params = useParams<{id: string}>();
   const [activeTab, setActiveTab] = useState("overview");
   const [showManualAdjustment, setShowManualAdjustment] = useState(false);
   

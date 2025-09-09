@@ -271,7 +271,7 @@ export default function EvidenceCollection() {
             <div className="flex items-center space-x-4">
               <Button 
                 variant="ghost" 
-                onClick={() => setLocation('/')}
+                onClick={() => navigate('/')}
               >
                 ← Back to Home
               </Button>
@@ -420,7 +420,7 @@ export default function EvidenceCollection() {
         <div className="mt-8 flex justify-between">
           <Button 
             variant="outline" 
-            onClick={() => setLocation(`/evidence-checklist?incident=${incidentId}`)}
+            onClick={() => navigate(`/evidence-checklist?incident=${incidentId}`)}
           >
             ← Back to Evidence Checklist
           </Button>

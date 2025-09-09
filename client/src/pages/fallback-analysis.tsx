@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useRoute } from 'wouter';
+import { useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Brain, AlertTriangle, CheckCircle, FileText, ArrowLeft } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 
 export function FallbackAnalysisPage() {
-  const [, params] = useRoute('/incidents/:id/fallback-analysis');
+  const params = useParams<{id: string}>();
   const incidentId = params?.id;
   const [analysisResults, setAnalysisResults] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
