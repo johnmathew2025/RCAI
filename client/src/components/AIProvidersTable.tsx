@@ -1,187 +1,193 @@
-import { 
-  useSecureAiProviders, 
-  useCreateSecureAiProvider, 
-  useTestSecureAiProvider,
-  useDeleteSecureAiProvider,
-  useSetActiveSecureAiProvider
-} from '../hooks/useSecureAiProviders';
-import { useState } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Badge } from './ui/badge';
-import { Checkbox } from './ui/checkbox';
-import { Plus, TestTube, Lock, Trash2, Activity } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+
+type ProviderRow = {
+  id: number;
+  provider: string;
+  modelId: string;
+  active: boolean;
+  hasKey: boolean;
+};
 
 export default function AIProvidersTable() {
-  const { data: providers = [] } = useSecureAiProviders();
-  const createProvider = useCreateSecureAiProvider();
-  const testProvider = useTestSecureAiProvider();
-  const deleteProvider = useDeleteSecureAiProvider();
-  const setActiveProvider = useSetActiveSecureAiProvider();
-  
-  const [formData, setFormData] = useState({
-    provider: '',
-    modelId: '',
-    apiKey: '',
-    setActive: false
-  });
+  const [rows, setRows] = useState<ProviderRow[]>([]);
+  const [provider, setProvider] = useState("");
+  const [modelId, setModelId] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [makeActive, setMakeActive] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.provider || !formData.modelId || !formData.apiKey) {
-      alert('Please fill all fields including API Key');
+  async function load() {
+    const res = await fetch("/api/admin/ai/providers", { 
+      credentials: "include",
+      headers: { "x-user-id": "test-admin" }
+    });
+    if (!res.ok) {
+      setToast(`Load failed: ${res.status}`);
       return;
     }
-    
+    const json = await res.json();
+    setRows(json ?? []);
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function save() {
     try {
-      await createProvider.mutateAsync(formData);
-      // Clear form after successful save (never repopulate API key)
-      setFormData({ provider: '', modelId: '', apiKey: '', setActive: false });
-    } catch (error) {
-      console.error('Error creating provider:', error);
+      setBusy(true);
+      setToast(null);
+      const body = {
+        provider: provider.trim().toLowerCase(),
+        modelId: modelId.trim(),
+        apiKey: apiKey,            // password; will be cleared after success
+        setActive: !!makeActive,
+      };
+      const res = await fetch("/api/admin/ai/providers", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "x-user-id": "test-admin"
+        },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setToast(json?.message || `Create failed: HTTP ${res.status}`);
+        return;
+      }
+      setToast("Provider saved.");
+      setApiKey(""); // never keep it in memory/UI after save
+      setProvider("");
+      setModelId("");
+      setMakeActive(false);
+      await load();
+    } finally {
+      setBusy(false);
     }
-  };
+  }
 
-  const handleTest = async (id: number) => {
-    await testProvider.mutateAsync(id);
-  };
-
-  const handleSetActive = async (id: number) => {
-    await setActiveProvider.mutateAsync(id);
-  };
-
-  const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this AI provider?')) {
-      await deleteProvider.mutateAsync(id);
+  async function testProvider(id: number) {
+    setBusy(true);
+    setToast(null);
+    try {
+      const res = await fetch(`/api/admin/ai/providers/${id}/test`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "x-user-id": "test-admin" }
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setToast(json?.message || `Test failed: HTTP ${res.status}`);
+        return;
+      }
+      setToast(json.ok ? `✅ Test OK (${json.latencyMs ?? "?"} ms)` : `❌ ${json.message || "Test failed"}`);
+    } finally {
+      setBusy(false);
     }
-  };
+  }
+
+  async function setActive(id: number) {
+    setBusy(true);
+    setToast(null);
+    try {
+      const res = await fetch(`/api/admin/ai/providers/${id}`, {
+        method: "PATCH",
+        headers: { 
+          "Content-Type": "application/json",
+          "x-user-id": "test-admin"
+        },
+        credentials: "include",
+        body: JSON.stringify({ setActive: true }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setToast(json?.message || `Activate failed: HTTP ${res.status}`);
+        return;
+      }
+      await load();
+      setToast("Active provider updated.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Secure AI Providers</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          API keys are encrypted and stored securely on the backend. They are never exposed to client-side code.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Add Form */}
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-6 gap-2">
-          <Input
-            placeholder="Provider (e.g., openai)"
-            value={formData.provider}
-            onChange={(e) => setFormData(prev => ({ ...prev, provider: e.target.value }))}
-            required
-          />
-          <Input
-            placeholder="Model ID (e.g., gpt-4o-mini)"
-            value={formData.modelId}
-            onChange={(e) => setFormData(prev => ({ ...prev, modelId: e.target.value }))}
-            required
-          />
-          <Input
-            type="password"
-            placeholder="API Key (masked)"
-            value={formData.apiKey}
-            onChange={(e) => setFormData(prev => ({ ...prev, apiKey: e.target.value }))}
-            required
-          />
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="setActive"
-              checked={formData.setActive}
-              onCheckedChange={(checked) => 
-                setFormData(prev => ({ ...prev, setActive: checked as boolean }))
-              }
-            />
-            <label htmlFor="setActive" className="text-sm">Set Active</label>
-          </div>
-          <Button type="submit" disabled={createProvider.isPending} className="col-span-2">
-            <Plus className="w-4 h-4 mr-2" />
-            {createProvider.isPending ? 'Saving...' : 'Save Provider'}
-          </Button>
-        </form>
+    <div className="space-y-6">
+      <div className="p-4 rounded-xl border">
+        <h3 className="font-semibold text-lg">Add AI Provider</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+          <label className="flex flex-col">
+            <span className="text-sm">Provider (e.g., openai, anthropic, google)</span>
+            <input className="border rounded px-3 py-2" value={provider}
+              onChange={e => setProvider(e.target.value)} placeholder="openai" />
+          </label>
+          <label className="flex flex-col">
+            <span className="text-sm">Model ID</span>
+            <input className="border rounded px-3 py-2" value={modelId}
+              onChange={e => setModelId(e.target.value)} placeholder="gpt-4o-mini" />
+          </label>
+          <label className="flex flex-col md:col-span-2">
+            <span className="text-sm">API Key (stored encrypted, never shown again)</span>
+            <input className="border rounded px-3 py-2" value={apiKey} type="password"
+              onChange={e => setApiKey(e.target.value)} placeholder="sk-..." />
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input type="checkbox" checked={makeActive} onChange={e => setMakeActive(e.target.checked)} />
+            <span>Set as active provider</span>
+          </label>
+        </div>
+        <div className="mt-4">
+          <button disabled={busy || !provider || !modelId || !apiKey}
+            onClick={save}
+            className="px-4 py-2 rounded bg-black text-white disabled:opacity-50">
+            Save Provider
+          </button>
+        </div>
+        {toast && <div className="mt-3 text-sm">{toast}</div>}
+      </div>
 
-        {/* Providers Table */}
-        {providers.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No AI providers configured. Add one above to get started.
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Provider</TableHead>
-                <TableHead>Model ID</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>API Key</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {providers.map((provider) => (
-                <TableRow key={provider.id}>
-                  <TableCell className="font-medium">{provider.provider}</TableCell>
-                  <TableCell>{provider.modelId}</TableCell>
-                  <TableCell>
-                    {provider.active ? (
-                      <Badge variant="default" className="flex items-center gap-1">
-                        <Activity className="w-3 h-3" />
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">Inactive</Badge>
+      <div className="p-4 rounded-xl border">
+        <h3 className="font-semibold text-lg">Current AI Providers</h3>
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left border-b">
+                <th className="py-2 pr-4">Provider</th>
+                <th className="py-2 pr-4">Model</th>
+                <th className="py-2 pr-4">Active</th>
+                <th className="py-2 pr-4">🔒 Key</th>
+                <th className="py-2 pr-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr><td colSpan={5} className="py-4 text-neutral-500">No AI providers configured.</td></tr>
+              )}
+              {rows.map(r => (
+                <tr key={r.id} className="border-b">
+                  <td className="py-2 pr-4">{r.provider}</td>
+                  <td className="py-2 pr-4">{r.modelId}</td>
+                  <td className="py-2 pr-4">{r.active ? "Yes" : "No"}</td>
+                  <td className="py-2 pr-4">{r.hasKey ? "Yes" : "No"}</td>
+                  <td className="py-2 pr-4 flex gap-2">
+                    <button className="px-3 py-1 border rounded"
+                      disabled={busy || !r.hasKey}
+                      onClick={() => testProvider(r.id)}>Test</button>
+                    {!r.active && (
+                      <button className="px-3 py-1 border rounded"
+                        disabled={busy}
+                        onClick={() => setActive(r.id)}>Set Active</button>
                     )}
-                  </TableCell>
-                  <TableCell>
-                    {provider.hasKey ? (
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <Lock className="w-3 h-3" />
-                        Stored
-                      </Badge>
-                    ) : (
-                      <Badge variant="destructive">Missing</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleTest(provider.id)}
-                        disabled={testProvider.isPending}
-                      >
-                        <TestTube className="w-3 h-3 mr-1" />
-                        Test
-                      </Button>
-                      {!provider.active && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleSetActive(provider.id)}
-                          disabled={setActiveProvider.isPending}
-                        >
-                          Set Active
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDelete(provider.id)}
-                        disabled={deleteProvider.isPending}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="text-xs text-neutral-500">BUILD_ID: {import.meta?.env?.VITE_BUILD_ID ?? "dev"}</div>
+    </div>
   );
 }
