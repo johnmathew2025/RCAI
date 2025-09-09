@@ -1,21 +1,34 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { PATHS } from '@/config/routes';
 
-export default function BackToHome() {
+export function BackToHomeButton() {
   const navigate = useNavigate();
-  
   return (
     <Button 
       type="button" 
       variant="outline" 
-      data-testid="back-home" 
-      onClick={() => navigate(PATHS.home)}
+      onClick={() => navigate('/')}
       className="flex items-center gap-2"
     >
       <ArrowLeft className="h-4 w-4" />
       Back to Home
     </Button>
   );
+}
+
+export function BackToHomeLink() {
+  return (
+    <Button variant="outline" asChild>
+      <Link to="/" className="flex items-center gap-2">
+        <ArrowLeft className="h-4 w-4" />
+        Back to Home
+      </Link>
+    </Button>
+  );
+}
+
+// Default export for backward compatibility
+export default function BackToHome() {
+  return <BackToHomeButton />;
 }

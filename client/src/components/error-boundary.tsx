@@ -46,7 +46,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private handleGoHome = () => {
     // Hard redirect for error recovery (acceptable in ErrorBoundary)
-    window.location.href = '/';
+    const BASENAME = import.meta.env.VITE_ROUTER_BASENAME || '/';
+    window.location.assign(BASENAME);
   };
 
   private handleReportError = () => {

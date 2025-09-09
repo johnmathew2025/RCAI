@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, ArrowLeft, Wrench, Search, FileText, AlertCircle } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 // Incident ID validation
@@ -34,15 +35,14 @@ type EquipmentSymptomForm = z.infer<typeof equipmentSymptomSchema>;
 
 export default function EquipmentSelection() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   
   // Extract incident ID as string from URL parameters (no hardcoding)
-  const incidentId = new URLSearchParams(window.location.search).get("incident")?.trim() ?? '';
+  const incidentId = new URLSearchParams(location.search).get("incident")?.trim() ?? '';
   
-  console.log('DEBUG: Full URL:', window.location.href);
-  console.log('DEBUG: Search params:', window.location.search);
-  console.log('DEBUG: Incident ID:', incidentId);
+  // Debug logging removed - no window.location usage
   
   // Validate incident ID format (no hardcoding)
   useEffect(() => {
@@ -149,7 +149,7 @@ export default function EquipmentSelection() {
         title: "Equipment & Symptoms Updated",
         description: "Proceeding to Universal RCA Analysis - AI will analyze your incident description",
       });
-      setLocation(`/evidence-checklist?incident=${encodeURIComponent(incidentId)}`);
+      navigate(`/evidence-checklist?incident=${encodeURIComponent(incidentId)}`);
     },
     onError: (error: any) => {
       toast({

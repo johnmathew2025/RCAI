@@ -45,8 +45,7 @@ import RcaCases from "@/pages/rca-cases";
 
 
 function Router() {
-  console.log('Current route:', window.location.pathname + window.location.search);
-  console.log('Full URL:', window.location.href);
+  // Debug logging removed - no window.location usage in main app
   
   // Initialize bulletproof caching solution
   useEffect(() => {

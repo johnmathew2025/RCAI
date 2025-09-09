@@ -18,7 +18,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation as useRouterLocation } from "react-router-dom";
 import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, Camera, Download, CheckCircle, AlertTriangle, ChevronRight, Brain, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";

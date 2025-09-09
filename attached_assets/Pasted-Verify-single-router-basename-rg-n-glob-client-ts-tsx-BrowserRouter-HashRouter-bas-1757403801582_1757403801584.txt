@@ -1,0 +1,75 @@
+Verify single router + basename
+rg -n --glob 'client/**/*.{ts,tsx}' '<BrowserRouter|<HashRouter|basename='
+rg -n --glob 'client/**/*.{ts,tsx}' '<BrowserRouter' | wc -l   # expect: 1
+•	Ensure only client/src/main.tsx mounts:
+import { BrowserRouter } from 'react-router-dom';
+const BASENAME = import.meta.env.VITE_ROUTER_BASENAME || '/';
+root.render(<BrowserRouter basename={BASENAME}><App /></BrowserRouter>);
+2) Ensure Home and NotFound routes exist
+rg -n --glob 'client/**/*.{ts,tsx}' 'Route.+path=\\s*[\"\\'']/\\s*|<Route index'
+rg -n --glob 'client/**/*.{ts,tsx}' 'Route.+path=\\s*[\"\\'']\\*'
+•	In your routes:
+<Route path="/" element={<Layout />}>
+  <Route index element={<Home />} />
+  <Route path="*" element={<NotFound />} />
+</Route>
+3) Canonical BackToHome component (works inside forms too)
+Create/replace client/src/components/BackToHome.tsx:
+import { useNavigate, Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button'; // if using shadcn
+export function BackToHomeButton() {
+  const navigate = useNavigate();
+  return (
+    <Button type="button" onClick={() => navigate('/')}>
+      Back to Home
+    </Button>
+  );
+}
+export function BackToHomeLink() {
+  return (
+    <Button asChild>
+      <Link to="/">Back to Home</Link>
+    </Button>
+  );
+}
+•	Use type="button" so it doesn’t submit parent forms.
+•	Prefer Link version when possible.
+4) Replace anti-patterns & leftovers
+# Kill hard reloads (except ErrorBoundary fallback):
+rg -n --glob 'client/**/*.{ts,tsx}' 'window\\.location\\.(href|assign|replace)'
+
+# Kill any custom home env usage:
+rg -n --glob 'client/**/*.{ts,tsx}' 'VITE_HOME_ROUTE|getHomeRoute\\(|homeRoute\\b'
+
+# Kill leftover wouter:
+rg -n --glob 'client/**/*.{ts,tsx}' 'from\\s+[\"\\'']wouter[\"\\'']'
+•	Replace any matches with <Link to="/"> or navigate('/').
+•	Keep one window.location.assign(BASENAME) ONLY in ErrorBoundary if you want a hard reset after fatal crashes:
+import { BASENAME } from '@/config/routes'; // export const BASENAME = import.meta.env.VITE_ROUTER_BASENAME || '/';
+<button type="button" onClick={() => window.location.assign(BASENAME)}>Back to Home</button>
+5) Common silent blockers (fix if found)
+•	Overlays: Ensure no overlay covers the button. Add pointer-events:auto to the button wrapper if needed.
+•	Disabled containers: Don’t nest inside a disabled <fieldset> or disabled parent.
+•	Hook context: Ensure BackToHome is rendered inside a Router (otherwise useNavigate is undefined). If it must work outside, use the Link version.
+6) Server catch-all for deep links (prevents 404 on refresh)
+(Express example)
+app.use(express.static(path.join(__dirname, 'dist')));
+app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
+7) Build & verify (SPA behavior)
+pnpm build && pnpm start
+
+# Manual:
+# - Navigate to 3–4 different pages.
+# - Click Back to Home (both Button and Link variants).
+# Expect: URL changes, home renders, NO full page reload, no console errors.
+
+# Prod-like with subpath:
+VITE_ROUTER_BASENAME=/admin pnpm build && pnpm start
+# Back to Home should go to /admin/ and render Home (SPA, no reload).
+8) Acceptance proof to return
+•	 rg shows 0 matches for window.location outside ErrorBoundary.
+•	 rg shows 0 matches for VITE_HOME_ROUTE|getHomeRoute|homeRoute and wouter.
+•	 One <BrowserRouter basename=...> only.
+•	 Video/screenshot of Back to Home from multiple pages with no page reload.
+•	 Hitting a deep URL directly (e.g., /incidents/123) serves the SPA (200), not 404.
+
