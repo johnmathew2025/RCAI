@@ -87,6 +87,207 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Apply AI Settings debug middleware to all AI routes
   app.use('/api/admin/ai-settings', aiDebugMiddleware.middleware());
+
+  // SECURE AI PROVIDERS API - AES-256-GCM encryption specification
+  const { encryptSecret, decryptSecret } = await import('./security/crypto-gcm');
+  const { getProviderTester } = await import('./ai-provider-testers');
+  const { aiProviders } = await import('../shared/schema');
+  const { eq, and, isNull } = await import('drizzle-orm');
+
+  // POST /api/admin/ai/providers - Create provider with encrypted key
+  app.post("/api/admin/ai/providers", requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { provider, modelId, apiKey, setActive } = req.body;
+      
+      if (!provider || !modelId || !apiKey) {
+        return res.status(400).json({ message: "Provider, modelId, and apiKey are required" });
+      }
+
+      // Encrypt the API key
+      const encrypted = encryptSecret(apiKey);
+      
+      // If setActive is true, deactivate all other providers first
+      if (setActive) {
+        await db.update(aiProviders)
+          .set({ active: false, updatedAt: new Date() })
+          .where(isNull(aiProviders.deletedAt));
+      }
+
+      // Insert new provider
+      const [newProvider] = await db.insert(aiProviders).values({
+        provider,
+        modelId,
+        keyCiphertextB64: encrypted.keyCiphertextB64,
+        keyIvB64: encrypted.keyIvB64,
+        keyTagB64: encrypted.keyTagB64,
+        active: setActive || false,
+        createdBy: req.user?.id || 'admin',
+      }).returning({
+        id: aiProviders.id,
+        provider: aiProviders.provider,
+        modelId: aiProviders.modelId,
+        active: aiProviders.active,
+      });
+
+      console.log(`[SECURE AI] Created provider ${provider}/${modelId} for user ${req.user?.id}`);
+      
+      res.json({
+        ...newProvider,
+        hasKey: true,
+      });
+    } catch (error) {
+      console.error('[SECURE AI] Error creating provider:', error);
+      res.status(500).json({ message: "Failed to create AI provider" });
+    }
+  });
+
+  // GET /api/admin/ai/providers - List providers with hasKey flag (never expose keys)
+  app.get("/api/admin/ai/providers", requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const providers = await db.select({
+        id: aiProviders.id,
+        provider: aiProviders.provider,
+        modelId: aiProviders.modelId,
+        active: aiProviders.active,
+        createdAt: aiProviders.createdAt,
+        updatedAt: aiProviders.updatedAt,
+      }).from(aiProviders)
+        .where(isNull(aiProviders.deletedAt))
+        .orderBy(aiProviders.createdAt);
+
+      // Add hasKey flag to each provider (never expose actual keys)
+      const providersWithFlag = providers.map(p => ({
+        ...p,
+        hasKey: true, // All providers in this table have encrypted keys
+      }));
+
+      res.json(providersWithFlag);
+    } catch (error) {
+      console.error('[SECURE AI] Error retrieving providers:', error);
+      res.status(500).json({ message: "Failed to retrieve AI providers" });
+    }
+  });
+
+  // POST /api/admin/ai/providers/:id/test - Test stored encrypted key
+  app.post("/api/admin/ai/providers/:id/test", requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const providerId = parseInt(req.params.id);
+      
+      // Get provider with encrypted key
+      const [provider] = await db.select().from(aiProviders)
+        .where(and(
+          eq(aiProviders.id, providerId),
+          isNull(aiProviders.deletedAt)
+        ));
+
+      if (!provider) {
+        return res.status(404).json({ message: "Provider not found" });
+      }
+
+      // Decrypt the API key
+      const apiKey = decryptSecret({
+        keyCiphertextB64: provider.keyCiphertextB64,
+        keyIvB64: provider.keyIvB64,
+        keyTagB64: provider.keyTagB64,
+      });
+
+      // Get provider tester
+      const tester = getProviderTester(provider.provider);
+      if (!tester) {
+        return res.status(400).json({ 
+          ok: false, 
+          message: `Provider '${provider.provider}' not supported for testing` 
+        });
+      }
+
+      // Test the key
+      const result = await tester.test(provider.modelId, apiKey);
+      
+      console.log(`[SECURE AI] Test result for ${provider.provider}/${provider.modelId}: ${result.ok ? 'SUCCESS' : 'FAILED'}`);
+      
+      res.json(result);
+    } catch (error) {
+      console.error('[SECURE AI] Error testing provider:', error);
+      res.status(500).json({ 
+        ok: false, 
+        message: "Internal error during provider test" 
+      });
+    }
+  });
+
+  // PATCH /api/admin/ai/providers/:id - Update provider (including key re-encryption)
+  app.patch("/api/admin/ai/providers/:id", requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const providerId = parseInt(req.params.id);
+      const { modelId, apiKey, setActive } = req.body;
+      
+      const updateData: any = { updatedAt: new Date() };
+      
+      if (modelId) updateData.modelId = modelId;
+      
+      if (apiKey) {
+        const encrypted = encryptSecret(apiKey);
+        updateData.keyCiphertextB64 = encrypted.keyCiphertextB64;
+        updateData.keyIvB64 = encrypted.keyIvB64;
+        updateData.keyTagB64 = encrypted.keyTagB64;
+      }
+      
+      if (setActive) {
+        // Deactivate all others first
+        await db.update(aiProviders)
+          .set({ active: false, updatedAt: new Date() })
+          .where(isNull(aiProviders.deletedAt));
+        updateData.active = true;
+      }
+
+      const [updatedProvider] = await db.update(aiProviders)
+        .set(updateData)
+        .where(and(
+          eq(aiProviders.id, providerId),
+          isNull(aiProviders.deletedAt)
+        ))
+        .returning({
+          id: aiProviders.id,
+          provider: aiProviders.provider,
+          modelId: aiProviders.modelId,
+          active: aiProviders.active,
+        });
+
+      if (!updatedProvider) {
+        return res.status(404).json({ message: "Provider not found" });
+      }
+
+      res.json({
+        ...updatedProvider,
+        hasKey: true,
+      });
+    } catch (error) {
+      console.error('[SECURE AI] Error updating provider:', error);
+      res.status(500).json({ message: "Failed to update AI provider" });
+    }
+  });
+
+  // DELETE /api/admin/ai/providers/:id - Soft delete provider
+  app.delete("/api/admin/ai/providers/:id", requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const providerId = parseInt(req.params.id);
+      
+      await db.update(aiProviders)
+        .set({ 
+          deletedAt: new Date(),
+          active: false,
+          updatedAt: new Date() 
+        })
+        .where(eq(aiProviders.id, providerId));
+
+      console.log(`[SECURE AI] Soft-deleted provider ${providerId}`);
+      
+      res.json({ message: "Provider deleted successfully" });
+    } catch (error) {
+      console.error('[SECURE AI] Error deleting provider:', error);
+      res.status(500).json({ message: "Failed to delete AI provider" });
+    }
+  });
   
   // Stable version endpoint using single source of truth
   const { APP_VERSION, APP_BUILT_AT } = await import("./version");
