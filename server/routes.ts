@@ -81,6 +81,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(410).json({ error: 'Deprecated. Use /api/admin/ai-settings.' });
   });
   
+  // Authentication endpoints for session management
+  app.get('/api/admin/whoami', (req: AuthenticatedRequest, res) => {
+    const user = req.session?.user;
+    res.json({
+      authenticated: !!user,
+      roles: user?.roles || []
+    });
+  });
+
+  app.post('/api/auth/dev-login', (req: AuthenticatedRequest, res) => {
+    if (process.env.EMAIL_DEV_MODE !== 'true') {
+      return res.status(404).json({code:'NOT_FOUND'});
+    }
+    req.session.user = { 
+      id: 'dev', 
+      email: 'dev@local', 
+      roles: ['admin'] 
+    };
+    res.json({ ok: true });
+  });
+
   // NEW DATABASE-ONLY AI SETTINGS ROUTES
   const { router: aiSettingsRouter } = await import('./routes/aiSettings');
   app.use(aiSettingsRouter);
@@ -110,8 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If setActive is true, deactivate all other providers first
       if (setActive) {
         await db.update(aiProviders)
-          .set({ active: false, updatedAt: new Date() })
-          .where(isNull(aiProviders.deletedAt));
+          .set({ active: false, updatedAt: new Date() });
       }
 
       // Insert new provider

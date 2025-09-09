@@ -17,6 +17,8 @@ import { createServer } from "http";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
 import { fileURLToPath } from 'url';
+import cookieParser from 'cookie-parser';
+import session from 'express-session';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +30,16 @@ import { createTestAdminUser } from "./rbac-middleware";
 loadCryptoKey(); // throws if missing → process exits with clear message
 
 const app = express();
+
+// Session middleware for browser cookie authentication
+app.set('trust proxy', 1);
+app.use(cookieParser());
+app.use(session({
+  secret: process.env.JWT_SECRET || 'dev-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { httpOnly: true, sameSite: 'lax', secure: true }
+}));
 
 // Only apply JSON parsing to non-multipart requests
 app.use((req, res, next) => {

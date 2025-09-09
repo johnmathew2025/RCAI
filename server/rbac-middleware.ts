@@ -14,43 +14,30 @@ export interface AuthenticatedRequest extends Request {
     role: string;
     email?: string;
   };
+  session: {
+    user?: {
+      id: string;
+      email?: string;
+      roles: string[];
+      role?: string;
+    };
+  } & Express.Session;
 }
 
 /**
  * Middleware to require admin role for endpoint access
+ * Uses session-based auth for browser compatibility
  */
-export async function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    // Check if user is authenticated
-    const userId = req.user?.id || req.headers['x-user-id'] as string;
-    
-    if (!userId) {
-      console.log('[RBAC] No user ID provided - denying access');
-      return res.status(403).json({ reason: "forbidden", message: "Authentication required" });
+    const u = req.user || req.session?.user;
+    if (!u) {
+      return res.status(401).json({code:'UNAUTHENTICATED', message:'Sign in'});
     }
-
-    // Get user from database to check role
-    const user = await investigationStorage.getUser(userId);
-    
-    if (!user) {
-      console.log(`[RBAC] User ${userId} not found - denying access`);
-      return res.status(403).json({ reason: "forbidden", message: "User not found" });
+    const roles = u.roles || (u.role ? [u.role] : []);
+    if (!roles.includes('admin')) {
+      return res.status(403).json({code:'FORBIDDEN', message:'Admin only'});
     }
-
-    // Check admin role
-    if (user.role !== 'admin') {
-      console.log(`[RBAC] User ${userId} has role '${user.role}', not 'admin' - denying access`);
-      return res.status(403).json({ reason: "forbidden", message: "Admin role required" });
-    }
-
-    // Set user in request for downstream use
-    req.user = {
-      id: user.id,
-      role: user.role,
-      email: user.email || undefined
-    };
-
-    console.log(`[RBAC] Admin access granted to user ${userId}`);
     next();
     
   } catch (error) {
