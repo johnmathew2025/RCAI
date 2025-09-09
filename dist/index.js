@@ -18987,7 +18987,16 @@ app2.use((req, res, next) => {
   }
   const port = parseInt(process.env.PORT || "5000", 10);
   console.log("\u{1F512} Universal Protocol Standard enforcement active via Git hooks and CI/CD");
-  await createTestAdminUser();
+  if (process.env.NODE_ENV !== "production" && process.env.ENABLE_DEV_AUTH === "1") {
+    await createTestAdminUser();
+    app2.use((req, _res, next) => {
+      if (!req.headers["x-user-id"]) {
+        req.headers["x-user-id"] = process.env.DEV_USER_ID || "test-admin";
+      }
+      next();
+    });
+    console.log("\u{1F527} Dev auth enabled with user:", process.env.DEV_USER_ID || "test-admin");
+  }
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
   });
