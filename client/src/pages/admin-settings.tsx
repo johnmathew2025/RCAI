@@ -353,7 +353,7 @@ export default function AdminSettings() {
 
   // Test API key mutation
   const testKeyMutation = useMutation({
-    mutationFn: async (data: { provider: string; apiKey: string }) => {
+    mutationFn: async (data: { provider: string }) => {
       return await apiRequest("/api/admin/ai-settings/test", {
         method: "POST",
         body: JSON.stringify(data),
@@ -880,6 +880,7 @@ export default function AdminSettings() {
     saveSettingsMutation.mutate({
       provider: formData.provider,
       model: formData.model,
+      encryptedApiKey: "admin-managed", // Placeholder - backend handles encryption
       isActive: formData.isActive,
       createdBy: formData.createdBy
     });

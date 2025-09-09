@@ -19,7 +19,7 @@ export const useAiSettings = () =>
 export const useCreateAiSetting = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: {provider:string; modelId:string; apiKey:string; isActive?:boolean}) => {
+    mutationFn: (payload: {provider:string; modelId:string; isActive?:boolean}) => {
       return api('/admin/ai-settings', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
