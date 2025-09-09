@@ -1,11 +1,8 @@
 import crypto from 'crypto';
 import { loadCryptoKey } from '../config/crypto-key';
 
+// Use the existing crypto key loading system
 const ENC_KEY = loadCryptoKey();
-
-if (!ENC_KEY || ENC_KEY.length !== 32) {
-  throw new Error('CRYPTO_KEY_32 must be exactly 32 characters');
-}
 
 export interface EncryptedSecret {
   keyCiphertextB64: string;
