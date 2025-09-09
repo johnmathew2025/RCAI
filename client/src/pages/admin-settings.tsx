@@ -1469,7 +1469,7 @@ export default function AdminSettings() {
               {/* Add New Equipment Type */}
               <div className="flex gap-2">
                 <Select 
-                  value={newEquipmentType.equipmentGroupId.toString()} 
+                  value={newEquipmentType.equipmentGroupId > 0 ? newEquipmentType.equipmentGroupId.toString() : undefined} 
                   onValueChange={(value) => setNewEquipmentType({ ...newEquipmentType, equipmentGroupId: parseInt(value) })}
                 >
                   <SelectTrigger className="w-[200px]">
