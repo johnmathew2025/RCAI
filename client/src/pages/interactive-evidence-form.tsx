@@ -537,7 +537,7 @@ function QuestionRenderer({
 
       case "select":
         return (
-          <Select value={value || SENTINEL.FIELD_EMPTY} onValueChange={onChange}>
+          <Select value={value || undefined} onValueChange={onChange}>
             <SelectTrigger className={hasError ? "border-red-500" : ""}>
               <SelectValue placeholder={question.required ? "Please select..." : "Optional"} />
             </SelectTrigger>
@@ -554,7 +554,7 @@ function QuestionRenderer({
       case "boolean":
         return (
           <RadioGroup 
-            value={value?.toString() || SENTINEL.FIELD_EMPTY} 
+            value={value?.toString() || undefined} 
             onValueChange={(val) => onChange(val === "true")}
             className="flex gap-4"
           >

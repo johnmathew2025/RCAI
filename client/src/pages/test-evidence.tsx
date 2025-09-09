@@ -142,7 +142,7 @@ export default function TestEvidence() {
       
       case "select":
         return (
-          <Select value={value || SENTINEL.FIELD_EMPTY} onValueChange={(val) => updateAnswer(question.id, val)}>
+          <Select value={value || undefined} onValueChange={(val) => updateAnswer(question.id, val)}>
             <SelectTrigger>
               <SelectValue placeholder="Please select..." />
             </SelectTrigger>
@@ -159,7 +159,7 @@ export default function TestEvidence() {
       case "boolean":
         return (
           <RadioGroup 
-            value={value?.toString() || SENTINEL.FIELD_EMPTY} 
+            value={value?.toString() || undefined} 
             onValueChange={(val) => updateAnswer(question.id, val === "true")}
             className="flex gap-4"
           >

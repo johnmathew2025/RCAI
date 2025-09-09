@@ -259,7 +259,7 @@ export default function ISO14224EvidenceForm() {
       case "select":
         return (
           <div className="space-y-2">
-            <Select value={value || SENTINEL.FIELD_EMPTY} onValueChange={(val) => updateAnswer(questionId, val)}>
+            <Select value={value || undefined} onValueChange={(val) => updateAnswer(questionId, val)}>
               <SelectTrigger className={baseClasses}>
                 <SelectValue placeholder="Please select..." />
               </SelectTrigger>
