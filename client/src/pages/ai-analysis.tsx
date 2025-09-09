@@ -594,7 +594,7 @@ export default function AIAnalysis() {
               <div className="flex gap-2">
                 <Button 
                   variant="outline"
-                  onClick={() => navigate(`/summary-report/${incidentId}`))
+                  onClick={() => navigate(`/summary-report/${incidentId}`)}
                 >
                   📋 Generate Summary Report
                 </Button>
