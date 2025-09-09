@@ -28,3 +28,4 @@ build/
 # OS / editor files
 .DS_Store
 *.swp
+!.env
