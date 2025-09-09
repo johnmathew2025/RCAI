@@ -3783,6 +3783,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // CRYPTO KEY HEALTH PROBE - Returns { ok: true } only if loadCryptoKey() passes
+  app.get("/health/crypto", (req, res) => {
+    try {
+      const { loadCryptoKey } = require('./config/crypto-key');
+      loadCryptoKey(); // throws if missing
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(503).json({ ok: false });
+    }
+  });
+
   // SECURITY COMPLIANCE CHECK ENDPOINT - UNIVERSAL PROTOCOL STANDARD REQUIREMENT
   app.get("/api/security/check", async (req, res) => {
     try {

@@ -6,6 +6,7 @@
  */
 
 import { DatabaseInvestigationStorage } from './storage';
+import { loadCryptoKey } from './config/crypto-key';
 
 interface AIStatusReport {
   timestamp: string;
@@ -27,6 +28,7 @@ interface AIStatusReport {
   } | null;
   complianceStatus: 'compliant' | 'hardcoding-detected';
   violations: string[];
+  cryptoKey: 'configured' | 'missing';
 }
 
 /**
@@ -51,7 +53,16 @@ export class AIStatusMonitor {
       const aiSettings = await this.storage.getAllAiSettings();
       const activeProvider = aiSettings.find((setting: any) => setting.isActive);
       
-      // STEP 2: Check for hardcoding violations
+      // STEP 2: Check crypto key status
+      let cryptoKeyStatus: 'configured' | 'missing' = 'missing';
+      try {
+        loadCryptoKey();
+        cryptoKeyStatus = 'configured';
+      } catch (error) {
+        cryptoKeyStatus = 'missing';
+      }
+
+      // STEP 3: Check for hardcoding violations
       const violations: string[] = [];
       
       // NO ENVIRONMENT VARIABLE CHECKS - ADMIN DATABASE ONLY
@@ -108,7 +119,8 @@ export class AIStatusMonitor {
         systemHealth,
         lastAIOperation: this.lastAIOperation,
         complianceStatus: violations.length === 0 ? 'compliant' : 'hardcoding-detected',
-        violations
+        violations,
+        cryptoKey: cryptoKeyStatus
       };
       
       console.log(`[AI STATUS MONITOR] Status: ${systemHealth}, Compliance: ${statusReport.complianceStatus}`);
@@ -116,6 +128,15 @@ export class AIStatusMonitor {
       
     } catch (error) {
       console.error('[AI STATUS MONITOR] Status check failed:', error);
+      // Check crypto key status even in error case
+      let cryptoKeyStatus: 'configured' | 'missing' = 'missing';
+      try {
+        loadCryptoKey();
+        cryptoKeyStatus = 'configured';
+      } catch {
+        cryptoKeyStatus = 'missing';
+      }
+      
       return {
         timestamp,
         configurationSource: 'admin-database', // System error but no hardcoding
@@ -123,7 +144,8 @@ export class AIStatusMonitor {
         systemHealth: 'error',
         lastAIOperation: null,
         complianceStatus: 'hardcoding-detected',
-        violations: ['Failed to access admin AI configuration']
+        violations: ['Failed to access admin AI configuration'],
+        cryptoKey: cryptoKeyStatus
       };
     }
   }
