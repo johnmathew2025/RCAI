@@ -88,7 +88,7 @@ export default function NewAnalysis() {
       });
       
       // Navigate to evidence collection page
-      setLocation(`/evidence/${analysis.id}`);
+      navigate(`/evidence/${analysis.id}`);
     },
     onError: (error) => {
       toast({

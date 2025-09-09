@@ -43,7 +43,7 @@ export default function NewInvestigation() {
       });
       
       // Navigate to investigation type selection
-      setLocation(`/investigation/${investigation.investigationId}/type`);
+      navigate(`/investigation/${investigation.investigationId}/type`);
     },
     onError: (error) => {
       toast({

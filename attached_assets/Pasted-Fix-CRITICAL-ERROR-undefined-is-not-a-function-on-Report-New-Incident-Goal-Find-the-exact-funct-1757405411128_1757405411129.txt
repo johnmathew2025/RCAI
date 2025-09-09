@@ -1,0 +1,100 @@
+Fix “CRITICAL ERROR: undefined is not a function” on Report New Incident
+Goal: Find the exact function call that is undefined when clicking Report New Incident, fix it, and prove with a clean UI run + greps.
+1) Reproduce with readable stack
+# Dev build for sourcemaps
+cd client
+npm run dev &>/dev/null &  # or pnpm dev
+# Now: In the browser, open DevTools → Console, click **Report New Incident**.
+# Copy the full error + stack trace and keep it in the logs.
+2) Trace the click path and likely culprits
+# Find the button and its handler
+rg -n --glob 'client/**/*.{ts,tsx}' 'Report New Incident|New Incident|startIncident|createIncident|beginIncident'
+
+# Common regression: calling navigate() without a hook context or shadowing navigate
+rg -n --glob 'client/**/*.{ts,tsx}' 'navigate\\('
+rg -n --glob 'client/**/*.{ts,tsx}' 'useNavigate\\('
+rg -n --glob 'client/**/*.{ts,tsx}' 'const\\s+navigate\\s*='   # bad: shadowed navigate var
+
+# Mutations: ensure we’re not destructuring mutate from useQuery by mistake
+rg -n --glob 'client/**/*.{ts,tsx}' 'useMutation\\(|useQuery\\('
+rg -n --glob 'client/**/*.{ts,tsx}' 'const\\s*{[^}]*mutate[^}]*}\\s*=\\s*useQuery\\('  # must be 0 hits
+
+# wouter leftovers on this path
+rg -n --glob 'client/**/*.{ts,tsx}' 'setLocation\\(|useRoute\\('
+If the stack points to a handler like startIncident() or onStart(), open that file and verify each called symbol is defined and is a function.
+3) Patch the handler (canonical patterns)
+A. Router navigation (inside a React component only)
+import { useNavigate } from 'react-router-dom';
+
+export function StartIncidentButton() {
+  const navigate = useNavigate();             // ensure this exists in the component
+  const onClick = () => navigate('/incidents/new');  // router-relative; basename prefixes
+  return <button type="button" onClick={onClick}>Report New Incident</button>;
+}
+•	If you need to navigate after creating the incident, do it in the mutation onSuccess.
+B. Mutation setup (TanStack Query)
+import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+
+const createIncident = async () => {
+  const res = await fetch('/api/incidents', { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to create incident');
+  return res.json(); // { id: string }
+};
+
+export function ReportNewIncident() {
+  const navigate = useNavigate();
+
+  const { mutate, isLoading } = useMutation({
+    mutationFn: createIncident,
+    onSuccess: (data) => {
+      if (!data?.id) throw new Error('Missing incident id');
+      navigate(`/incidents/${data.id}`);
+    },
+  });
+
+  return (
+    <button type="button" disabled={isLoading} onClick={() => mutate()}>
+      Report New Incident
+    </button>
+  );
+}
+Do NOT destructure mutate from useQuery; that’s a common cause of “undefined is not a function”.
+C. If the click calls a util (after the wouter→RRD migration)
+•	Ensure the util returns a function or is a function, not an object.
+•	If using a shared “go(url)” helper, guard internal vs external:
+export const isExternalUrl = (u: string) =>
+  /^https?:\/\//i.test(u) || u.startsWith('mailto:') || u.startsWith('tel:');
+
+export function go(u: string, navigate: (p: string)=>void) {
+  if (isExternalUrl(u)) { window.location.assign(u); return; }
+  navigate(u);
+}
+Then in the component:
+const navigate = useNavigate();
+<button type="button" onClick={() => go('/incidents/new', navigate)} />
+4) Quick auto-fixes for common mistakes
+# a) navigate used with no useNavigate hook in the same file
+for f in $(rg -l --glob 'client/**/*.{ts,tsx}' 'navigate\('); do rg -n 'useNavigate\(' "$f" || echo "❌ Missing useNavigate in $f"; done
+
+# b) mutate destructured from useQuery by accident
+rg -n --glob 'client/**/*.{ts,tsx}' 'const\s*{[^}]*mutate[^}]*}\s*=\s*useQuery\('
+
+# c) leftover wouter API on this page
+rg -n --glob 'client/**/*.{ts,tsx}' 'setLocation\(|useRoute\('
+•	Fix any file flagged by the loop in (a).
+•	Replace any match found in (b) with a proper useMutation.
+•	Remove/replace any (c) usages.
+5) Rebuild and prove
+pnpm build || npm run build
+pnpm start || npm start
+
+# Manual proof:
+# - From the Home dashboard, click **Report New Incident**
+# - Expect: no modal, no red console errors, navigates to /incidents/new or /incidents/{id}.
+# - Try it twice to ensure no undefined handler on second click.
+6) Post back the acceptance evidence
+•	The exact file:line that was causing undefined is not a function and the patch diff.
+•	Output of the three grep checks in step 4 (no remaining problems).
+•	Console screenshot showing no red errors when clicking Report New Incident.
+

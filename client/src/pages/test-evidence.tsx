@@ -107,7 +107,7 @@ export default function TestEvidence() {
       });
       
       // Navigate to evidence collection
-      setLocation(`/evidence/${analysis.id}`);
+      navigate(`/evidence/${analysis.id}`);
     } catch (error) {
       console.error('Error creating test analysis:', error);
       toast({
@@ -185,7 +185,7 @@ export default function TestEvidence() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
-          <Button variant="ghost" size="sm" onClick={() => setLocation("/")}>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
