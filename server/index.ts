@@ -38,7 +38,11 @@ app.use(session({
   secret: process.env.JWT_SECRET || 'dev-secret-key',
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: 'lax', secure: true }
+  cookie: { 
+    httpOnly: true, 
+    sameSite: 'lax', 
+    secure: process.env.NODE_ENV === 'production' // false for localhost testing
+  }
 }));
 
 // Only apply JSON parsing to non-multipart requests
@@ -52,6 +56,22 @@ app.use((req, res, next) => {
 });
 
 app.use(express.urlencoded({ extended: false }));
+
+// AUTH ENDPOINTS - MUST BE REGISTERED BEFORE ANY STATIC SERVING OR CATCH-ALL
+// POST /api/auth/dev-login - Development login
+app.post('/api/auth/dev-login', (req, res) => {
+  if (process.env.EMAIL_DEV_MODE !== 'true') {
+    return res.status(404).json({ code: 'NOT_FOUND' });
+  }
+  req.session.user = { id: 'dev', email: 'dev@local', roles: ['admin'] };
+  return res.json({ ok: true });
+});
+
+// GET /api/admin/whoami - Debug authentication status
+app.get('/api/admin/whoami', (req, res) => {
+  const u = req.user || req.session?.user || null;
+  res.json({ authenticated: !!u, roles: u?.roles || [] });
+});
 
 // E) Cache-busting middleware (dev kill-switch)
 app.use((req, res, next) => {
