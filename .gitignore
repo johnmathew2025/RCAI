@@ -1,24 +1,30 @@
+# Screenshots / images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.webp
+screenshots/**
 
-# Exclude only screenshots and instruction text files
+# Cache / temp files
+.cache/
+tmp/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Match screenshots in any folder (common image formats)
-**/*.png
-**/*.jpg
-**/*.jpeg
-**/*.gif
-**/*.bmp
-**/*.tiff
-**/*.webp
+# Python caches
+__pycache__/
+.pythonlibs/
 
-# Match any file literally named 'instructions.txt'
-**/instructions.txt
+# Node.js
+node_modules/
+dist/
+build/
 
-# (optional) If screenshots are in a dedicated folder, skip just that folder
-# screenshots/**
-
-#.env
-*.pem
-#*.key
-#*_secret.*
-#*service-account*.json
-#.DS_Store
+# OS / editor files
+.DS_Store
+*.swp
