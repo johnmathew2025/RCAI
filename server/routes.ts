@@ -47,7 +47,7 @@ import { aiDebugMiddleware } from './middleware/ai-settings-debug';
 import { UniversalAIConfig } from "./universal-ai-config";
 import { DynamicAIConfig } from "./dynamic-ai-config";
 import { AIService } from "./ai-service";
-import { requireAdmin, requireInvestigatorOrAdmin, createTestAdminUser, type AuthenticatedRequest } from "./rbac-middleware";
+import { requireAdmin, allowWhenBootstrapping, requireInvestigatorOrAdmin, createTestAdminUser, type AuthenticatedRequest } from "./rbac-middleware";
 import * as os from "os";
 import * as crypto from "crypto";
 
@@ -108,7 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { db } = await import('./db');
 
   // POST /api/admin/ai/providers - Create provider with encrypted key
-  app.post("/api/admin/ai/providers", requireAdmin, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/admin/ai/providers", allowWhenBootstrapping, requireAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { provider, modelId, apiKey, setActive } = req.body ?? {};
       if (!provider || !modelId || !apiKey)
@@ -167,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/admin/ai/providers - List providers with hasKey flag (never expose keys) 
-  app.get("/api/admin/ai/providers", requireAdmin, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/admin/ai/providers", allowWhenBootstrapping, requireAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const { sql } = await import('drizzle-orm');
       const result = await db.execute(sql`
