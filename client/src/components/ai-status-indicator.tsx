@@ -33,6 +33,7 @@ interface AIStatusReport {
   } | null;
   complianceStatus: 'compliant' | 'hardcoding-detected';
   violations: string[];
+  cryptoKey: 'configured' | 'missing';
 }
 
 export default function AIStatusIndicator() {

@@ -3784,13 +3784,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // CRYPTO KEY HEALTH PROBE - Returns { ok: true } only if loadCryptoKey() passes
-  app.get("/health/crypto", (req, res) => {
+  app.get("/health/crypto", async (req, res) => {
     try {
-      const { loadCryptoKey } = require('./config/crypto-key');
-      loadCryptoKey(); // throws if missing
-      res.json({ ok: true });
+      const { loadCryptoKey } = await import('./config/crypto-key');
+      const key = loadCryptoKey(); // throws if missing
+      if (key && key.length > 0) {
+        res.json({ ok: true });
+      } else {
+        res.status(503).json({ ok: false, error: "Invalid key returned" });
+      }
     } catch (error) {
-      res.status(503).json({ ok: false });
+      res.status(503).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
     }
   });
 
