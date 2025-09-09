@@ -38,10 +38,12 @@ app.use(session({
   secret: process.env.JWT_SECRET || 'dev-secret-key',
   resave: false,
   saveUninitialized: false,
-  cookie: { 
-    httpOnly: true, 
-    sameSite: 'lax', 
-    secure: process.env.NODE_ENV === 'production' // false for localhost testing
+  name: 'sid',
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production', // HTTPS for production, HTTP for localhost
+    maxAge: 7 * 24 * 3600 * 1000
   }
 }));
 
@@ -58,13 +60,21 @@ app.use((req, res, next) => {
 app.use(express.urlencoded({ extended: false }));
 
 // AUTH ENDPOINTS - MUST BE REGISTERED BEFORE ANY STATIC SERVING OR CATCH-ALL
-// POST /api/auth/dev-login - Development login
-app.post('/api/auth/dev-login', (req, res) => {
+// POST /api/auth/dev-login - Development login with session regeneration
+app.post('/api/auth/dev-login', (req, res, next) => {
   if (process.env.EMAIL_DEV_MODE !== 'true') {
-    return res.status(404).json({ code: 'NOT_FOUND' });
+    return res.status(404).json({ code:'NOT_FOUND' });
   }
-  req.session.user = { id: 'dev', email: 'dev@local', roles: ['admin'] };
-  return res.json({ ok: true });
+  req.session.regenerate(err => {
+    if (err) return next(err);
+    req.session.user = { id:'dev', email:'dev@local', roles:['admin'] };
+    req.session.save(err2 => {
+      if (err2) return next(err2);
+      // explicit: prevent caches
+      res.set('Cache-Control', 'no-store');
+      return res.json({ ok: true });
+    });
+  });
 });
 
 // GET /api/admin/whoami - Debug authentication status
