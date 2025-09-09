@@ -11,7 +11,7 @@ export default function DebugRoutes() {
         <CardContent>
           <p>This page loads to test if routing is working.</p>
           <div className="mt-4 space-y-2">
-            <Link to="/" className="block text-blue-600 hover:underline">Go to Home</Link>
+            <Link to={import.meta.env.VITE_HOME_ROUTE || '/'} className="block text-blue-600 hover:underline">Go to Home</Link>
             <Link to="/incident-reporting" className="block text-blue-600 hover:underline" rel="noopener noreferrer">Go to Incident Reporting</Link>
             <Link to="/equipment-selection" className="block text-blue-600 hover:underline">Go to Equipment Selection</Link>
           </div>

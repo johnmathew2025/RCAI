@@ -39,7 +39,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <div className="w-64 border-r border-border bg-muted/10 flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-border">
-          <Link to="/">
+          <Link to={import.meta.env.VITE_HOME_ROUTE || '/'}>
             <h1 className="text-lg font-bold text-primary">
               Quanntaum RCA Intelligence Pro
             </h1>

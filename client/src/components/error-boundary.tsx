@@ -45,7 +45,8 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   private handleGoHome = () => {
-    window.location.href = '/';
+    const homeRoute = import.meta.env.VITE_HOME_ROUTE || '/';
+    window.location.href = homeRoute;
   };
 
   private handleReportError = () => {

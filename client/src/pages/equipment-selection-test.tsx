@@ -26,7 +26,7 @@ export default function EquipmentSelectionTest() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Link to="/">
+            <Link to={import.meta.env.VITE_HOME_ROUTE || '/'}>
               <Button variant="outline" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Home
