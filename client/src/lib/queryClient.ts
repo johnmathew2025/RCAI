@@ -20,7 +20,8 @@ export async function apiRequest(
   console.log(`[API Request] ${method} ${url}`);
   
   // Dev-only auth header (no hardcoding in prod)
-  const devAuth = import.meta.env.VITE_DEV_AUTH === '1';
+  const isDev = import.meta.env.DEV;
+  const devAuth = isDev || import.meta.env.VITE_DEV_AUTH === '1';
   const userId = import.meta.env.VITE_DEV_USER_ID || 'test-admin';
   const authHeaders = devAuth && url.includes('/admin/') ? { 'x-user-id': userId } : {};
 
