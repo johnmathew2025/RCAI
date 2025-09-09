@@ -19,14 +19,18 @@ export async function apiRequest(
   
   console.log(`[API Request] ${method} ${url}`);
   
-  // Add authentication header for admin endpoints
+  // Dev-only auth header (no hardcoding in prod)
+  const devAuth = import.meta.env.VITE_DEV_AUTH === '1';
+  const userId = import.meta.env.VITE_DEV_USER_ID || 'test-admin';
+  const authHeaders = devAuth && url.includes('/admin/') ? { 'x-user-id': userId } : {};
+
   const defaultHeaders: Record<string, string> = {
     "Accept": "application/json",
     ...(body ? { 
       "Content-Type": "application/json", 
       "Cache-Control": "no-cache"
     } : {}),
-    ...(url.includes('/admin/') ? { 'x-user-id': 'test-admin' } : {}),
+    ...authHeaders,
     ...headers
   };
 
