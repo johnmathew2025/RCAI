@@ -83,6 +83,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Auth endpoints moved to server/index.ts for proper route order
 
+  // DEBUG: Session debug endpoint - INSIDE the same registerRoutes function as providers
+  app.get('/api/admin/session-debug', (req, res) => {
+    res.json({
+      hasSession: !!req.session,
+      user: req.session?.user || null,
+      cookieNames: Object.keys(req.cookies || {}),
+      sessionData: req.session || null
+    });
+  });
+
   // NEW DATABASE-ONLY AI SETTINGS ROUTES
   const { router: aiSettingsRouter } = await import('./routes/aiSettings');
   app.use(aiSettingsRouter);
