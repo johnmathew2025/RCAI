@@ -93,6 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { getProviderTester } = await import('./ai-provider-testers');
   const { aiProviders } = await import('../shared/schema');
   const { eq, and, isNull } = await import('drizzle-orm');
+  const { db } = await import('./db');
 
   // POST /api/admin/ai/providers - Create provider with encrypted key
   app.post("/api/admin/ai/providers", requireAdmin, async (req: AuthenticatedRequest, res) => {
