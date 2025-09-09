@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Brain, Clock, Target, CheckCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +32,8 @@ interface RcaTriage {
 
 export default function RcaTriage() {
   const params = useParams<{ id: string }>();
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [severity, setSeverity] = useState<Severity>("Medium");
   const [recurrence, setRecurrence] = useState<Recurrence>("Low");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -109,7 +110,7 @@ export default function RcaTriage() {
         queryKey: ['/api/v1/incidents', incidentId, 'triage']
       });
       // Navigate to next step - evidence collection
-      setLocation(`/incidents/${incidentId}/evidence-checklist`);
+      navigate(`/incidents/${incidentId}/evidence-checklist`);
     },
     onError: (error) => {
       console.error('[RCA_TRIAGE] Error saving triage:', error);
@@ -332,7 +333,7 @@ export default function RcaTriage() {
       <div className="flex justify-between items-center">
         <Button 
           variant="outline" 
-          onClick={() => setLocation(`/incidents/${incidentId}/equipment-selection`)}
+          onClick={() => navigate(`/incidents/${incidentId}/equipment-selection`)}
           data-testid="button-back"
         >
           Back to Equipment Selection

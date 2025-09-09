@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { Brain, CheckCircle, AlertTriangle, ChevronRight, FileText, Zap, Target, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,8 +63,9 @@ interface AnalysisResults {
 }
 
 export default function AIAnalysis() {
-  const [, setLocation] = useLocation();
-  const [, params] = useRoute('/incidents/:id/analysis');
+  const navigate = useNavigate();
+  const params = useParams<{id: string}>();
+  const location = useLocation();
   
   // Extract incident ID from URL parameter OR query string (Universal RCA - NO HARDCODING)
   const searchParams = new URLSearchParams(window.location.search);
@@ -201,7 +202,7 @@ export default function AIAnalysis() {
 
   const handleProceedToReview = () => {
     if (incidentId) {
-      setLocation(`/analysis-details/${encodeURIComponent(incidentId)}`);
+      navigate(`/analysis-details/${encodeURIComponent(incidentId)}`);
     }
   };
 
@@ -225,7 +226,7 @@ export default function AIAnalysis() {
             <div className="flex items-center space-x-4">
               <Button 
                 variant="ghost" 
-                onClick={() => setLocation('/')}
+                onClick={() => navigate('/')}
               >
                 ← Back to Home
               </Button>
@@ -586,14 +587,14 @@ export default function AIAnalysis() {
             <div className="flex justify-between">
               <Button 
                 variant="outline" 
-                onClick={() => setLocation(`/evidence-collection?incident=${incidentId}`)}
+                onClick={() => navigate(`/evidence-collection?incident=${incidentId}`)}
               >
                 ← Back to Evidence Collection
               </Button>
               <div className="flex gap-2">
                 <Button 
                   variant="outline"
-                  onClick={() => setLocation(`/summary-report/${incidentId}`)}
+                  onClick={() => navigate(`/summary-report/${incidentId}`))
                 >
                   📋 Generate Summary Report
                 </Button>

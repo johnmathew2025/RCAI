@@ -51,7 +51,8 @@ interface Incident {
 }
 
 export default function EvidenceChecklist() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [incidentId, setIncidentId] = useState<number | null>(null);
   const [evidenceItems, setEvidenceItems] = useState<EvidenceItem[]>([]);
   const [eliminatedEvidence, setEliminatedEvidence] = useState<EvidenceItem[]>([]);
@@ -373,7 +374,7 @@ export default function EvidenceChecklist() {
         evidenceItems 
       }, {
         onSuccess: () => {
-          setLocation(`/incidents/${incidentId}/rca-triage`);
+          navigate(`/incidents/${incidentId}/rca-triage`);
         }
       });
     }
@@ -435,7 +436,7 @@ export default function EvidenceChecklist() {
             <div className="flex items-center space-x-4">
               <Button 
                 variant="ghost" 
-                onClick={() => setLocation('/admin')}
+                onClick={() => navigate('/admin')}
               >
                 ← Back to Home
               </Button>
@@ -950,7 +951,7 @@ export default function EvidenceChecklist() {
         <div className="mt-8 flex justify-between">
           <Button 
             variant="outline" 
-            onClick={() => setLocation(`/equipment-selection?incident=${incidentId}`)}
+            onClick={() => navigate(`/equipment-selection?incident=${incidentId}`)}
           >
             ← Back to Equipment Selection
           </Button>

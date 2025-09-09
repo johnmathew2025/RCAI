@@ -75,7 +75,7 @@ const EVIDENCE_PHASES = [
 
 export default function ISO14224EvidenceForm() {
   const { id } = useParams<{ id: string }>();
-  const [, setLocation] = useLocation();
+  const location = useLocation();
   const { toast } = useToast();
   
   const [currentPhase, setCurrentPhase] = useState(0);

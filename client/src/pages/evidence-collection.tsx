@@ -79,7 +79,7 @@ interface Incident {
  */
 
 export default function EvidenceCollection() {
-  const [, setLocation] = useLocation();
+  const location = useLocation();
   const [incidentId, setIncidentId] = useState<number | null>(null);
   const [evidenceCategories, setEvidenceCategories] = useState<EvidenceCategory[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("");

@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Clock, AlertTriangle, User, MapPin, Wrench, ArrowRight, Home, Clock4 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { startVersionWatcher } from "@/lib/version-watch";
@@ -101,7 +101,8 @@ type FormValues = typeof DEFAULTS;
 
 export default function IncidentReporting() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [timelineQuestions, setTimelineQuestions] = useState<any[]>([]);
   const [showTimeline, setShowTimeline] = useState(false);
   
@@ -111,8 +112,8 @@ export default function IncidentReporting() {
   const formRef = useRef<HTMLFormElement>(null);
   
   // Route/state hygiene - detect edit mode via param  
-  const [location] = useLocation();
-  const search = location.split('?')[1] || '';
+  const search = location.search || '';
+  const fullLocation = location.pathname + location.search;
   const searchParams = new URLSearchParams(search);
   const isEdit = searchParams.has(EDIT_PARAM);
   const wantsDraft = searchParams.get('draft') === '1';
@@ -184,8 +185,8 @@ export default function IncidentReporting() {
 
   // Optional: strip accidental edit param when starting a brand-new report
   const startNewIncident = useCallback(() => {
-    if (isEditMode) setLocation('/incident-reporting', { replace: true });
-  }, [isEditMode, setLocation]);
+    if (isEditMode) navigate('/incident-reporting', { replace: true });
+  }, [isEditMode, navigate]);
 
   // ID-BASED CASCADING DROPDOWN STATE
   const selectedGroupId = form.watch("equipment_group_id");
@@ -347,7 +348,7 @@ export default function IncidentReporting() {
       
       const nextRoute = import.meta.env.VITE_NEXT_ROUTE || '/equipment-selection';
       const navigationUrl = `${nextRoute}?incident=${encodeURIComponent(incidentId || '')}`;
-      setLocation(navigationUrl);
+      navigate(navigationUrl);
       
       // Post-submit cleanup
       purgeDraftsByPrefix(LOCALSTORAGE_DRAFT_PREFIX);
@@ -384,7 +385,7 @@ export default function IncidentReporting() {
     form.reset(DEFAULTS, { keepDirty: false, keepTouched: false, keepValues: false });
     setFormKey(Date.now());
     if (isEditMode) {
-      setLocation('/incident-reporting', { replace: true });
+      navigate('/incident-reporting', { replace: true });
     }
     
     toast({
