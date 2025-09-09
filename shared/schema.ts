@@ -33,6 +33,7 @@ import {
   uuid,
   bigint,
   char,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
@@ -301,16 +302,23 @@ export const aiSettings = pgTable("ai_settings", {
   uniqueProvider: unique("unique_provider_per_user").on(table.provider, table.createdBy),
 }));
 
-// New simplified AI Providers table for universal provider management
+// AI Providers table with AES-256-GCM encryption specification
 export const aiProviders = pgTable("ai_providers", {
   id: serial("id").primaryKey(),
-  provider: text("provider").notNull(), // e.g., "openai", "anthropic", "google" - free text
-  modelId: text("model_id").notNull(), // e.g., "gpt-4o-mini", "claude-3-sonnet-20240229"
-  apiKeyEnc: text("api_key_enc").notNull(), // server-side encrypted API key
-  isActive: boolean("is_active").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  provider: varchar("provider", { length: 64 }).notNull(), // 'openai' | 'anthropic' | 'google'
+  modelId: varchar("model_id", { length: 128 }).notNull(),
+  // AES-256-GCM encryption artifacts
+  keyCiphertextB64: text("key_ciphertext_b64").notNull(),
+  keyIvB64: varchar("key_iv_b64", { length: 48 }).notNull(), // 12-byte IV -> base64 ~16 chars; pad
+  keyTagB64: varchar("key_tag_b64", { length: 48 }).notNull(), // 16-byte tag -> base64
+  active: boolean("active").default(false).notNull(),
+  createdBy: varchar("created_by", { length: 128 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+}, (t) => ({
+  uniqActivePerProvider: uniqueIndex().on(t.provider, t.modelId).where(sql`${t.deletedAt} IS NULL`),
+}));
 
 export const insertInvestigationSchema = createInsertSchema(investigations);
 export type InsertInvestigation = z.infer<typeof insertInvestigationSchema>;
