@@ -271,7 +271,7 @@ export default function AdminSettings() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [formData, setFormData] = useState({
     provider: "", // Dynamic provider selection - NO HARDCODING
-    apiKey: "",
+
     model: "",
     isActive: false,
     createdBy: 1, // Database-driven admin user ID
@@ -641,7 +641,7 @@ export default function AdminSettings() {
       // Clear form and reset test status
       setFormData({
         provider: "", 
-        apiKey: "", 
+     
         model: "", 
         isActive: false, 
         createdBy: 1, 
@@ -871,43 +871,14 @@ export default function AdminSettings() {
   });
 
   const handleTestKey = () => {
-    if (!formData.apiKey?.trim()) {
-      toast({
-        title: "API Key Required",
-        description: "Please enter an API key before testing",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     testKeyMutation.mutate({
       provider: formData.provider,
-      apiKey: formData.apiKey,
     });
   };
 
   const handleSave = () => {
-    if (!formData.apiKey?.trim()) {
-      toast({
-        title: "API Key Required",
-        description: "Please enter an API key before saving",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (formData.testStatus !== "success") {
-      toast({
-        title: "Test Required",
-        description: "Please test the API key before saving",
-        variant: "destructive",
-      });
-      return;
-    }
-
     saveSettingsMutation.mutate({
       provider: formData.provider,
-      encryptedApiKey: formData.apiKey, // Backend expects apiKey and encrypts internally
       model: formData.model,
       isActive: formData.isActive,
       createdBy: formData.createdBy
@@ -1027,28 +998,6 @@ export default function AdminSettings() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="apiKey">API Key</Label>
-              <div className="relative">
-                <Input
-                  id="apiKey"
-                  type={showApiKey ? "text" : "password"}
-                  value={formData.apiKey}
-                  onChange={(e) => setFormData(prev => ({ ...prev, apiKey: e.target.value }))}
-                  placeholder="Enter API key"
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                >
-                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
           </div>
 
           {/* Requirement 5: Model ID input field - NO HARDCODING */}

@@ -14,13 +14,12 @@ export default function AIProvidersTable() {
   const [formData, setFormData] = useState({
     provider: '',
     modelId: '',
-    apiKey: '',
     isActive: false
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.provider || !formData.modelId || !formData.apiKey) {
+    if (!formData.provider || !formData.modelId) {
       alert('Please fill all fields');
       return;
     }
@@ -29,10 +28,10 @@ export default function AIProvidersTable() {
       await create.mutateAsync({ 
         provider: formData.provider, 
         modelId: formData.modelId, 
-        apiKey: formData.apiKey, 
+ 
         isActive: true 
       });
-      setFormData({ provider: '', modelId: '', apiKey: '', isActive: false });
+      setFormData({ provider: '', modelId: '', isActive: false });
     } catch (error) {
       console.error('Error creating provider:', error);
       alert('Failed to create provider');
@@ -60,13 +59,6 @@ export default function AIProvidersTable() {
             placeholder="Model ID (e.g., gpt-4o-mini)"
             value={formData.modelId}
             onChange={(e) => setFormData(prev => ({ ...prev, modelId: e.target.value }))}
-            required
-          />
-          <Input
-            type="password"
-            placeholder="API Key"
-            value={formData.apiKey}
-            onChange={(e) => setFormData(prev => ({ ...prev, apiKey: e.target.value }))}
             required
           />
           <Button type="submit" disabled={create.isPending}>
