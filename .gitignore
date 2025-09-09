@@ -16,9 +16,9 @@
 # (optional) If screenshots are in a dedicated folder, skip just that folder
 # screenshots/**
 
-.env
+#.env
 *.pem
-*.key
-*_secret.*
-*service-account*.json
-.DS_Store
+#*.key
+#*_secret.*
+#*service-account*.json
+#.DS_Store
