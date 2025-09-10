@@ -7313,6 +7313,297 @@ JSON array only:`;
   console.log("[ROUTES] All taxonomy routes registered successfully");
   
   // =======================
+  // ADMIN USER MANAGEMENT API ROUTES
+  // RBAC-based user administration system
+  // =======================
+  
+  const { getUserWithRoles, getUserByEmail, hashPassword, verifyPassword, logAuditEvent, loginRateLimit, inviteRateLimit } = await import('./rbac-middleware');
+  const { users, roles, userRoles } = await import('@shared/schema');
+  
+  // Authentication endpoints
+  app.post('/api/auth/login', loginRateLimit, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ code: 'MISSING_CREDENTIALS', message: 'Email and password required' });
+      }
+      
+      const user = await getUserByEmail(email);
+      if (!user || !user.passwordHash) {
+        await logAuditEvent('login_failed', undefined, 'users', email, { reason: 'user_not_found' });
+        return res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });
+      }
+      
+      const isValidPassword = await verifyPassword(user.passwordHash, password);
+      if (!isValidPassword) {
+        await logAuditEvent('login_failed', user.id, 'users', user.id, { reason: 'invalid_password' });
+        return res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });
+      }
+      
+      // Create session
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error('[AUTH] Session regeneration error:', err);
+          return res.status(500).json({ code: 'SESSION_ERROR', message: 'Failed to create session' });
+        }
+        
+        req.session.user = {
+          id: user.id,
+          email: user.email,
+          roles: user.roles,
+          isActive: user.isActive,
+        };
+        
+        req.session.save(async (err) => {
+          if (err) {
+            console.error('[AUTH] Session save error:', err);
+            return res.status(500).json({ code: 'SESSION_ERROR', message: 'Failed to save session' });
+          }
+          
+          await logAuditEvent('login_success', user.id, 'users', user.id, { email });
+          res.json({
+            success: true,
+            user: {
+              id: user.id,
+              email: user.email,
+              roles: user.roles,
+            },
+          });
+        });
+      });
+    } catch (error) {
+      console.error('[AUTH] Login error:', error);
+      res.status(500).json({ code: 'SERVER_ERROR', message: 'Login failed' });
+    }
+  });
+  
+  app.post('/api/auth/logout', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.session?.user?.id;
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('[AUTH] Session destroy error:', err);
+          return res.status(500).json({ code: 'SESSION_ERROR', message: 'Failed to logout' });
+        }
+        
+        if (userId) {
+          logAuditEvent('logout', userId, 'users', userId, {});
+        }
+        res.json({ success: true, message: 'Logged out successfully' });
+      });
+    } catch (error) {
+      console.error('[AUTH] Logout error:', error);
+      res.status(500).json({ code: 'SERVER_ERROR', message: 'Logout failed' });
+    }
+  });
+  
+  // User management endpoints
+  app.get('/api/admin/users', requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const result = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          isActive: users.isActive,
+          emailVerifiedAt: users.emailVerifiedAt,
+          createdAt: users.createdAt,
+          roles: sql`COALESCE(
+            json_agg(
+              json_build_object('id', r.id, 'name', r.name)
+            ) FILTER (WHERE r.id IS NOT NULL),
+            '[]'::json
+          )`.as('roles'),
+        })
+        .from(users)
+        .leftJoin(userRoles, eq(users.id, userRoles.userId))
+        .leftJoin(roles, eq(userRoles.roleId, roles.id))
+        .groupBy(users.id)
+        .orderBy(users.createdAt);
+      
+      res.json({ users: result });
+    } catch (error) {
+      console.error('[ADMIN] Error fetching users:', error);
+      res.status(500).json({ code: 'SERVER_ERROR', message: 'Failed to fetch users' });
+    }
+  });
+  
+  app.post('/api/admin/users', requireAdmin, inviteRateLimit, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { email, firstName, lastName, password, roleIds = [] } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ code: 'MISSING_FIELDS', message: 'Email and password are required' });
+      }
+      
+      // Check if user already exists
+      const existingUser = await getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ code: 'USER_EXISTS', message: 'User with this email already exists' });
+      }
+      
+      // Hash password
+      const passwordHash = await hashPassword(password);
+      
+      // Create user
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          email,
+          firstName: firstName || null,
+          lastName: lastName || null,
+          passwordHash,
+          isActive: true,
+          emailVerifiedAt: new Date(), // Pre-verify admin-created users
+        })
+        .returning({ id: users.id });
+      
+      // Assign roles
+      if (roleIds.length > 0) {
+        const roleAssignments = roleIds.map((roleId: number) => ({
+          userId: newUser.id,
+          roleId,
+        }));
+        await db.insert(userRoles).values(roleAssignments);
+      }
+      
+      await logAuditEvent('user_created', req.session.user?.id, 'users', newUser.id, {
+        email,
+        roleIds,
+        createdBy: req.session.user?.email,
+      });
+      
+      res.status(201).json({
+        success: true,
+        user: {
+          id: newUser.id,
+          email,
+          firstName,
+          lastName,
+          isActive: true,
+        },
+      });
+    } catch (error) {
+      console.error('[ADMIN] Error creating user:', error);
+      res.status(500).json({ code: 'SERVER_ERROR', message: 'Failed to create user' });
+    }
+  });
+  
+  app.put('/api/admin/users/:userId', requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { userId } = req.params;
+      const { firstName, lastName, isActive, roleIds } = req.body;
+      
+      // Update user basic info
+      const updateData: any = {};
+      if (firstName !== undefined) updateData.firstName = firstName;
+      if (lastName !== undefined) updateData.lastName = lastName;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      
+      if (Object.keys(updateData).length > 0) {
+        updateData.updatedAt = new Date();
+        await db.update(users).set(updateData).where(eq(users.id, userId));
+      }
+      
+      // Update roles if provided
+      if (roleIds !== undefined) {
+        // Remove existing roles
+        await db.delete(userRoles).where(eq(userRoles.userId, userId));
+        
+        // Add new roles
+        if (roleIds.length > 0) {
+          const roleAssignments = roleIds.map((roleId: number) => ({
+            userId,
+            roleId,
+          }));
+          await db.insert(userRoles).values(roleAssignments);
+        }
+      }
+      
+      await logAuditEvent('user_updated', req.session.user?.id, 'users', userId, {
+        changes: updateData,
+        roleIds,
+        updatedBy: req.session.user?.email,
+      });
+      
+      res.json({ success: true, message: 'User updated successfully' });
+    } catch (error) {
+      console.error('[ADMIN] Error updating user:', error);
+      res.status(500).json({ code: 'SERVER_ERROR', message: 'Failed to update user' });
+    }
+  });
+  
+  app.delete('/api/admin/users/:userId', requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Prevent deleting self
+      if (userId === req.session.user?.id) {
+        return res.status(400).json({ code: 'CANNOT_DELETE_SELF', message: 'Cannot delete your own account' });
+      }
+      
+      // Remove user roles first
+      await db.delete(userRoles).where(eq(userRoles.userId, userId));
+      
+      // Delete user
+      await db.delete(users).where(eq(users.id, userId));
+      
+      await logAuditEvent('user_deleted', req.session.user?.id, 'users', userId, {
+        deletedBy: req.session.user?.email,
+      });
+      
+      res.json({ success: true, message: 'User deleted successfully' });
+    } catch (error) {
+      console.error('[ADMIN] Error deleting user:', error);
+      res.status(500).json({ code: 'SERVER_ERROR', message: 'Failed to delete user' });
+    }
+  });
+  
+  // Role management endpoints
+  app.get('/api/admin/roles', requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const allRoles = await db.select().from(roles).orderBy(roles.name);
+      res.json({ roles: allRoles });
+    } catch (error) {
+      console.error('[ADMIN] Error fetching roles:', error);
+      res.status(500).json({ code: 'SERVER_ERROR', message: 'Failed to fetch roles' });
+    }
+  });
+  
+  app.post('/api/admin/roles', requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { name, description } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ code: 'MISSING_FIELDS', message: 'Role name is required' });
+      }
+      
+      const [newRole] = await db
+        .insert(roles)
+        .values({ name, description: description || null })
+        .returning();
+      
+      await logAuditEvent('role_created', req.session.user?.id, 'roles', String(newRole.id), {
+        name,
+        description,
+        createdBy: req.session.user?.email,
+      });
+      
+      res.status(201).json({ success: true, role: newRole });
+    } catch (error) {
+      console.error('[ADMIN] Error creating role:', error);
+      if (error.code === '23505') {
+        return res.status(409).json({ code: 'ROLE_EXISTS', message: 'Role with this name already exists' });
+      }
+      res.status(500).json({ code: 'SERVER_ERROR', message: 'Failed to create role' });
+    }
+  });
+  
+  console.log("[ROUTES] Admin user management routes registered successfully");
+  
+  // =======================
   // NEW INCIDENT MANAGEMENT SYSTEM API ROUTES
   // Step 1 → Step 8 workflow with RBAC authentication
   // =======================
