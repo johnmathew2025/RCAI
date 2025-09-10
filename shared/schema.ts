@@ -344,6 +344,7 @@ export const aiProviders = pgTable("ai_providers", {
   createdBy: varchar("created_by", { length: 128 }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"), // For soft deletion
 }, (t) => ({
   uniqActivePerProvider: uniqueIndex().on(t.provider, t.modelId),
 }));
