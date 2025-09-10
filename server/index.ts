@@ -68,21 +68,94 @@ app.use((req, res, next) => {
 
 app.use(express.urlencoded({ extended: false }));
 
-// AUTH ENDPOINTS - MUST BE REGISTERED BEFORE ANY STATIC SERVING OR CATCH-ALL
-// POST /api/auth/dev-login - Development login with session regeneration
-app.post('/api/auth/dev-login', (req, res, next) => {
-  if (process.env.EMAIL_DEV_MODE !== 'true') return res.status(404).json({code:'NOT_FOUND'});
-  req.session.regenerate(err => {
-    if (err) return next(err);
-    req.session.user = { id:'dev', email:'dev@local', roles:['admin'] };
-    req.session.save(err2 => err2 ? next(err2) : res.json({ ok:true }));
+// ========== RBAC MIDDLEWARE ==========
+function requireAuth(req: any, res: any, next: any) {
+  if (!req.session?.user) {
+    return res.status(401).json({code: 'UNAUTHENTICATED'});
+  }
+  next();
+}
+
+function requireRole(role: string) {
+  return (req: any, res: any, next: any) => {
+    const userRoles = req.session?.user?.roles || [];
+    if (!userRoles.includes(role)) {
+      return res.status(403).json({code: 'FORBIDDEN'});
+    }
+    next();
+  };
+}
+
+// ========== AUTH ROUTES ==========
+// POST /api/auth/login - Real authentication with database lookup
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({code: 'MISSING_CREDENTIALS'});
+    }
+    
+    // Import auth functions
+    const { getUserByEmail, verifyPassword } = await import('./rbac-middleware');
+    
+    // Look up user by email (lowercased)
+    const user = await getUserByEmail(email.toLowerCase());
+    if (!user || !user.passwordHash) {
+      return res.status(401).json({code: 'INVALID_CREDENTIALS'});
+    }
+    
+    // Verify password
+    const isValid = await verifyPassword(user.passwordHash, password);
+    if (!isValid) {
+      return res.status(401).json({code: 'INVALID_CREDENTIALS'});
+    }
+    
+    // Create session
+    req.session.regenerate((err: any) => {
+      if (err) {
+        console.error('[AUTH] Session regeneration error:', err);
+        return res.status(500).json({code: 'SESSION_ERROR'});
+      }
+      
+      req.session.user = { 
+        id: user.id, 
+        email: user.email, 
+        roles: user.roles || [] 
+      };
+      
+      req.session.save((err2: any) => {
+        if (err2) {
+          console.error('[AUTH] Session save error:', err2);
+          return res.status(500).json({code: 'SESSION_ERROR'});
+        }
+        res.json({ ok: true });
+      });
+    });
+  } catch (error) {
+    console.error('[AUTH] Login error:', error);
+    res.status(500).json({code: 'SERVER_ERROR'});
+  }
+});
+
+// POST /api/auth/logout - Destroy session
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy((err: any) => {
+    if (err) {
+      console.error('[AUTH] Logout error:', err);
+      return res.status(500).json({code: 'SESSION_ERROR'});
+    }
+    res.json({ ok: true });
   });
 });
 
-// GET /api/admin/whoami - Debug authentication status  
+// GET /api/admin/whoami - Authentication status
 app.get('/api/admin/whoami', (req, res) => {
-  const u = req.session?.user || null;
-  res.json({ authenticated: !!u, roles: u?.roles || [] });
+  const user = req.session?.user || null;
+  res.json({ 
+    authenticated: !!user, 
+    roles: user?.roles || [] 
+  });
 });
 
 // E) Cache-busting middleware (dev kill-switch)
