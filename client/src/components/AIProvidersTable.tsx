@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 type ProviderRow = {
   id: number;
@@ -47,22 +48,19 @@ export default function AIProvidersTable() {
   }
 
   async function load() {
-    const res = await fetch("/api/admin/ai/providers", { 
-      credentials: "include"
-    });
-    if (res.status === 401) {
-      setToast("Please sign in.");
-      setTimeout(() => {
-        window.location.href = "/admin/login";
-      }, 1500);
-      return;
+    try {
+      const res = await api("/api/admin/ai/providers");
+      if (!res.ok) {
+        setToast(`Load failed: ${res.status}`);
+        return;
+      }
+      const json = await res.json();
+      setRows(json ?? []);
+    } catch (error) {
+      if (error.message !== "unauthorized") {
+        setToast("Load failed");
+      }
     }
-    if (!res.ok) {
-      setToast(`Load failed: ${res.status}`);
-      return;
-    }
-    const json = await res.json();
-    setRows(json ?? []);
   }
 
   useEffect(() => { 
