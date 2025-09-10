@@ -49,8 +49,8 @@ app.use(session({
   name: 'sid',
   cookie: { 
     httpOnly: true, 
-    sameSite: 'none', // Required for HTTPS on Replit
-    secure: true, // Required for SameSite=none
+    sameSite: process.env.REPLIT_DEPLOYMENT_ID ? 'none' : 'lax', // None for Replit HTTPS, lax for localhost
+    secure: !!process.env.REPLIT_DEPLOYMENT_ID, // Secure only on Replit 
     maxAge: 30 * 24 * 3600 * 1000, // 30 days as specified
     path: '/' 
   }
