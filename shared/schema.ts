@@ -55,20 +55,49 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table.
+// User storage table - Extended for proper authentication and RBAC
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique(),
+  id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+  email: text("email").unique().notNull(),
+  passwordHash: text("password_hash"), // argon2id or bcrypt hash
+  emailVerifiedAt: timestamp("email_verified_at"),
+  isActive: boolean("is_active").default(true).notNull(),
+  mfaSecret: text("mfa_secret"), // For TOTP, optional
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role", { length: 32 }).default("viewer").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  // Keep legacy role field for backward compatibility during transition
+  role: varchar("role", { length: 32 }).default("user").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Roles table for RBAC system
+export const roles = pgTable("roles", {
+  id: serial("id").primaryKey(),
+  name: text("name").unique().notNull(), // 'admin', 'manager', 'user'
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// User roles junction table for many-to-many relationship
+export const userRoles = pgTable("user_roles", {
+  userId: varchar("user_id").notNull(),
+  roleId: integer("role_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  pk: unique().on(table.userId, table.roleId),
+  userIdIndex: index("user_roles_user_id_idx").on(table.userId),
+  roleIdIndex: index("user_roles_role_id_idx").on(table.roleId),
+}));
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type UpsertRole = typeof roles.$inferInsert;
+export type Role = typeof roles.$inferSelect;
+export type UpsertUserRole = typeof userRoles.$inferInsert;
+export type UserRole = typeof userRoles.$inferSelect;
 
 // Fault Reference Library table - Admin Only "Feature-to-Fault Library" / "RCA Knowledge Library"
 export const faultReferenceLibrary = pgTable("fault_reference_library", {

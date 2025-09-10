@@ -19,6 +19,7 @@ import path from "path";
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,10 +32,17 @@ loadCryptoKey(); // throws if missing → process exits with clear message
 
 const app = express();
 
-// Session middleware for browser cookie authentication
+// Session middleware with database-backed storage for scalability
+const pgSession = connectPgSimple(session);
+
 app.set('trust proxy', 1);
 app.use(cookieParser());
 app.use(session({
+  store: new pgSession({
+    conString: process.env.DATABASE_URL,
+    tableName: 'sessions', // Uses existing sessions table from schema
+    createTableIfMissing: false, // We already have the table from schema
+  }),
   secret: process.env.JWT_SECRET || 'dev-secret-key',
   resave: false,
   saveUninitialized: false,
@@ -42,8 +50,8 @@ app.use(session({
   cookie: { 
     httpOnly: true, 
     sameSite: 'lax', 
-    secure: process.env.NODE_ENV === 'production', // HTTP for localhost, HTTPS for production
-    maxAge: 7 * 24 * 3600 * 1000, 
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 30 * 24 * 3600 * 1000, // 30 days as specified
     path: '/' 
   }
 }));
