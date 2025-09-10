@@ -49,8 +49,8 @@ app.use(session({
   name: 'sid',
   cookie: { 
     httpOnly: true, 
-    sameSite: 'lax', 
-    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'none', // Required for HTTPS on Replit
+    secure: true, // Required for SameSite=none
     maxAge: 30 * 24 * 3600 * 1000, // 30 days as specified
     path: '/' 
   }
