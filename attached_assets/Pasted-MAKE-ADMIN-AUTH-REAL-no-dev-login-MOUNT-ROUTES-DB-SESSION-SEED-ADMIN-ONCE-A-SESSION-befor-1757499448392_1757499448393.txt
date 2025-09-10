@@ -1,0 +1,49 @@
+MAKE ADMIN AUTH REAL (no dev-login). MOUNT ROUTES + DB SESSION + SEED ADMIN ONCE.
+
+A) SESSION (before ANY routes/static)
+app.set('trust proxy', 1);
+app.use(cookieParser());
+const PgSession = require('connect-pg-simple')(session);
+app.use(session({
+  store: new PgSession({ conString: process.env.DATABASE_URL }),
+  secret: process.env.JWT_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  name: 'sid',
+  cookie: { httpOnly: true, sameSite: 'lax', secure: true, maxAge: 30*24*3600*1000 }
+}));
+
+B) AUTH ROUTES (mount BEFORE catch-all)
+POST /api/auth/login
+  - body: { email, password }
+  - look up user by email (lowercased), verify argon2/bcrypt hash
+  - req.session.regenerate(() => { req.session.user = { id, email, roles:[...] }; req.session.save(...) })
+  - return { ok:true }
+
+POST /api/auth/logout
+  - req.session.destroy(() => res.json({ ok:true }))
+
+GET /api/admin/whoami
+  - return { authenticated: !!req.session.user, roles: req.session.user?.roles || [] }
+
+C) RBAC GUARDS
+function requireAuth(req,res,next){ if (!req.session?.user) return res.status(401).json({code:'UNAUTHENTICATED'}); next(); }
+function requireRole(role){ return (req,res,next)=>{ const r=req.session?.user?.roles||[]; if(!r.includes(role)) return res.status(403).json({code:'FORBIDDEN'}); next(); }; }
+
+D) ADMIN USER SEED (run once, idempotent)
+Script (scripts/seed-admin.ts) creates roles table entries ('admin','manager','user'), upserts a user with SETUP_ADMIN_EMAIL + argon2id(SETUP_ADMIN_PASSWORD), and links user→admin role.
+Guard script so it exits if any admin user already exists.
+
+E) MOUNT ORDER
+app.use('/api', apiRouterWithAuth);  // after session, before static
+app.use(express.static(...));
+app.get('*', ...);
+
+F) VERIFY (agent must paste results)
+- curl -i -X POST http://localhost:5000/api/auth/login -H "Content-Type: application/json" -d '{"email":"admin@test.local","password":"<from secrets>"}'
+- curl -s http://localhost:5000/api/admin/whoami          # expect authenticated:true
+- curl -i http://localhost:5000/api/admin/users           # expect 200 (empty or list)
+
+G) CLEANUP
+- Remove/disable /api/auth/dev-login
+- Keep cookie maxAge=30d so you don’t get logged out each day
