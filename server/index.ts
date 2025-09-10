@@ -182,9 +182,12 @@ app.get('/api/admin/whoami', (req, res) => {
 
 // GET /api/admin/sections - Dynamic admin sections (no hardcoding)  
 app.get("/api/admin/sections", (req, res) => {
+  console.log('[SECTIONS] Session ID:', req.sessionID);
+  console.log('[SECTIONS] Session user:', req.session?.user);
   // Check authentication manually to avoid type issues
   const user = req.session?.user;
   if (!user || !user.roles?.includes('admin')) {
+    console.log('[SECTIONS] Authentication failed - user:', !!user, 'admin role:', user?.roles?.includes('admin'));
     return res.status(401).json({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
   }
   
