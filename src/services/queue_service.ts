@@ -32,7 +32,11 @@ export class QueueService {
     this.notificationService = new NotificationService();
     
     try {
-      // Redis connection configuration
+      // Redis connection configuration - skip if REDIS_URL not available
+      if (!Config.REDIS_URL && process.env.NODE_ENV === 'development') {
+        console.log('[QUEUE] Redis not configured - running without queue services');
+        return;
+      }
       const redisConfig: ConnectionOptions = Config.REDIS_URL 
         ? { url: Config.REDIS_URL }
         : { host: 'localhost', port: 6379 };

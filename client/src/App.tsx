@@ -73,9 +73,9 @@ function Router() {
   
   return (
       <Routes>
-        <Route path="/admin" element={<RequireConfigured><Home /></RequireConfigured>} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
+        <Route path="/admin" element={<AdminSettings />} />
         <Route path="/admin/evidence" element={<EvidenceLibraryManagement />} />
         <Route path="/admin/integrations" element={<WorkflowIntegrationDemo />} />
         <Route path="/admin/taxonomy" element={<TaxonomyManagement />} />

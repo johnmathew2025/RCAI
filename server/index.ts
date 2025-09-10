@@ -48,24 +48,27 @@ const pgSession = connectPgSimple(session);
 
 app.set("trust proxy", 1); // required on Replit/HTTPS proxies
 
-const onHttps = !!process.env.REPL_ID || process.env.REPLIT_DEPLOYMENT || process.env.NODE_ENV === 'production';
+// Fix HTTPS detection for development
+const onHttps = !!process.env.REPL_ID || !!process.env.REPLIT_DEPLOYMENT || process.env.NODE_ENV === 'production';
+console.log('[AUTH] Cookie config - onHttps:', onHttps, 'NODE_ENV:', process.env.NODE_ENV, 'REPL_ID:', !!process.env.REPL_ID);
 
 app.use(cookieParser());
 app.use(session({
   store: new pgSession({
     conString: process.env.DATABASE_URL,
-    tableName: 'sessions', // Uses existing sessions table from schema
-    createTableIfMissing: false, // We already have the table from schema
+    tableName: 'sessions',
+    createTableIfMissing: true, // Let it create if needed
   }),
   name: 'sid',
-  secret: process.env.SESSION_SECRET!, // from Secrets (no hardcoding)
+  secret: process.env.SESSION_SECRET!,
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
     sameSite: onHttps ? 'none' : 'lax',
-    secure: onHttps ? true : false,
-    path: '/'
+    secure: onHttps,
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000
   }
 }));
 
@@ -102,10 +105,12 @@ function requireRole(role: string) {
 // ========== AUTH ROUTES ==========
 // POST /api/auth/login - Real authentication with database lookup
 app.post('/api/auth/login', async (req, res) => {
+  console.log('[AUTH] Login attempt for:', req.body?.email);
   try {
     const { email, password } = req.body;
     
     if (!email || !password) {
+      console.log('[AUTH] Missing credentials');
       return res.status(400).json({code: 'MISSING_CREDENTIALS'});
     }
     
@@ -114,36 +119,37 @@ app.post('/api/auth/login', async (req, res) => {
     
     // Look up user by email (lowercased)
     const user = await getUserByEmail(email.toLowerCase());
+    console.log('[AUTH] User lookup result:', !!user);
     if (!user || !user.passwordHash) {
+      console.log('[AUTH] User not found or no password hash');
       return res.status(401).json({code: 'INVALID_CREDENTIALS'});
     }
     
     // Verify password
     const isValid = await verifyPassword(user.passwordHash, password);
+    console.log('[AUTH] Password valid:', isValid);
     if (!isValid) {
+      console.log('[AUTH] Invalid password');
       return res.status(401).json({code: 'INVALID_CREDENTIALS'});
     }
     
-    // Create session
-    req.session.regenerate((err: any) => {
+    // Create session - simplified
+    req.session.user = { 
+      id: user.id, 
+      email: user.email, 
+      roles: user.roles || [] 
+    };
+    
+    console.log('[AUTH] Session user set:', req.session.user);
+    
+    req.session.save((err: any) => {
       if (err) {
-        console.error('[AUTH] Session regeneration error:', err);
+        console.error('[AUTH] Session save error:', err);
         return res.status(500).json({code: 'SESSION_ERROR'});
       }
-      
-      req.session.user = { 
-        id: user.id, 
-        email: user.email, 
-        roles: user.roles || [] 
-      };
-      
-      req.session.save((err2: any) => {
-        if (err2) {
-          console.error('[AUTH] Session save error:', err2);
-          return res.status(500).json({code: 'SESSION_ERROR'});
-        }
-        res.json({ ok: true });
-      });
+      console.log('[AUTH] Session saved successfully, cookie options:', req.session.cookie);
+      console.log('[AUTH] Session ID:', req.sessionID);
+      res.json({ ok: true });
     });
   } catch (error) {
     console.error('[AUTH] Login error:', error);
@@ -164,10 +170,13 @@ app.post('/api/auth/logout', (req, res) => {
 
 // GET /api/admin/whoami - Authentication status
 app.get('/api/admin/whoami', (req, res) => {
+  console.log('[AUTH] Whoami check - Session ID:', req.sessionID);
+  console.log('[AUTH] Whoami check - Session user:', req.session?.user);
   const user = req.session?.user || null;
   res.json({ 
     authenticated: !!user, 
-    roles: user?.roles || [] 
+    roles: user?.roles || [],
+    sessionID: req.sessionID // temp debug
   });
 });
 
