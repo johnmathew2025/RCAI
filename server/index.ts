@@ -46,7 +46,10 @@ const app = express();
 // Session middleware with database-backed storage for scalability
 const pgSession = connectPgSimple(session);
 
-app.set('trust proxy', 1);
+app.set("trust proxy", 1); // required on Replit/HTTPS proxies
+
+const onHttps = !!process.env.REPL_ID || process.env.REPLIT_DEPLOYMENT || process.env.NODE_ENV === 'production';
+
 app.use(cookieParser());
 app.use(session({
   store: new pgSession({
@@ -54,16 +57,15 @@ app.use(session({
     tableName: 'sessions', // Uses existing sessions table from schema
     createTableIfMissing: false, // We already have the table from schema
   }),
-  secret: process.env.JWT_SECRET || 'dev-secret-key',
+  name: 'sid',
+  secret: process.env.SESSION_SECRET!, // from Secrets (no hardcoding)
   resave: false,
   saveUninitialized: false,
-  name: 'sid',
-  cookie: { 
-    httpOnly: true, 
-    sameSite: process.env.REPLIT_DEPLOYMENT_ID ? 'none' : 'lax', // None for Replit HTTPS, lax for localhost
-    secure: !!process.env.REPLIT_DEPLOYMENT_ID, // Secure only on Replit 
-    maxAge: 30 * 24 * 3600 * 1000, // 30 days as specified
-    path: '/' 
+  cookie: {
+    httpOnly: true,
+    sameSite: onHttps ? 'none' : 'lax',
+    secure: onHttps ? true : false,
+    path: '/'
   }
 }));
 

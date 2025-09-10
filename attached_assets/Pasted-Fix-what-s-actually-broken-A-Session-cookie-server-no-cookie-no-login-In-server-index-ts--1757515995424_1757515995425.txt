@@ -1,0 +1,92 @@
+Fix what’s actually broken 
+A. Session cookie (server) — no cookie, no login
+In server/index.ts:
+app.set("trust proxy", 1); // <— required on Replit/HTTPS proxies
+
+const onHttps = !!process.env.REPL_ID || process.env.REPLIT_DEPLOYMENT || process.env.NODE_ENV === 'production';
+
+app.use(session({
+  name: 'sid',
+  secret: process.env.SESSION_SECRET!, // from Secrets (no hardcoding)
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: onHttps ? 'none' : 'lax',
+    secure: onHttps ? true : false,
+    path: '/'
+  }
+}));
+Re-seed admin (from Secrets only):
+# in Shell
+cd scripts && tsx seed-admin.ts
+Definition of done (server):
+•	POST /api/auth/login returns 200 and a Set-Cookie for sid
+•	GET /api/admin/whoami returns { authenticated: true, roles: ["admin"] }
+ 
+B. Router (frontend) — remove forced AI redirect
+In your React Router, you probably have an unconditional redirect like:
+// ❌ Bad: forces AI tab forever
+navigate('/admin/settings#ai'); // or defaultRoute = 'ai'
+Fix:
+// ✅ Only one route for Admin Settings; no forced tab
+<Route path="/admin/settings" element={<AdminSettings />} />
+<Route path="/admin/login" element={<AdminLogin />} />
+Remove any other /admin/* redirects that point to #ai.
+ 
+C. Tabs (frontend) — derive from API, sync with URL
+In AdminSettings:
+const [sections, setSections] = useState<string[]>([]);
+const [active, setActive] = useState<string>(''); // no default to 'ai'
+
+useEffect(() => {
+  fetch('/api/admin/sections', { credentials: 'include' })
+    .then(r => r.json())
+    .then(j => {
+      setSections(j.sections || []);
+      const fromUrl = location.hash.slice(1);
+      setActive(fromUrl || (j.sections?.[0] ?? '')); // first available
+    });
+}, []);
+
+useEffect(() => {
+  const onHash = () => setActive(location.hash.slice(1) || sections[0] || '');
+  window.addEventListener('hashchange', onHash);
+  return () => window.removeEventListener('hashchange', onHash);
+}, [sections]);
+
+// When clicking a tab:
+<a href={`#${id}`}>{label}</a>  // URL drives state; do NOT setActive('ai') blindly
+Litmus test (UI):
+•	Visiting /admin/settings#evidence must open Evidence Library, not AI.
+•	Opening new tab on /admin/settings#taxonomy must show Taxonomy, not AI.
+ 
+D. API helper — must send cookies and handle 401
+export async function api(path: string, init: RequestInit = {}) {
+  const r = await fetch(path, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...(init.headers||{}) },
+    ...init,
+  });
+  if (r.status === 401) { window.location.href = '/admin/login'; throw new Error('unauthorized'); }
+  return r;
+}
+ 
+E. AI Settings endpoints — admin prefix required
+All calls must be under /api/admin/ai/providers:
+POST /api/admin/ai/providers
+PUT  /api/admin/ai/providers/:id/activate
+GET  /api/admin/ai/providers
+GET  /api/admin/ai/providers/status
+(If the agent still hits /api/ai/providers, that’s the wrong path.)
+ 
+Step 3 — Your acceptance checklist (no excuses)
+1.	Login works: whoami → { authenticated: true }.
+2.	Sections load: /api/admin/sections → ["ai","evidence","taxonomy","workflow","status","debug"].
+3.	URL controls the tab:
+o	/admin/settings#evidence shows Evidence Library.
+o	/admin/settings#taxonomy shows Taxonomy.
+o	No auto-jump to AI.
+4.	AI save sequence: 4 requests, all 200 (in order above).
+If any one of these fails, the agent has not implemented what they claimed.
+•	

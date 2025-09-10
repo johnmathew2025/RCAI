@@ -13,7 +13,23 @@ const COMPONENTS: Record<string, React.LazyExoticComponent<React.ComponentType<a
 
 export default function AdminSettings() {
   const [sections, setSections] = useState<string[]>([]);
-  useEffect(() => { api("/api/admin/sections").then(r => r.json()).then(j => setSections(j.sections || [])); }, []);
+  const [active, setActive] = useState<string>(''); // no default to 'ai'
+
+  useEffect(() => {
+    api('/api/admin/sections')
+      .then(r => r.json())
+      .then(j => {
+        setSections(j.sections || []);
+        const fromUrl = location.hash.slice(1);
+        setActive(fromUrl || (j.sections?.[0] ?? '')); // first available
+      });
+  }, []);
+
+  useEffect(() => {
+    const onHash = () => setActive(location.hash.slice(1) || sections[0] || '');
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, [sections]);
 
   return (
     <RequireAdmin>
@@ -27,7 +43,7 @@ export default function AdminSettings() {
             {sections.map(id => {
               const C = COMPONENTS[id];
               return (
-                <section id={id} key={id} className="mb-10">
+                <section id={id} key={id} className="mb-10" style={{ display: active === id ? 'block' : 'none' }}>
                   <h2 className="text-xl mb-3">{id}</h2>
                   <Suspense fallback={"Loading..."}>
                     {C ? <C /> : <div>Missing component: {id}</div>}
