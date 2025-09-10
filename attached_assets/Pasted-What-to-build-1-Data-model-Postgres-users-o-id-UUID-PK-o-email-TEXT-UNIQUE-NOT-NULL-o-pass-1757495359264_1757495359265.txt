@@ -1,0 +1,112 @@
+What to build
+1) Data model (Postgres)
+•	users
+o	id UUID PK
+o	email TEXT UNIQUE NOT NULL
+o	password_hash TEXT (argon2id or bcrypt)
+o	email_verified_at TIMESTAMP NULL
+o	is_active BOOL DEFAULT true
+o	mfa_secret TEXT NULL (for TOTP, optional)
+o	timestamps
+•	roles
+o	id SERIAL PK
+o	name TEXT UNIQUE NOT NULL // e.g., admin, manager, user
+o	description TEXT
+•	user_roles
+o	user_id UUID FK -> users(id)
+o	role_id INT FK -> roles(id)
+o	UNIQUE(user_id, role_id)
+•	(optional) sessions if you want DB-backed sessions:
+o	sid TEXT PRIMARY KEY
+o	sess JSONB
+o	expire TIMESTAMP
+Keep your existing ai_providers tables as-is.
+2) Authentication
+•	Signup/Invite: Admin invites users (email + roles). Backend generates a one-time invite token (store hashed token + expiry). Invitee sets password and logs in.
+•	Login: email + password (argon2id/bcrypt verify) → create session.
+•	Sessions (cookie):
+o	trust proxy = 1
+o	cookie: HttpOnly, Secure, SameSite=Lax, MaxAge=30d, name: "sid"
+o	Store session in DB (connect-pg-simple) or Redis for scale.
+•	MFA (optional): TOTP with recovery codes.
+3) Authorization (RBAC)
+•	requireAuth → 401 if no session.
+•	requireRole('admin') → 403 unless user has admin role.
+•	Use these on all admin routes (AI providers, user admin, audit, etc.).
+4) Admin bootstrap (one-time, safe)
+Provide one of these (then disable):
+A. CLI seed script (preferred)
+•	Env: SETUP_ADMIN_EMAIL, SETUP_ADMIN_PASSWORD.
+•	Script:
+1.	Upsert roles: admin, manager, user.
+2.	Hash password (argon2id) and upsert user.
+3.	Insert user_roles linking user → admin.
+•	Run once on deploy; exit if an admin already exists.
+B. Setup token route
+•	Env: SETUP_TOKEN (long random).
+•	POST /api/setup/seed-admin with header X-Setup-Token.
+•	Creates the admin once, then disables itself.
+After seeding, remove EMAIL_DEV_MODE + dev-login route.
+5) Admin UI (Users & Roles)
+•	Page: Admin → Users
+o	List users (email, roles, verified, active).
+o	Create user (email + roles) → sends invite link.
+o	Edit roles (checkboxes).
+o	Disable/enable user.
+o	Force password reset (sends reset token).
+•	Page: Roles (optional)
+o	View roles, descriptions, and member counts.
+6) Security hardening
+•	Passwords: argon2id (or bcrypt with cost ≥ 12).
+•	Rate limit login & invite acceptance (e.g., 5/min per IP + per email).
+•	CSRF protection on form POSTs (or same-site cookie strategy with double submit).
+•	Email verification before granting non-read access.
+•	Audit log table:
+o	actor_user_id, action, target_type, target_id, metadata JSONB, created_at.
+o	Log: user create/disable, role changes, provider changes, tests, etc.
+•	Separate dev/staging/prod DBs and secrets. Never run destructive migrations on boot.
+Minimal code sketch (what your agent should implement)
+Session middleware (server startup, before routes):
+app.set('trust proxy', 1);
+app.use(cookieParser());
+app.use(session({
+  store: new (pgSession(session))({ conString: process.env.DATABASE_URL }),
+  secret: process.env.JWT_SECRET!,
+  resave: false,
+  saveUninitialized: false,
+  name: 'sid',
+  cookie: { httpOnly: true, sameSite: 'lax', secure: true, maxAge: 30*24*3600*1000 },
+}));
+Auth guards:
+export function requireAuth(req,res,next){
+  if (!req.session?.user) return res.status(401).json({code:'UNAUTHENTICATED'});
+  next();
+}
+export function requireRole(role){
+  return (req,res,next)=>{
+    const roles = req.session?.user?.roles || [];
+    if (!roles.includes(role)) return res.status(403).json({code:'FORBIDDEN'});
+    next();
+  };
+}
+Seed admin (CLI)
+// scripts/seed-admin.ts
+// usage: node scripts/seed-admin.js
+// Uses SETUP_ADMIN_EMAIL, SETUP_ADMIN_PASSWORD
+User endpoints (admin only)
+•	GET /api/admin/users (list)
+•	POST /api/admin/users (invite or create)
+•	PATCH /api/admin/users/:id/roles (set roles)
+•	PATCH /api/admin/users/:id (is_active toggle)
+Auth endpoints
+•	POST /api/auth/login (email+password → session)
+•	POST /api/auth/logout
+•	POST /api/auth/invite/accept (token + password set)
+•	POST /api/auth/verify-email (token)
+Concrete “do-this-now” checklist
+1.	Create tables above; add indices on users.email, user_roles(user_id,role_id).
+2.	Add seed script and run it once with your email/password.
+3.	Remove EMAIL_DEV_MODE + dev-login route in prod.
+4.	Put requireRole('admin') in front of your AI provider routes.
+5.	Build Admin → Users page with list/create/edit roles.
+6.	Extend session cookie maxAge to 30 days (already shown)
