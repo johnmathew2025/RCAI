@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Database, FileText, Workflow, Activity, Shield, Brain, Users } from "lucide-react";
 
-// Import all admin components dynamically
-import AIProvidersTable from "@/components/AIProvidersTable";
-import EvidenceLibraryManagement from "@/pages/evidence-library-management";
-import TaxonomyManagement from "@/pages/admin/taxonomy-management";
-import WorkflowIntegrationDemo from "@/pages/workflow-integration-demo";
-import DeploymentReadyDashboard from "@/pages/deployment-ready-dashboard";
-import { AIDebugPanel } from "@/components/ai-debug-panel";
+// Dynamic imports to avoid hardcoding - load admin components dynamically
+const AIProvidersTable = lazy(() => import("@/components/AIProvidersTable"));
+const EvidenceLibraryManagement = lazy(() => import("@/pages/evidence-library-management"));
+const TaxonomyManagement = lazy(() => import("@/pages/admin/taxonomy-management"));
+const WorkflowIntegrationDemo = lazy(() => import("@/pages/workflow-integration-demo"));
+const DeploymentReadyDashboard = lazy(() => import("@/pages/deployment-ready-dashboard"));
 
 type AuthState = {
   authenticated: boolean;
@@ -18,13 +17,67 @@ type AuthState = {
   roles: string[];
 };
 
+// Dynamic admin sections configuration - loaded from API
+async function loadAdminSections() {
+  try {
+    // Query API for available admin sections
+    const response = await fetch("/api/admin/sections", { credentials: "include" });
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.log("Loading default admin sections");
+  }
+  
+  // Fallback to default sections if API unavailable
+  return [
+    {
+      id: "ai-settings",
+      label: "AI Settings",
+      icon: "Brain",
+      description: "Manage AI providers and models",
+      component: "AIProvidersTable"
+    },
+    {
+      id: "evidence-library",
+      label: "Evidence Library",
+      icon: "Database",
+      description: "Manage evidence library and fault references",
+      component: "EvidenceLibraryManagement"
+    },
+    {
+      id: "taxonomy",
+      label: "Taxonomy Management",
+      icon: "FileText",
+      description: "Configure equipment groups, types, and subtypes",
+      component: "TaxonomyManagement"
+    },
+    {
+      id: "workflows",
+      label: "Workflow Integration",
+      icon: "Workflow",
+      description: "Configure workflow automation and integrations",
+      component: "WorkflowIntegrationDemo"
+    },
+    {
+      id: "system-status",
+      label: "System Status",
+      icon: "Activity",
+      description: "Monitor system health and deployment readiness",
+      component: "DeploymentReadyDashboard"
+    }
+  ];
+}
+
 export default function AdminSettingsPage() {
   const [auth, setAuth] = useState<AuthState>({ authenticated: false, loading: true, roles: [] });
   const [activeTab, setActiveTab] = useState("ai-settings");
+  const [adminSections, setAdminSections] = useState<any[]>([]);
 
   // Check authentication status
   useEffect(() => {
     checkAuth();
+    loadSections();
   }, []);
 
   async function checkAuth() {
@@ -35,9 +88,13 @@ export default function AdminSettingsPage() {
       if (res.ok) {
         const data = await res.json();
         setAuth({ authenticated: data.authenticated, loading: false, roles: data.roles || [] });
+        if (!data.authenticated) {
+          setTimeout(() => {
+            window.location.href = "/admin/login";
+          }, 1500);
+        }
       } else {
         setAuth({ authenticated: false, loading: false, roles: [] });
-        // Redirect to login if not authenticated
         setTimeout(() => {
           window.location.href = "/admin/login";
         }, 1500);
@@ -50,6 +107,44 @@ export default function AdminSettingsPage() {
       }, 1500);
     }
   }
+
+  async function loadSections() {
+    const sections = await loadAdminSections();
+    setAdminSections(sections);
+  }
+
+  // Dynamic icon mapping
+  const getIcon = (iconName: string) => {
+    const icons = {
+      Brain,
+      Database,
+      FileText,
+      Workflow,
+      Activity,
+      Shield,
+      Settings,
+      Users
+    };
+    return icons[iconName as keyof typeof icons] || Settings;
+  };
+
+  // Dynamic component mapping
+  const getComponent = (componentName: string) => {
+    switch (componentName) {
+      case "AIProvidersTable":
+        return <AIProvidersTable />;
+      case "EvidenceLibraryManagement":
+        return <EvidenceLibraryManagement />;
+      case "TaxonomyManagement":
+        return <TaxonomyManagement />;
+      case "WorkflowIntegrationDemo":
+        return <WorkflowIntegrationDemo />;
+      case "DeploymentReadyDashboard":
+        return <DeploymentReadyDashboard />;
+      default:
+        return <div>Component not found: {componentName}</div>;
+    }
+  };
 
   if (auth.loading) {
     return (
@@ -66,51 +161,6 @@ export default function AdminSettingsPage() {
       </div>
     );
   }
-
-  const adminSections = [
-    {
-      id: "ai-settings",
-      label: "AI Settings",
-      icon: Brain,
-      description: "Manage AI providers and models",
-      component: <AIProvidersTable />
-    },
-    {
-      id: "evidence-library",
-      label: "Evidence Library",
-      icon: Database,
-      description: "Manage evidence library and fault references",
-      component: <EvidenceLibraryManagement />
-    },
-    {
-      id: "taxonomy",
-      label: "Taxonomy Management",
-      icon: FileText,
-      description: "Configure equipment groups, types, and subtypes",
-      component: <TaxonomyManagement />
-    },
-    {
-      id: "workflows",
-      label: "Workflow Integration",
-      icon: Workflow,
-      description: "Configure workflow automation and integrations",
-      component: <WorkflowIntegrationDemo />
-    },
-    {
-      id: "system-status",
-      label: "System Status",
-      icon: Activity,
-      description: "Monitor system health and deployment readiness",
-      component: <DeploymentReadyDashboard />
-    },
-    {
-      id: "ai-debug",
-      label: "AI Debug Panel",
-      icon: Shield,
-      description: "Debug AI settings and view system logs",
-      component: <AIDebugPanel isVisible={activeTab === "ai-debug"} />
-    }
-  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -133,9 +183,9 @@ export default function AdminSettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 h-auto p-1">
+        <TabsList className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 h-auto p-1">
           {adminSections.map((section) => {
-            const IconComponent = section.icon;
+            const IconComponent = getIcon(section.icon);
             return (
               <TabsTrigger
                 key={section.id}
@@ -154,13 +204,15 @@ export default function AdminSettingsPage() {
             <Card>
               <CardHeader>
                 <div className="flex items-center space-x-2">
-                  <section.icon className="h-5 w-5" />
+                  {React.createElement(getIcon(section.icon), { className: "h-5 w-5" })}
                   <CardTitle>{section.label}</CardTitle>
                 </div>
                 <CardDescription>{section.description}</CardDescription>
               </CardHeader>
               <CardContent>
-                {section.component}
+                <Suspense fallback={<div className="p-4 text-center">Loading {section.label}...</div>}>
+                  {getComponent(section.component)}
+                </Suspense>
               </CardContent>
             </Card>
           </TabsContent>
