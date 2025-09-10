@@ -7312,16 +7312,27 @@ JSON array only:`;
   });
   console.log("[ROUTES] All taxonomy routes registered successfully");
   
+  // Simple test route to verify routes are working
+  app.get('/api/admin/test', (req, res) => {
+    res.json({ message: 'Admin routes working!' });
+  });
+  console.log("[ROUTES] Test admin route registered");
+  
   // =======================
   // ADMIN USER MANAGEMENT API ROUTES
   // RBAC-based user administration system
   // =======================
   
-  const { getUserWithRoles, getUserByEmail, hashPassword, verifyPassword, logAuditEvent, loginRateLimit, inviteRateLimit } = await import('./rbac-middleware');
-  const { users, roles, userRoles } = await import('@shared/schema');
+  try {
+    console.log("[ROUTES] Starting admin routes registration...");
+    const { getUserWithRoles, getUserByEmail, hashPassword, verifyPassword, logAuditEvent, loginRateLimit, inviteRateLimit, requireAuth } = await import('./rbac-middleware');
+    const { users, roles, userRoles } = await import('@shared/schema');
+    const { sql } = await import('drizzle-orm');
+    console.log("[ROUTES] Admin imports successful");
   
-  // Authentication endpoints
-  app.post('/api/auth/login', loginRateLimit, async (req: AuthenticatedRequest, res) => {
+    // Authentication endpoints
+    console.log("[ROUTES] Registering authentication endpoints...");
+    app.post('/api/auth/login', loginRateLimit, async (req: any, res) => {
     try {
       const { email, password } = req.body;
       
@@ -7378,7 +7389,7 @@ JSON array only:`;
     }
   });
   
-  app.post('/api/auth/logout', requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post('/api/auth/logout', requireAuth, async (req: any, res) => {
     try {
       const userId = req.session?.user?.id;
       req.session.destroy((err) => {
@@ -7399,7 +7410,7 @@ JSON array only:`;
   });
   
   // User management endpoints
-  app.get('/api/admin/users', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  app.get('/api/admin/users', requireAdmin, async (req: any, res) => {
     try {
       const result = await db
         .select({
@@ -7430,7 +7441,7 @@ JSON array only:`;
     }
   });
   
-  app.post('/api/admin/users', requireAdmin, inviteRateLimit, async (req: AuthenticatedRequest, res) => {
+  app.post('/api/admin/users', requireAdmin, inviteRateLimit, async (req: any, res) => {
     try {
       const { email, firstName, lastName, password, roleIds = [] } = req.body;
       
@@ -7491,7 +7502,7 @@ JSON array only:`;
     }
   });
   
-  app.put('/api/admin/users/:userId', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  app.put('/api/admin/users/:userId', requireAdmin, async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { firstName, lastName, isActive, roleIds } = req.body;
@@ -7535,7 +7546,7 @@ JSON array only:`;
     }
   });
   
-  app.delete('/api/admin/users/:userId', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  app.delete('/api/admin/users/:userId', requireAdmin, async (req: any, res) => {
     try {
       const { userId } = req.params;
       
@@ -7562,7 +7573,7 @@ JSON array only:`;
   });
   
   // Role management endpoints
-  app.get('/api/admin/roles', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  app.get('/api/admin/roles', requireAdmin, async (req: any, res) => {
     try {
       const allRoles = await db.select().from(roles).orderBy(roles.name);
       res.json({ roles: allRoles });
@@ -7572,7 +7583,7 @@ JSON array only:`;
     }
   });
   
-  app.post('/api/admin/roles', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  app.post('/api/admin/roles', requireAdmin, async (req: any, res) => {
     try {
       const { name, description } = req.body;
       
@@ -7601,7 +7612,11 @@ JSON array only:`;
     }
   });
   
-  console.log("[ROUTES] Admin user management routes registered successfully");
+    console.log("[ROUTES] Admin user management routes registered successfully");
+    
+  } catch (error) {
+    console.error("[ROUTES] ERROR registering admin routes:", error);
+  }
   
   // =======================
   // NEW INCIDENT MANAGEMENT SYSTEM API ROUTES
