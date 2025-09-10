@@ -9,12 +9,6 @@ type ProviderRow = {
   hasKey: boolean;
 };
 
-type AuthState = {
-  authenticated: boolean;
-  loading: boolean;
-  roles: string[];
-};
-
 export default function AIProvidersTable() {
   const [rows, setRows] = useState<ProviderRow[]>([]);
   const [provider, setProvider] = useState("");
@@ -24,28 +18,6 @@ export default function AIProvidersTable() {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [auth, setAuth] = useState<AuthState>({ authenticated: false, loading: true, roles: [] });
-
-  // Check authentication status
-  async function checkAuth() {
-    try {
-      const res = await fetch("/api/admin/whoami", { 
-        credentials: "include"
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAuth({ authenticated: data.authenticated, loading: false, roles: data.roles || [] });
-        return data.authenticated;
-      } else {
-        setAuth({ authenticated: false, loading: false, roles: [] });
-        return false;
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      setAuth({ authenticated: false, loading: false, roles: [] });
-      return false;
-    }
-  }
 
   async function load() {
     try {
@@ -56,7 +28,7 @@ export default function AIProvidersTable() {
       }
       const json = await res.json();
       setRows(json ?? []);
-    } catch (error) {
+    } catch (error: any) {
       if (error.message !== "unauthorized") {
         setToast("Load failed");
       }
@@ -64,59 +36,41 @@ export default function AIProvidersTable() {
   }
 
   useEffect(() => { 
-    checkAuth().then(isAuthenticated => {
-      if (isAuthenticated) {
-        load();
-      } else {
-        setToast("Please sign in.");
-        setTimeout(() => {
-          window.location.href = "/admin/login";
-        }, 1500);
-      }
-    });
+    load();
   }, []);
 
   async function save() {
-    if (!auth.authenticated) {
-      setToast("Please sign in.");
+    if (!provider || !modelId || !apiKey) {
+      setToast("All fields required.");
       return;
     }
-    
+    setBusy(true);
+    setToast(null);
     try {
-      setBusy(true);
-      setToast(null);
-      const body = {
-        provider: provider.trim().toLowerCase(),
-        modelId: modelId.trim(),
-        apiKey: apiKey,            // password; will be cleared after success
-        setActive: !!makeActive,
-      };
-      const res = await fetch("/api/admin/ai/providers", {
+      const res = await api("/api/admin/ai/providers", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json"
-        },
-        credentials: "include",
-        body: JSON.stringify(body),
+        body: JSON.stringify({ 
+          provider: provider.trim().toLowerCase(),
+          modelId: modelId.trim(),
+          apiKey: apiKey,
+          setActive: !!makeActive
+        }),
       });
-      const json = await res.json().catch(() => ({}));
-      if (res.status === 401) {
-        setToast("Please sign in.");
-        setTimeout(() => {
-          window.location.href = "/admin/login";
-        }, 1500);
-        return;
-      }
       if (!res.ok) {
-        setToast(json?.message || `Create failed: HTTP ${res.status}`);
+        const json = await res.json().catch(() => ({}));
+        setToast(json?.message || `Save failed: ${res.status}`);
         return;
       }
       setToast("Provider saved.");
-      setApiKey(""); // never keep it in memory/UI after save
       setProvider("");
       setModelId("");
+      setApiKey("");
       setMakeActive(false);
       await load();
+    } catch (err: any) {
+      if (err.message !== "unauthorized") {
+        setToast("Network error");
+      }
     } finally {
       setBusy(false);
     }
@@ -126,23 +80,19 @@ export default function AIProvidersTable() {
     setBusy(true);
     setToast(null);
     try {
-      const res = await fetch(`/api/admin/ai/providers/${id}/test`, {
+      const res = await api(`/api/admin/ai/providers/${id}/test`, {
         method: "POST",
-        credentials: "include"
       });
       const json = await res.json().catch(() => ({}));
-      if (res.status === 401) {
-        setToast("Please sign in.");
-        setTimeout(() => {
-          window.location.href = "/admin/login";
-        }, 1500);
-        return;
-      }
       if (!res.ok) {
-        setToast(json?.message || `Test failed: HTTP ${res.status}`);
+        setToast(json?.message || `Test failed: ${res.status}`);
         return;
       }
       setToast(json.ok ? `✅ Test OK (${json.latencyMs ?? "?"} ms)` : `❌ ${json.message || "Test failed"}`);
+    } catch (err: any) {
+      if (err.message !== "unauthorized") {
+        setToast("Test failed");
+      }
     } finally {
       setBusy(false);
     }
@@ -152,28 +102,21 @@ export default function AIProvidersTable() {
     setBusy(true);
     setToast(null);
     try {
-      const res = await fetch(`/api/admin/ai/providers/${id}`, {
+      const res = await api(`/api/admin/ai/providers/${id}`, {
         method: "PATCH",
-        headers: { 
-          "Content-Type": "application/json"
-        },
-        credentials: "include",
         body: JSON.stringify({ setActive: true }),
       });
-      const json = await res.json().catch(() => ({}));
-      if (res.status === 401) {
-        setToast("Please sign in.");
-        setTimeout(() => {
-          window.location.href = "/admin/login";
-        }, 1500);
-        return;
-      }
       if (!res.ok) {
-        setToast(json?.message || `Activate failed: HTTP ${res.status}`);
+        const json = await res.json().catch(() => ({}));
+        setToast(json?.message || `Activate failed: ${res.status}`);
         return;
       }
       await load();
       setToast("Active provider updated.");
+    } catch (err: any) {
+      if (err.message !== "unauthorized") {
+        setToast("Activate failed");
+      }
     } finally {
       setBusy(false);
     }
@@ -187,134 +130,140 @@ export default function AIProvidersTable() {
     setDeletingId(id);
     setToast(null);
     try {
-      const res = await fetch(`/api/admin/ai/providers/${id}`, {
+      const res = await api(`/api/admin/ai/providers/${id}`, {
         method: "DELETE",
-        credentials: "include"
       });
-      const json = await res.json().catch(() => ({}));
-      if (res.status === 401) {
-        setToast("Please sign in.");
-        setTimeout(() => {
-          window.location.href = "/admin/login";
-        }, 1500);
-        return;
-      }
       if (!res.ok) {
-        setToast(json?.message || `Delete failed: HTTP ${res.status}`);
+        const json = await res.json().catch(() => ({}));
+        setToast(json?.message || `Delete failed: ${res.status}`);
         return;
       }
+      setToast("Provider deleted.");
       await load();
-      if (json.reassignedActiveId) {
-        setToast("Provider deleted. Another provider was set as active.");
-      } else {
-        setToast("Provider deleted successfully.");
+    } catch (err: any) {
+      if (err.message !== "unauthorized") {
+        setToast("Delete failed");
       }
     } finally {
       setDeletingId(null);
     }
   }
 
-  if (auth.loading) {
-    return (
-      <div className="p-6 text-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {!auth.authenticated && (
-        <div className="p-4 rounded-xl border bg-yellow-50 border-yellow-200">
-          <div className="text-sm text-yellow-800">
-            ⚠️ You are not signed in. Please <a href="/admin/login" className="underline font-semibold">sign in</a> to manage AI providers.
-          </div>
+    <div className="p-4 max-w-4xl mx-auto">
+      <h2 className="text-xl font-semibold mb-4">AI Providers</h2>
+      
+      {toast && (
+        <div className="mb-4 p-3 bg-blue-100 border border-blue-300 rounded text-blue-800">
+          {toast}
         </div>
       )}
-      
-      <div className="p-4 rounded-xl border">
-        <h3 className="font-semibold text-lg">Add AI Provider</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-          <label className="flex flex-col">
-            <span className="text-sm">Provider (e.g., openai, anthropic, google)</span>
-            <input className="border rounded px-3 py-2" value={provider}
-              onChange={e => setProvider(e.target.value)} placeholder="openai" 
-              disabled={!auth.authenticated} />
-          </label>
-          <label className="flex flex-col">
-            <span className="text-sm">Model ID</span>
-            <input className="border rounded px-3 py-2" value={modelId}
-              onChange={e => setModelId(e.target.value)} placeholder="gpt-4o-mini" 
-              disabled={!auth.authenticated} />
-          </label>
-          <label className="flex flex-col md:col-span-2">
-            <span className="text-sm">API Key (stored encrypted, never shown again)</span>
-            <input className="border rounded px-3 py-2" value={apiKey} type="password"
-              onChange={e => setApiKey(e.target.value)} placeholder="sk-..." 
-              disabled={!auth.authenticated} />
-          </label>
-          <label className="inline-flex items-center gap-2">
-            <input type="checkbox" checked={makeActive} onChange={e => setMakeActive(e.target.checked)} 
-              disabled={!auth.authenticated} />
-            <span>Set as active provider</span>
-          </label>
+
+      <div className="mb-6 p-4 border rounded">
+        <h3 className="text-lg mb-3">Add Provider</h3>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <input
+            className="border p-2 rounded"
+            placeholder="Provider (e.g., openai)"
+            value={provider}
+            onChange={e => setProvider(e.target.value)}
+          />
+          <input
+            className="border p-2 rounded"
+            placeholder="Model ID (e.g., gpt-4)"
+            value={modelId}
+            onChange={e => setModelId(e.target.value)}
+          />
         </div>
-        <div className="mt-4">
-          <button disabled={busy || !provider || !modelId || !apiKey || !auth.authenticated}
+        <input
+          className="border p-2 rounded w-full mb-3"
+          type="password"
+          placeholder="API Key"
+          value={apiKey}
+          onChange={e => setApiKey(e.target.value)}
+        />
+        <div className="flex items-center gap-3">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={makeActive}
+              onChange={e => setMakeActive(e.target.checked)}
+              className="mr-2"
+            />
+            Set as active
+          </label>
+          <button
             onClick={save}
-            className="px-4 py-2 rounded bg-black text-white disabled:opacity-50">
-            {!auth.authenticated ? "Please sign in" : "Save Provider"}
+            disabled={busy}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {busy ? "Saving..." : "Save"}
           </button>
         </div>
-        {toast && <div className="mt-3 text-sm">{toast}</div>}
       </div>
 
-      <div className="p-4 rounded-xl border">
-        <h3 className="font-semibold text-lg">Current AI Providers</h3>
-        <div className="mt-3 overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left border-b">
-                <th className="py-2 pr-4">Provider</th>
-                <th className="py-2 pr-4">Model</th>
-                <th className="py-2 pr-4">Active</th>
-                <th className="py-2 pr-4">🔒 Key</th>
-                <th className="py-2 pr-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr><td colSpan={5} className="py-4 text-neutral-500">No AI providers configured.</td></tr>
-              )}
-              {rows.map(r => (
-                <tr key={r.id} className="border-b">
-                  <td className="py-2 pr-4">{r.provider}</td>
-                  <td className="py-2 pr-4">{r.modelId}</td>
-                  <td className="py-2 pr-4">{r.active ? "Yes" : "No"}</td>
-                  <td className="py-2 pr-4">{r.hasKey ? "Yes" : "No"}</td>
-                  <td className="py-2 pr-4 flex gap-2">
-                    <button className="px-3 py-1 border rounded"
-                      disabled={busy || !r.hasKey}
-                      onClick={() => testProvider(r.id)}>Test</button>
-                    {!r.active && (
-                      <button className="px-3 py-1 border rounded"
-                        disabled={busy}
-                        onClick={() => setActive(r.id)}>Set Active</button>
-                    )}
-                    <button className="px-3 py-1 border rounded text-red-600 hover:bg-red-50"
-                      disabled={deletingId === r.id}
-                      onClick={() => deleteProvider(r.id)}>
-                      {deletingId === r.id ? "Deleting..." : "Delete"}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse border border-gray-300">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 p-2 text-left">Provider</th>
+              <th className="border border-gray-300 p-2 text-left">Model</th>
+              <th className="border border-gray-300 p-2 text-left">Status</th>
+              <th className="border border-gray-300 p-2 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(row => (
+              <tr key={row.id}>
+                <td className="border border-gray-300 p-2">{row.provider}</td>
+                <td className="border border-gray-300 p-2">{row.modelId}</td>
+                <td className="border border-gray-300 p-2">
+                  <span className={`px-2 py-1 rounded text-sm ${
+                    row.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {row.active ? 'Active' : 'Inactive'}
+                  </span>
+                  {row.hasKey && (
+                    <span className="ml-2 px-2 py-1 rounded text-sm bg-blue-100 text-blue-800">
+                      Has Key
+                    </span>
+                  )}
+                </td>
+                <td className="border border-gray-300 p-2">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => testProvider(row.id)}
+                      disabled={busy}
+                      className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      Test
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <button
+                      onClick={() => setActive(row.id)}
+                      disabled={busy || row.active}
+                      className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                    >
+                      Activate
+                    </button>
+                    <button
+                      onClick={() => deleteProvider(row.id)}
+                      disabled={busy || deletingId === row.id}
+                      className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {deletingId === row.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {rows.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No providers configured
+          </div>
+        )}
       </div>
-
-      <div className="text-xs text-neutral-500">BUILD_ID: {import.meta?.env?.VITE_BUILD_ID ?? "dev"}</div>
     </div>
   );
 }

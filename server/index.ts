@@ -169,8 +169,14 @@ app.get('/api/admin/whoami', (req, res) => {
   });
 });
 
-// GET /api/admin/sections - Dynamic admin sections (no hardcoding)
-app.get("/api/admin/sections", requireAdmin, async (_req, res) => {
+// GET /api/admin/sections - Dynamic admin sections (no hardcoding)  
+app.get("/api/admin/sections", (req, res) => {
+  // Check authentication manually to avoid type issues
+  const user = req.session?.user;
+  if (!user || !user.roles?.includes('admin')) {
+    return res.status(401).json({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+  }
+  
   // If you have a DB table for sections, read it here.
   // Fallback keeps the app usable without hardcoding business data.
   const defaultIds = ["ai","evidence","taxonomy","workflow","status","debug"];
