@@ -16,6 +16,7 @@ export default function AIProvidersTable() {
   const [makeActive, setMakeActive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   async function load() {
     const res = await fetch("/api/admin/ai/providers", { 
@@ -112,6 +113,35 @@ export default function AIProvidersTable() {
     }
   }
 
+  async function deleteProvider(id: number) {
+    if (!confirm('Delete this provider? This removes its key and deactivates it.')) {
+      return;
+    }
+    
+    setDeletingId(id);
+    setToast(null);
+    try {
+      const res = await fetch(`/api/admin/ai/providers/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "x-user-id": "test-admin" }
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setToast(json?.message || `Delete failed: HTTP ${res.status}`);
+        return;
+      }
+      await load();
+      if (json.reassignedActiveId) {
+        setToast("Provider deleted. Another provider was set as active.");
+      } else {
+        setToast("Provider deleted successfully.");
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="p-4 rounded-xl border">
@@ -179,6 +209,11 @@ export default function AIProvidersTable() {
                         disabled={busy}
                         onClick={() => setActive(r.id)}>Set Active</button>
                     )}
+                    <button className="px-3 py-1 border rounded text-red-600 hover:bg-red-50"
+                      disabled={deletingId === r.id}
+                      onClick={() => deleteProvider(r.id)}>
+                      {deletingId === r.id ? "Deleting..." : "Delete"}
+                    </button>
                   </td>
                 </tr>
               ))}
