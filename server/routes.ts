@@ -174,7 +174,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         select id, provider, model_id as "modelId", is_active as "active",
                (key_ciphertext_b64 is not null) as "hasKey",
                created_at as "createdAt", updated_at as "updatedAt"
-        from ai_providers order by created_at desc
+        from ai_providers 
+        where deleted_at is null 
+        order by created_at desc
       `);
       res.json(result.rows);  // Return plain array, not full result object
     } catch (e) {
