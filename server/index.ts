@@ -19,13 +19,24 @@ import path from "path";
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
+
+// Extend session type
+declare module 'express-session' {
+  interface SessionData {
+    user?: {
+      id: string;
+      email: string;
+      roles: string[];
+    };
+  }
+}
 import connectPgSimple from 'connect-pg-simple';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { UniversalAIConfig } from "./universal-ai-config";
 import { loadCryptoKey } from "./config/crypto-key";
-import { createTestAdminUser } from "./rbac-middleware";
+import { createTestAdminUser, requireAdmin } from "./rbac-middleware";
 
 // Fail-fast boot: ensure crypto key is available
 loadCryptoKey(); // throws if missing → process exits with clear message
@@ -156,6 +167,14 @@ app.get('/api/admin/whoami', (req, res) => {
     authenticated: !!user, 
     roles: user?.roles || [] 
   });
+});
+
+// GET /api/admin/sections - Dynamic admin sections (no hardcoding)
+app.get("/api/admin/sections", requireAdmin, async (_req, res) => {
+  // If you have a DB table for sections, read it here.
+  // Fallback keeps the app usable without hardcoding business data.
+  const defaultIds = ["ai","evidence","taxonomy","workflow","status","debug"];
+  res.json({ sections: defaultIds });
 });
 
 // E) Cache-busting middleware (dev kill-switch)

@@ -3,6 +3,19 @@
  * NO HARDCODING - Works with any provider/model combination
  */
 
+export async function api(path: string, init: RequestInit = {}) {
+  const r = await fetch(path, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(init.headers || {}) },
+    ...init,
+  });
+  if (r.status === 401) {
+    window.location.href = "/admin/login";
+    throw new Error("unauthorized");
+  }
+  return r;
+}
+
 export type AITestOk = {
   ok: true;
   status: number;

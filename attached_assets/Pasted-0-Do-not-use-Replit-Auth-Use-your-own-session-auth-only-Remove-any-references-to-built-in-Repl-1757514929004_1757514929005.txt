@@ -1,0 +1,180 @@
+0) Do not use “Replit Auth”
+Use your own session auth only. Remove any references to “built-in Replit authentication.”
+ 
+1) Backend: sessions + auth endpoints
+Seed admin from secrets
+# In Replit Shell
+export SETUP_ADMIN_EMAIL=...     # set in Replit Secrets UI
+export SETUP_ADMIN_PASSWORD=...  # set in Replit Secrets UI
+cd scripts && tsx seed-admin.ts
+Session config (server/index.ts)
+import session from "express-session";
+
+app.set("trust proxy", 1); // required for Secure cookies behind HTTPS proxies
+
+const isHttps = !!process.env.REPL_ID || process.env.REPLIT_DEPLOYMENT || process.env.NODE_ENV === "production";
+
+app.use(session({
+  name: "sid",
+  secret: process.env.SESSION_SECRET!,       // from secrets; no hardcoding
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: isHttps ? "none" : "lax",
+    secure: isHttps ? true : false,
+    path: "/"
+  }
+}));
+Minimal auth routes (already exist, ensure these exact paths work):
+// POST /api/auth/login  -> sets session
+// GET  /api/admin/whoami -> { authenticated:true, roles:[...] } when logged in
+Admin sections API (drives the UI – no hardcoding):
+// GET /api/admin/sections (guarded)
+app.get("/api/admin/sections", requireAdmin, async (_req, res) => {
+  // If you have a DB table for sections, read it here.
+  // Fallback keeps the app usable without hardcoding business data.
+  const defaultIds = ["ai","evidence","taxonomy","workflow","status","debug"];
+  res.json({ sections: defaultIds });
+});
+ 
+2) Frontend: login page + guard + dynamic sections
+Fetch helper that always sends cookies & handles 401
+// client/src/lib/api.ts
+export async function api(path: string, init: RequestInit = {}) {
+  const r = await fetch(path, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(init.headers || {}) },
+    ...init,
+  });
+  if (r.status === 401) {
+    window.location.href = "/admin/login";
+    throw new Error("unauthorized");
+  }
+  return r;
+}
+Route guard
+// client/src/components/RequireAdmin.tsx
+import React, { useEffect, useState } from "react";
+
+export default function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const [ok, setOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/whoami", { credentials: "include" })
+      .then(r => r.ok ? r.json() : Promise.reject(r))
+      .then(j => setOk(Boolean(j?.authenticated)))
+      .catch(() => setOk(false));
+  }, []);
+
+  if (ok === null) return null;        // or a spinner
+  if (!ok) { window.location.href = "/admin/login"; return null; }
+  return <>{children}</>;
+}
+Login page
+// client/src/pages/admin-login.tsx
+import React, { useState } from "react";
+import { api } from "../lib/api";
+
+export default function AdminLogin() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState("");
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    try {
+      const r = await api("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      if (r.ok) window.location.href = "/admin/settings";
+    } catch { setErr("Invalid credentials"); }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="p-6 max-w-sm mx-auto">
+      <h1 className="text-xl mb-4">Admin sign in</h1>
+      <input className="border p-2 w-full mb-2" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} />
+      <input className="border p-2 w-full mb-2" type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} />
+      {err && <div className="text-red-600 mb-2">{err}</div>}
+      <button className="border px-4 py-2">Sign in</button>
+    </form>
+  );
+}
+Admin settings page (tabs loaded dynamically; includes Evidence Library)
+// client/src/pages/admin-settings.tsx
+import React, { Suspense, useEffect, useState } from "react";
+import RequireAdmin from "../components/RequireAdmin";
+import { api } from "../lib/api";
+
+const COMPONENTS: Record<string, React.LazyExoticComponent<React.ComponentType<any>>> = {
+  ai:       React.lazy(() => import("../components/admin/AiSettings")),
+  evidence: React.lazy(() => import("../components/admin/EvidenceLibrary")),
+  taxonomy: React.lazy(() => import("../components/admin/Taxonomy")),
+  workflow: React.lazy(() => import("../components/admin/Workflow")),
+  status:   React.lazy(() => import("../components/admin/SystemStatus")),
+  debug:    React.lazy(() => import("../components/admin/AiDebug")),
+};
+
+export default function AdminSettings() {
+  const [sections, setSections] = useState<string[]>([]);
+  useEffect(() => { api("/api/admin/sections").then(r => r.json()).then(j => setSections(j.sections || [])); }, []);
+
+  return (
+    <RequireAdmin>
+      <div className="p-6">
+        <h1 className="text-2xl mb-4">Admin</h1>
+        <div className="flex gap-4">
+          <nav className="w-56">
+            <ul>{sections.map(id => <li key={id}><a href={`#${id}`}>{id}</a></li>)}</ul>
+          </nav>
+          <main className="flex-1">
+            {sections.map(id => {
+              const C = COMPONENTS[id];
+              return (
+                <section id={id} key={id} className="mb-10">
+                  <h2 className="text-xl mb-3">{id}</h2>
+                  <Suspense fallback={"Loading..."}>
+                    {C ? <C /> : <div>Missing component: {id}</div>}
+                  </Suspense>
+                </section>
+              );
+            })}
+          </main>
+        </div>
+      </div>
+    </RequireAdmin>
+  );
+}
+AI Settings API calls must use /api/admin/ai/providers and include credentials
+// inside AiSettings component
+await api("/api/admin/ai/providers", { method: "POST", body: JSON.stringify({ provider, model, apiKey }) });
+await api(`/api/admin/ai/providers/${id}/activate`, { method: "PUT" });
+ 
+3) Quick, decisive verification (no guesswork)
+From your browser console (on the app domain):
+// After visiting /admin/login and signing in
+fetch('/api/admin/whoami', {credentials:'include'}).then(r=>r.json()).then(console.log);
+// -> { authenticated: true, roles: ["admin"] }
+
+fetch('/api/admin/sections', {credentials:'include'}).then(r=>r.json()).then(console.log);
+// -> { sections: ["ai","evidence","taxonomy","workflow","status","debug"] }
+In Network when saving in AI Settings you must see all 200 OK in this order:
+POST /api/admin/ai/providers
+PUT  /api/admin/ai/providers/:id/activate
+GET  /api/admin/ai/providers
+GET  /api/admin/ai/providers/status
+If you see 401 anywhere, you’re not authenticated (cookie missing).
+If you see /api/ai/providers (no /admin), the frontend is hitting the wrong path.
+ 
+4) One message summary
+Implement a working admin login and guarded admin settings, zero hardcoding:
+•	Use session auth (no Replit Auth). Session cookie: SameSite=None, Secure=true, Path=/ on HTTPS; trust proxy 1.
+•	Seed admin from SETUP_ADMIN_EMAIL/SETUP_ADMIN_PASSWORD secrets via scripts/seed-admin.ts.
+•	Add /admin/login page. After successful POST /api/auth/login, redirect to /admin/settings.
+•	Wrap admin pages with a guard that calls GET /api/admin/whoami using credentials:"include". On 401 → redirect to /admin/login.
+•	Add GET /api/admin/sections and render sections dynamically. Expected ids: ai,evidence,taxonomy,workflow,status,debug. Lazy-load components by id; if a component is missing, show a clear placeholder.
+•	In AI Settings, call /api/admin/ai/providers (not /api/ai/providers) using credentials:"include". After save, perform the status refresh sequence.
+•	Definition of Done: (1) I can log in; (2) whoami returns {authenticated:true}; (3) Evidence Library and other tabs render; (4) saving provider shows the exact 200→200→200→200 network sequence above.
