@@ -8,6 +8,12 @@ type ProviderRow = {
   hasKey: boolean;
 };
 
+type AuthState = {
+  authenticated: boolean;
+  loading: boolean;
+  roles: string[];
+};
+
 export default function AIProvidersTable() {
   const [rows, setRows] = useState<ProviderRow[]>([]);
   const [provider, setProvider] = useState("");
@@ -17,12 +23,40 @@ export default function AIProvidersTable() {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [auth, setAuth] = useState<AuthState>({ authenticated: false, loading: true, roles: [] });
+
+  // Check authentication status
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/admin/whoami", { 
+        credentials: "include"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAuth({ authenticated: data.authenticated, loading: false, roles: data.roles || [] });
+        return data.authenticated;
+      } else {
+        setAuth({ authenticated: false, loading: false, roles: [] });
+        return false;
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      setAuth({ authenticated: false, loading: false, roles: [] });
+      return false;
+    }
+  }
 
   async function load() {
     const res = await fetch("/api/admin/ai/providers", { 
-      credentials: "include",
-      headers: { "x-user-id": "test-admin" }
+      credentials: "include"
     });
+    if (res.status === 401) {
+      setToast("Please sign in.");
+      setTimeout(() => {
+        window.location.href = "/admin/login";
+      }, 1500);
+      return;
+    }
     if (!res.ok) {
       setToast(`Load failed: ${res.status}`);
       return;
@@ -31,9 +65,25 @@ export default function AIProvidersTable() {
     setRows(json ?? []);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    checkAuth().then(isAuthenticated => {
+      if (isAuthenticated) {
+        load();
+      } else {
+        setToast("Please sign in.");
+        setTimeout(() => {
+          window.location.href = "/admin/login";
+        }, 1500);
+      }
+    });
+  }, []);
 
   async function save() {
+    if (!auth.authenticated) {
+      setToast("Please sign in.");
+      return;
+    }
+    
     try {
       setBusy(true);
       setToast(null);
@@ -46,13 +96,19 @@ export default function AIProvidersTable() {
       const res = await fetch("/api/admin/ai/providers", {
         method: "POST",
         headers: { 
-          "Content-Type": "application/json",
-          "x-user-id": "test-admin"
+          "Content-Type": "application/json"
         },
         credentials: "include",
         body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        setToast("Please sign in.");
+        setTimeout(() => {
+          window.location.href = "/admin/login";
+        }, 1500);
+        return;
+      }
       if (!res.ok) {
         setToast(json?.message || `Create failed: HTTP ${res.status}`);
         return;
@@ -74,10 +130,16 @@ export default function AIProvidersTable() {
     try {
       const res = await fetch(`/api/admin/ai/providers/${id}/test`, {
         method: "POST",
-        credentials: "include",
-        headers: { "x-user-id": "test-admin" }
+        credentials: "include"
       });
       const json = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        setToast("Please sign in.");
+        setTimeout(() => {
+          window.location.href = "/admin/login";
+        }, 1500);
+        return;
+      }
       if (!res.ok) {
         setToast(json?.message || `Test failed: HTTP ${res.status}`);
         return;
@@ -95,13 +157,19 @@ export default function AIProvidersTable() {
       const res = await fetch(`/api/admin/ai/providers/${id}`, {
         method: "PATCH",
         headers: { 
-          "Content-Type": "application/json",
-          "x-user-id": "test-admin"
+          "Content-Type": "application/json"
         },
         credentials: "include",
         body: JSON.stringify({ setActive: true }),
       });
       const json = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        setToast("Please sign in.");
+        setTimeout(() => {
+          window.location.href = "/admin/login";
+        }, 1500);
+        return;
+      }
       if (!res.ok) {
         setToast(json?.message || `Activate failed: HTTP ${res.status}`);
         return;
@@ -123,10 +191,16 @@ export default function AIProvidersTable() {
     try {
       const res = await fetch(`/api/admin/ai/providers/${id}`, {
         method: "DELETE",
-        credentials: "include",
-        headers: { "x-user-id": "test-admin" }
+        credentials: "include"
       });
       const json = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        setToast("Please sign in.");
+        setTimeout(() => {
+          window.location.href = "/admin/login";
+        }, 1500);
+        return;
+      }
       if (!res.ok) {
         setToast(json?.message || `Delete failed: HTTP ${res.status}`);
         return;
@@ -142,36 +216,56 @@ export default function AIProvidersTable() {
     }
   }
 
+  if (auth.loading) {
+    return (
+      <div className="p-6 text-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {!auth.authenticated && (
+        <div className="p-4 rounded-xl border bg-yellow-50 border-yellow-200">
+          <div className="text-sm text-yellow-800">
+            ⚠️ You are not signed in. Please <a href="/admin/login" className="underline font-semibold">sign in</a> to manage AI providers.
+          </div>
+        </div>
+      )}
+      
       <div className="p-4 rounded-xl border">
         <h3 className="font-semibold text-lg">Add AI Provider</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
           <label className="flex flex-col">
             <span className="text-sm">Provider (e.g., openai, anthropic, google)</span>
             <input className="border rounded px-3 py-2" value={provider}
-              onChange={e => setProvider(e.target.value)} placeholder="openai" />
+              onChange={e => setProvider(e.target.value)} placeholder="openai" 
+              disabled={!auth.authenticated} />
           </label>
           <label className="flex flex-col">
             <span className="text-sm">Model ID</span>
             <input className="border rounded px-3 py-2" value={modelId}
-              onChange={e => setModelId(e.target.value)} placeholder="gpt-4o-mini" />
+              onChange={e => setModelId(e.target.value)} placeholder="gpt-4o-mini" 
+              disabled={!auth.authenticated} />
           </label>
           <label className="flex flex-col md:col-span-2">
             <span className="text-sm">API Key (stored encrypted, never shown again)</span>
             <input className="border rounded px-3 py-2" value={apiKey} type="password"
-              onChange={e => setApiKey(e.target.value)} placeholder="sk-..." />
+              onChange={e => setApiKey(e.target.value)} placeholder="sk-..." 
+              disabled={!auth.authenticated} />
           </label>
           <label className="inline-flex items-center gap-2">
-            <input type="checkbox" checked={makeActive} onChange={e => setMakeActive(e.target.checked)} />
+            <input type="checkbox" checked={makeActive} onChange={e => setMakeActive(e.target.checked)} 
+              disabled={!auth.authenticated} />
             <span>Set as active provider</span>
           </label>
         </div>
         <div className="mt-4">
-          <button disabled={busy || !provider || !modelId || !apiKey}
+          <button disabled={busy || !provider || !modelId || !apiKey || !auth.authenticated}
             onClick={save}
             className="px-4 py-2 rounded bg-black text-white disabled:opacity-50">
-            Save Provider
+            {!auth.authenticated ? "Please sign in" : "Save Provider"}
           </button>
         </div>
         {toast && <div className="mt-3 text-sm">{toast}</div>}
