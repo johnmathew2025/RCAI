@@ -184,6 +184,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DELETE /api/admin/ai/providers/:id - Soft delete provider with active reassignment
+  app.delete("/api/admin/ai/providers/:id", allowWhenBootstrapping, requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const providerId = parseInt(req.params.id);
+      if (isNaN(providerId)) {
+        return res.status(400).json({ code:'INVALID_ID', message:'Provider ID must be a number' });
+      }
+
+      const { sql } = await import('drizzle-orm');
+      
+      // Check if provider exists and is not already deleted
+      const existingResult = await db.execute(sql`
+        select id, is_active from ai_providers 
+        where id = ${providerId} and deleted_at is null
+      `);
+      
+      if (existingResult.rows.length === 0) {
+        return res.status(404).json({ code:'NOT_FOUND', message:'Provider not found or already deleted' });
+      }
+
+      const wasActive = existingResult.rows[0].is_active;
+
+      // Soft delete the provider
+      await db.execute(sql`
+        update ai_providers 
+        set deleted_at = now(), is_active = false 
+        where id = ${providerId}
+      `);
+
+      let reassignedActiveId = null;
+
+      // If the deleted provider was active, promote another one
+      if (wasActive) {
+        const candidateResult = await db.execute(sql`
+          select id from ai_providers 
+          where deleted_at is null 
+          order by created_at desc 
+          limit 1
+        `);
+        
+        if (candidateResult.rows.length > 0) {
+          reassignedActiveId = candidateResult.rows[0].id;
+          await db.execute(sql`
+            update ai_providers 
+            set is_active = true 
+            where id = ${reassignedActiveId}
+          `);
+        }
+      }
+
+      res.json({ 
+        ok: true, 
+        reassignedActiveId: reassignedActiveId || undefined 
+      });
+    } catch (error) {
+      console.error('[AI-PROVIDERS] Delete error:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      return res.status(500).json({ code:'SERVER_ERROR', message: msg });
+    }
+  });
+
   // POST /api/admin/ai/providers/:id/test - Test stored encrypted key
   app.post("/api/admin/ai/providers/:id/test", requireAdmin, async (req: AuthenticatedRequest, res) => {
     try {
@@ -283,27 +344,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DELETE /api/admin/ai/providers/:id - Soft delete provider
-  app.delete("/api/admin/ai/providers/:id", requireAdmin, async (req: AuthenticatedRequest, res) => {
-    try {
-      const providerId = parseInt(req.params.id);
-      
-      await db.update(aiProviders)
-        .set({ 
-          deletedAt: new Date(),
-          active: false,
-          updatedAt: new Date() 
-        })
-        .where(eq(aiProviders.id, providerId));
-
-      console.log(`[SECURE AI] Soft-deleted provider ${providerId}`);
-      
-      res.json({ message: "Provider deleted successfully" });
-    } catch (error) {
-      console.error('[SECURE AI] Error deleting provider:', error);
-      res.status(500).json({ message: "Failed to delete AI provider" });
-    }
-  });
   
   // Stable version endpoint using single source of truth
   const { APP_VERSION, APP_BUILT_AT } = await import("./version");
