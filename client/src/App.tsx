@@ -9,6 +9,7 @@ import { initVersionManagement } from "@/lib/version-manager";
 import Home from "@/pages/home";
 import AnalysisDetail from "@/pages/analysis-detail";
 import AdminSettings from "@/pages/admin-settings";
+import AdminLogin from "@/pages/admin-login";
 import NewInvestigation from "@/pages/new-investigation";
 import InvestigationType from "@/pages/investigation-type";
 import EvidenceCollectionOld from "@/pages/evidence-collection";
@@ -73,6 +74,7 @@ function Router() {
   return (
       <Routes>
         <Route path="/admin" element={<RequireConfigured><Home /></RequireConfigured>} />
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/admin/evidence" element={<EvidenceLibraryManagement />} />
         <Route path="/admin/integrations" element={<WorkflowIntegrationDemo />} />
