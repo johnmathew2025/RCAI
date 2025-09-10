@@ -327,17 +327,8 @@ app.use((req, res, next) => {
   // Runtime check available for production deployment if needed
   console.log('🔒 Universal Protocol Standard enforcement active via Git hooks and CI/CD');
 
-  // Dev-only auth setup (no hardcoding in prod)
-  if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_AUTH === '1') {
-    await createTestAdminUser(); // existing helper
-    app.use((req, _res, next) => {
-      if (!req.headers['x-user-id']) {
-        req.headers['x-user-id'] = process.env.DEV_USER_ID || 'test-admin';
-      }
-      next();
-    });
-    console.log('🔧 Dev auth enabled with user:', process.env.DEV_USER_ID || 'test-admin');
-  }
+  // Production-ready authentication system active
+  console.log('🔒 Production authentication system active');
 
   // Proper server startup with error handling
   server.listen(port, "0.0.0.0", () => {
