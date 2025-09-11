@@ -11,6 +11,10 @@ export default function RequireAdmin({ children }: { children: React.ReactNode }
   }, []);
 
   if (ok === null) return null;        // or a spinner
-  if (!ok) { window.location.href = "/admin/login"; return null; }
+  if (!ok) {
+    const returnTo = encodeURIComponent(location.pathname + location.search + location.hash);
+    location.href = `/admin/login?returnTo=${returnTo}`;
+    return null;
+  }
   return <>{children}</>;
 }

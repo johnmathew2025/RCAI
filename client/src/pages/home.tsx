@@ -128,14 +128,15 @@ export default function Home() {
                 <span className="w-2 h-2 bg-accent rounded-full"></span>
                 <span>System Active</span>
               </div>
-              <Button 
-                variant="secondary" 
-                onClick={() => navigate('/admin/settings')}
-                className="text-sm font-medium"
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Admin Settings
-              </Button>
+              <a href="/admin/settings" rel="nofollow">
+                <Button 
+                  variant="secondary" 
+                  className="text-sm font-medium"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Admin Settings
+                </Button>
+              </a>
             </div>
           </div>
         </div>

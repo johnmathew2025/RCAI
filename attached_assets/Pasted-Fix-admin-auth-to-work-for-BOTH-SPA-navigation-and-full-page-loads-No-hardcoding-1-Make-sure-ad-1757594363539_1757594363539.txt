@@ -1,0 +1,92 @@
+Fix admin auth to work for BOTH SPA navigation and full page loads. No hardcoding.
+1) Make sure /admin/* and /api/* always hit Express in preview (Vite proxy)
+// vite.config.ts
+import { defineConfig } from 'vite';
+export default defineConfig({
+  server: {
+    proxy: {
+      '^/(api|admin)(/.*)?': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
+});
+Definition of done: In the browser Network panel, the document request for /admin/settings shows header X-Powered-By: Express. If it’s missing, the guard is bypassed.
+2) Keep server guard, but also add a lightweight client guard (covers SPA clicks)
+Create a reusable guard that checks auth and redirects:
+// client/src/components/RequireAdmin.tsx
+import { useEffect, useState } from 'react';
+
+export default function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const [ok, setOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/whoami', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : Promise.reject(r))
+      .then(j => setOk(Boolean(j?.authenticated)))
+      .catch(() => setOk(false));
+  }, []);
+
+  if (ok === null) return null; // or spinner
+  if (!ok) {
+    const returnTo = encodeURIComponent(location.pathname + location.search + location.hash);
+    location.href = `/admin/login?returnTo=${returnTo}`;
+    return null;
+  }
+  return <>{children}</>;
+}
+Use it on the admin page:
+// client/src/pages/admin-settings.tsx
+export default function AdminSettingsPage() {
+  return (
+    <RequireAdmin>
+      {/* existing AdminSettings content */}
+    </RequireAdmin>
+  );
+}
+Also make the header button do a full navigation (so server guard can run too):
+// wherever the "Admin Settings" button is rendered
+<a href="/admin/settings" rel="nofollow">Admin Settings</a>  // not a SPA-only Link that bypasses server
+3) Per-request cookie flags (works in webview iframe + deployed HTTPS)
+// server/index.ts, AFTER express-session middleware
+app.set('trust proxy', 1);
+app.use((req, _res, next) => {
+  if (req.session) {
+    const https = req.secure || req.get('x-forwarded-proto') === 'https';
+    req.session.cookie.secure   = https;
+    req.session.cookie.sameSite = https ? 'none' : 'lax';
+    req.session.cookie.path     = '/';
+    req.session.cookie.httpOnly = true;
+  }
+  next();
+});
+4) Keep server guards scoped to admin only (unchanged)
+•	/admin/login is public and rendered before any guard.
+•	/admin/* pages → 302 to /admin/login?returnTo=… when unauthenticated.
+•	/api/admin/* → 401 JSON when unauthenticated.
+5) Dynamic sections (ensure the UI actually renders tabs)
+•	Fetch /api/admin/sections with credentials:"include".
+•	Render left nav with data-admin-nav and anchors to #<id>.
+•	Drive active tab from location.hash (no forced “ai”).
+•	Lazy-import by convention:
+•	React.lazy(() => import(`../admin/sections/${active}/index.tsx`)
+•	  .catch(() => import('../admin/sections/__missing.tsx')))
+ 
+Browser-side proof you must show (no curl)
+1.	Logged out (Incognito or after deleting the sid cookie):
+o	Go to /admin/settings → it must redirect to /admin/login?....
+o	Network → document headers for /admin/settings include X-Powered-By: Express.
+2.	Log in on the same domain:
+o	Network → the login request shows Set-Cookie: sid=…; SameSite=None; Secure; Path=/.
+3.	SPA click path: click “Admin Settings” from the top bar:
+o	If logged out, your new client guard immediately bounces to /admin/login.
+o	If logged in, you land on /admin/settings.
+4.	Sections UI:
+o	Console:
+o	await fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.json())
+o	await fetch('/api/admin/sections',{credentials:'include'}).then(r=>r.json())
+o	[...document.querySelectorAll('[data-admin-nav] a')].map(a=>a.textContent.trim())
+Should show {authenticated:true}, the sections array, and a nav list like
+["ai","evidence","taxonomy","workflow","status","debug"].
+o	Visit /admin/settings#evidence → Evidence Library shows (no jump to AI).

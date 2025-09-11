@@ -1,8 +1,17 @@
 // client/src/pages/admin-settings.tsx
 import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { api } from '@/lib/api';
+import RequireAdmin from '../components/RequireAdmin';
 
-export default function AdminSettings() {
+export default function AdminSettingsPage() {
+  return (
+    <RequireAdmin>
+      <AdminSettings />
+    </RequireAdmin>
+  );
+}
+
+function AdminSettings() {
   const [sections, setSections] = useState<string[]>([]);
   const [active, setActive] = useState('');
 
