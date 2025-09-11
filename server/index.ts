@@ -117,6 +117,7 @@ function isAdmin(req: any) {
 
 // Admin pages: if not authed, redirect to login with returnTo
 function requireAdminPage(req: any, res: any, next: any) {
+  if (req.path === '/admin/login') return next();
   if (isAdmin(req)) return next();
   return res.redirect("/admin/login?returnTo=" + encodeURIComponent(req.originalUrl));
 }
@@ -215,9 +216,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// PAGES (only these are guarded)
+// PAGES (order matters - specific routes before catch-all)
+// Login page must NOT be protected to avoid redirect loops
+app.get("/admin/login", (req, res, next) => next());
+// Protected admin routes
 app.get("/admin", requireAdminPage, (_req, res) => res.redirect("/admin/settings"));
 app.get("/admin/settings", requireAdminPage, (req, res, next) => next());
+// All other admin pages require auth (catch-all goes last)
 app.get("/admin/*", requireAdminPage, (req, res, next) => next());
 
 app.use((req, res, next) => {
