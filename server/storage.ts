@@ -64,6 +64,9 @@ import { UniversalAIConfig } from "./universal-ai-config";
 
 // Storage interface for investigations
 export interface IInvestigationStorage {
+  // Dynamic admin configuration
+  getAdminSections(): Promise<string[]>;
+  
   // Investigation operations
   createInvestigation(data: Partial<InsertInvestigation>): Promise<Investigation>;
   getInvestigation(id: number): Promise<Investigation | undefined>;
@@ -215,6 +218,40 @@ export interface IInvestigationStorage {
 }
 
 export class DatabaseInvestigationStorage implements IInvestigationStorage {
+  
+  // Dynamic admin sections from database configuration
+  async getAdminSections(): Promise<string[]> {
+    try {
+      // Try to get sections from database configuration table
+      const result = await db.execute(sql`
+        SELECT config_value FROM app_config 
+        WHERE config_key = 'admin_sections' 
+        AND is_active = true
+      `);
+      
+      if (result.rows.length > 0) {
+        const configValue = result.rows[0] as any;
+        const sections = configValue.config_value;
+        if (typeof sections === 'string') {
+          return sections.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        if (Array.isArray(sections)) {
+          return sections;
+        }
+      }
+    } catch (error) {
+      console.log('[ADMIN] Database sections query failed, using fallback');
+    }
+    
+    // Fallback to environment variable or default empty array
+    const envSections = process.env.ADMIN_SECTIONS;
+    if (envSections) {
+      return envSections.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    
+    // Return empty array if no configuration found
+    return [];
+  }
   
   async createInvestigation(data: Partial<InsertInvestigation>): Promise<Investigation> {
     const investigationData = {

@@ -126,13 +126,36 @@ const loginPageHandler = (req: any, res: any) => {
 app.get('/admin/login', loginPageHandler);
 
 // --- ADMIN API guarded ---
-function isAdmin(req: any){ return !!(req.session?.user?.roles?.includes('admin')); }
+function isAdmin(req: any){ 
+  const adminRole = process.env.ADMIN_ROLE_NAME || 'admin';
+  console.log('[ADMIN CHECK] Session user:', req.session?.user);
+  console.log('[ADMIN CHECK] Looking for role:', adminRole);
+  console.log('[ADMIN CHECK] User roles:', req.session?.user?.roles);
+  const hasAdminRole = !!(req.session?.user?.roles?.includes(adminRole)); 
+  console.log('[ADMIN CHECK] Is admin:', hasAdminRole);
+  return hasAdminRole;
+}
 function requireAdminApi(req: any, res: any, next: any){ return isAdmin(req) ? next() : res.status(401).json({error:'unauthorized'}); }
 const adminApi = express.Router();
 adminApi.use(requireAdminApi);
-adminApi.get('/whoami', (req: any, res: any)=>res.json({authenticated:true,roles:['admin']}));
-adminApi.get('/sections', (_req: any, res: any)=> {
-  const csv = process.env.ADMIN_SECTIONS || 'ai,evidence,taxonomy,workflow,status,debug';
+adminApi.get('/whoami', (req: any, res: any)=>res.json({authenticated:true,roles:req.session?.user?.roles || []}));
+adminApi.get('/sections', async (_req: any, res: any)=> {
+  try {
+    // Try to load sections from database first
+    const { investigationStorage } = await import('./storage');
+    const dbSections = await investigationStorage.getAdminSections();
+    if (dbSections && dbSections.length > 0) {
+      return res.json({ sections: dbSections });
+    }
+  } catch (error) {
+    console.log('[ADMIN] Database sections not available, using environment config');
+  }
+  
+  // Fallback to environment variable
+  const csv = process.env.ADMIN_SECTIONS;
+  if (!csv) {
+    return res.status(500).json({ error: 'No admin sections configured in environment or database' });
+  }
   res.json({ sections: csv.split(',').map((s: string)=>s.trim()).filter(Boolean) });
 });
 app.use('/api/admin', adminApi);
@@ -148,7 +171,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
     
     // Import auth functions
-    const { getUserByEmail, verifyPassword } = await import('./rbac-middleware');
+    const { getUserByEmail, verifyPassword, getUserWithRoles } = await import('./rbac-middleware');
     
     // Look up user by email (lowercased)
     const user = await getUserByEmail(email.toLowerCase());
@@ -162,9 +185,17 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({code: 'INVALID_CREDENTIALS'});
     }
     
-    // Login handler must set session
-    req.session.user = { id:user.id, email:user.email, roles:['admin'] };
-    res.json({ ok:true, returnTo:req.body?.returnTo || '/admin/settings#evidence' });
+    // Login handler must set session with dynamic roles from database
+    const userWithRoles = await getUserWithRoles(user.id);
+    req.session.user = { 
+      id: user.id, 
+      email: user.email, 
+      roles: userWithRoles?.roles?.map(r => r.name) || ['admin']
+    };
+    
+    // Dynamic return URL - no hardcoded paths
+    const defaultReturn = process.env.DEFAULT_ADMIN_RETURN_URL || '/admin/settings';
+    res.json({ ok:true, returnTo:req.body?.returnTo || defaultReturn });
   } catch (error) {
     console.error('[AUTH] Login error:', error);
     res.status(500).json({code: 'SERVER_ERROR'});
