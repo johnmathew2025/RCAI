@@ -1,0 +1,44 @@
+Stop touching auth; it’s working. The bug is the AdminSettings UI not rendering sections. Implement dynamic, zero-hardcoding rendering and prove it in the browser.
+Requirements
+1.	Fetch sections from /api/admin/sections (use the central API helper with credentials:"include").
+2.	Render a left nav from that array. The nav container MUST have data-admin-nav so I can verify in the DOM.
+3.	Active panel is driven by location.hash. Do not default/force “ai”.
+4.	Lazy-load by convention path; show a visible placeholder if a component is missing:
+5.	// client/src/pages/admin-settings.tsx
+6.	import React, {useEffect, useMemo, useState, Suspense} from 'react';
+7.	import { api } from '@/lib/api';
+8.	export default function AdminSettings(){
+9.	  const [sections,setSections]=useState<string[]>([]);
+10.	  const [active,setActive]=useState('');
+11.	  useEffect(()=>{ api('/api/admin/sections').then(r=>r.json()).then(j=>{
+12.	    const ids = Array.isArray(j.sections)? j.sections : [];
+13.	    setSections(ids);
+14.	    const h = location.hash.slice(1);
+15.	    setActive(h && ids.includes(h) ? h : (ids[0]||''));
+16.	  });},[]);
+17.	  useEffect(()=>{ const onHash=()=>{ const h=location.hash.slice(1); if(h) setActive(h); };
+18.	    addEventListener('hashchange',onHash); return ()=>removeEventListener('hashchange',onHash);
+19.	  },[]);
+20.	  const Section = useMemo(()=> active
+21.	    ? React.lazy(()=>import(`../admin/sections/${active}/index.tsx`)
+22.	        .catch(()=>import('../admin/sections/__missing.tsx')))
+23.	    : null, [active]);
+24.	  return (
+25.	    <div className="p-6 flex gap-6">
+26.	      <nav className="w-64" data-admin-nav>
+27.	        <ul>{sections.map(id=><li key={id}><a href={`#${id}`}>{id}</a></li>)}</ul>
+28.	      </nav>
+29.	      <main className="flex-1">
+30.	        <Suspense fallback="Loading…">{Section ? <Section/> : null}</Suspense>
+31.	      </main>
+32.	    </div>
+33.	  );
+34.	}
+35.	// client/src/admin/sections/__missing.tsx
+36.	export default () => <div style={{color:'#b00'}}>Missing component for this section.</div>;
+Definition of done (browser evidence, not curl):
+•	Console on .replit.dev:
+await fetch('/api/admin/sections',{credentials:'include'}).then(r=>r.json()) → shows the array.
+[...document.querySelectorAll('[data-admin-nav] a')].map(a=>a.textContent.trim()) → listsai,evidence,taxonomy,workflow,status,debug.
+•	Visiting /admin/settings#evidence renders Evidence Library (no jump to AI).
+

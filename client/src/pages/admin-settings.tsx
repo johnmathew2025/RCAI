@@ -1,5 +1,5 @@
 // client/src/pages/admin-settings.tsx
-import React, { useEffect, useMemo, useState, Suspense } from 'react';
+import React, {useEffect, useMemo, useState, Suspense} from 'react';
 import { api } from '@/lib/api';
 import RequireAdmin from '../components/RequireAdmin';
 
@@ -11,53 +11,29 @@ export default function AdminSettingsPage() {
   );
 }
 
-function AdminSettings() {
-  const [sections, setSections] = useState<string[]>([]);
-  const [active, setActive] = useState('');
-
-  useEffect(() => {
-    api('/api/admin/sections')
-      .then(r => r.json())
-      .then(j => {
-        const ids = Array.isArray(j.sections) ? j.sections : [];
-        setSections(ids);
-        const fromUrl = location.hash.slice(1);
-        setActive(fromUrl && ids.includes(fromUrl) ? fromUrl : (ids[0] || ''));
-      });
-  }, []);
-
-  useEffect(() => {
-    const onHash = () => {
-      const h = location.hash.slice(1);
-      if (h) setActive(h);
-    };
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
-  }, []);
-
-  const Section = useMemo(() => {
-    if (!active) return null;
-    return React.lazy(() =>
-      import(`../admin/sections/${active}/index.tsx`)
-        .catch(() => import('../admin/sections/__missing.tsx'))
-    );
-  }, [active]);
-
+function AdminSettings(){
+  const [sections,setSections]=useState<string[]>([]);
+  const [active,setActive]=useState('');
+  useEffect(()=>{ api('/api/admin/sections').then(r=>r.json()).then(j=>{
+    const ids = Array.isArray(j.sections)? j.sections : [];
+    setSections(ids);
+    const h = location.hash.slice(1);
+    setActive(h && ids.includes(h) ? h : (ids[0]||''));
+  });},[]);
+  useEffect(()=>{ const onHash=()=>{ const h=location.hash.slice(1); if(h) setActive(h); };
+    addEventListener('hashchange',onHash); return ()=>removeEventListener('hashchange',onHash);
+  },[]);
+  const Section = useMemo(()=> active
+    ? React.lazy(()=>import(`../admin/sections/${active}/index.tsx`)
+        .catch(()=>import('../admin/sections/__missing.tsx')))
+    : null, [active]);
   return (
     <div className="p-6 flex gap-6">
-      <nav className="w-64" aria-label="Admin sections" data-admin-nav>
-        <ul className="space-y-2">
-          {sections.map(id => (
-            <li key={id}>
-              <a href={`#${id}`} className={id===active ? 'font-bold' : ''}>{id}</a>
-            </li>
-          ))}
-        </ul>
+      <nav className="w-64" data-admin-nav>
+        <ul>{sections.map(id=><li key={id}><a href={`#${id}`}>{id}</a></li>)}</ul>
       </nav>
       <main className="flex-1">
-        <Suspense fallback="Loading…">
-          {Section ? <Section/> : <div>No sections configured.</div>}
-        </Suspense>
+        <Suspense fallback="Loading…">{Section ? <Section/> : null}</Suspense>
       </main>
     </div>
   );
