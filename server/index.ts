@@ -63,11 +63,9 @@ const app = express();
 // Session middleware with database-backed storage for scalability
 const pgSession = connectPgSimple(session);
 
-app.set("trust proxy", 1); // behind Replit proxy
-
-// 3. CORS middleware with credentials
+// sessions first
+app.set('trust proxy', 1);
 app.use(cors({ origin: true, credentials: true }));
-
 app.use(cookieParser());
 app.use(session({
   store: new pgSession({
@@ -75,25 +73,18 @@ app.use(session({
     tableName: 'sessions',
     createTableIfMissing: true,
   }),
-  name: "sid",
+  name: 'sid',
   secret: process.env.SESSION_SECRET!,
   resave: false,
   saveUninitialized: false,
-  cookie: {
-    // Let express-session set Secure automatically based on req.secure
-    secure: "auto",         // <-- IMPORTANT
-    sameSite: "lax",        // will switch to 'none' below when HTTPS
-    httpOnly: true,
-    path: "/",
-  },
+  cookie: { secure: 'auto', sameSite: 'lax', httpOnly: true, path: '/' }
 }));
-
-// Dynamically adjust cookie each request so SameSite becomes 'none' on HTTPS
-app.use((req, _res, next) => {
-  if (req.session) {
-    const onHttps = req.secure || req.get("x-forwarded-proto") === "https";
-    req.session.cookie.secure = onHttps;
-    req.session.cookie.sameSite = onHttps ? "none" : "lax";
+// per-request SameSite/Secure
+app.use((req,_res,next)=>{
+  if (req.session){
+    const https = req.secure || req.get('x-forwarded-proto') === 'https';
+    req.session.cookie.secure   = https;
+    req.session.cookie.sameSite = https ? 'none' : 'lax';
   }
   next();
 });
@@ -111,17 +102,37 @@ app.use((req, res, next) => {
 app.use(express.urlencoded({ extended: false }));
 
 // ========== RBAC MIDDLEWARE ==========
-function isAdmin(req: any) {
-  return !!(req.session && req.session.user && req.session.user.roles?.includes("admin"));
-}
+// LOGIN PAGE must be BEFORE any /admin/* guard
+const loginPageHandler = (req: any, res: any) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.end(`<!doctype html><html><body>
+  <h1>Admin Sign in</h1>
+  <form id="f"><input name="email" placeholder="Email"/><input name="password" type="password" placeholder="Password"/>
+  <button>Sign in</button><div id="m"></div></form>
+  <script>
+    f.onsubmit = async (e)=>{e.preventDefault();
+      const fd=new FormData(f);
+      const r=await fetch('/api/auth/login',{method:'POST',credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email:fd.get('email'),password:fd.get('password'),
+          returnTo:new URLSearchParams(location.search).get('returnTo')||'/admin/settings#evidence'})});
+      const j = await r.json(); if(r.ok) location.href=j.returnTo||'/admin/settings#evidence'; else m.textContent='Login failed';
+    };
+  </script></body></html>`);
+};
+app.get('/admin/login', loginPageHandler);
 
-// This function is now defined inline above where it's used
-
-// Admin APIs: 401 (JSON)
-function requireAdminApi(req: any, res: any, next: any) {
-  if (isAdmin(req)) return next();
-  return res.status(401).json({ error: "unauthorized" });
-}
+// --- ADMIN API guarded ---
+function isAdmin(req: any){ return !!(req.session?.user?.roles?.includes('admin')); }
+function requireAdminApi(req: any, res: any, next: any){ return isAdmin(req) ? next() : res.status(401).json({error:'unauthorized'}); }
+const adminApi = express.Router();
+adminApi.use(requireAdminApi);
+adminApi.get('/whoami', (req: any, res: any)=>res.json({authenticated:true,roles:['admin']}));
+adminApi.get('/sections', (_req: any, res: any)=> {
+  const csv = (process.env.ADMIN_SECTIONS||'ai,evidence,taxonomy,workflow,status,debug');
+  res.json({ sections: csv.split(',').map((s: string)=>s.trim()).filter(Boolean) });
+});
+app.use('/api/admin', adminApi);
 
 // ========== AUTH ROUTES ==========
 // POST /api/auth/login - Real authentication with database lookup
@@ -148,17 +159,9 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({code: 'INVALID_CREDENTIALS'});
     }
     
-    // Create session - After verifying credentials:
-    req.session.user = { id: user.id, email: user.email, roles: ["admin"] };
-    const returnTo = req.query.returnTo || req.body.returnTo || "/admin/settings#evidence";
-    
-    req.session.save((err: any) => {
-      if (err) {
-        console.error('[AUTH] Session save error:', err);
-        return res.status(500).json({code: 'SESSION_ERROR'});
-      }
-      res.json({ ok: true, returnTo }); // FE will navigate to this
-    });
+    // Login handler must set session
+    req.session.user = { id:user.id, email:user.email, roles:['admin'] };
+    res.json({ ok:true, returnTo:req.body?.returnTo || '/admin/settings#evidence' });
   } catch (error) {
     console.error('[AUTH] Login error:', error);
     res.status(500).json({code: 'SERVER_ERROR'});
@@ -176,13 +179,7 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
-// 2) Admin API guard (JSON 401)
-app.get("/api/admin/whoami", (req,res)=> res.json({ authenticated:isAdmin(req), roles:isAdmin(req)?['admin']:[] }));
-app.get("/api/admin/sections", requireAdminApi, (_req,res)=> {
-  const csv = process.env.ADMIN_SECTIONS || "";
-  if (!csv) return res.status(500).json({ error: "ADMIN_SECTIONS not configured" });
-  res.json({ sections: csv.split(",").map(s=>s.trim()).filter(Boolean) });
-});
+// Admin API routes are now handled by adminApi router above
 
 // E) Cache-busting middleware (dev kill-switch)
 app.use((req, res, next) => {
@@ -211,36 +208,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// 1) Render login page (simple HTML fallback) — must come first
-app.get("/admin/login", (req, res) => {
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.end(`<!doctype html><html><body>
-  <h1>Admin Sign in</h1>
-  <form id="f"><input name="email" placeholder="Email"/><input name="password" type="password" placeholder="Password"/>
-  <button>Sign in</button><div id="m"></div></form>
-  <script>
-    f.onsubmit = async (e)=>{e.preventDefault();
-      const fd=new FormData(f);
-      const r=await fetch('/api/auth/login',{method:'POST',credentials:'include',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({email:fd.get('email'),password:fd.get('password'),
-          returnTo:new URLSearchParams(location.search).get('returnTo')||'/admin/settings#evidence'})});
-      const j = await r.json(); if(r.ok) location.href=j.returnTo||'/admin/settings#evidence'; else m.textContent='Login failed';
-    };
-  </script></body></html>`);
-});
-
-// 3) Admin PAGE guard – EXCLUDE /admin/login
-function requireAdminPage(req,res,next){
+// --- ADMIN PAGES guarded (EXCLUDES /admin/login) ---
+function requireAdminPage(req: any, res: any, next: any){
   if (isAdmin(req)) return next();
-  return res.redirect("/admin/login?returnTo="+encodeURIComponent(req.originalUrl));
+  return res.redirect('/admin/login?returnTo=' + encodeURIComponent(req.originalUrl));
 }
-app.get("/admin", requireAdminPage, (_req, res) => res.redirect("/admin/settings"));
-app.get("/admin/settings", requireAdminPage, (req, res, next) => next());
-app.get("/admin/*", (req: any, res: any, next: any)=>{
-  if (req.path === "/admin/login") return next(); // explicit skip
-  return requireAdminPage(req,res,next);
-}, (req: any, res: any, next: any) => next());
+app.get('/admin/settings', requireAdminPage, (req, res, next) => next());
+app.get('/admin/*', requireAdminPage, (req, res, next) => next());
 
 app.use((req, res, next) => {
   const start = UniversalAIConfig.getPerformanceTime();
