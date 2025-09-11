@@ -1,0 +1,76 @@
+Stop claiming “done” until these checks pass. Implement and verify the following, no hardcoding:
+1.	Secrets & deploy
+•	SESSION_SECRET, SETUP_ADMIN_EMAIL, SETUP_ADMIN_PASSWORD must exist in both the Workspace and the Deployment environments.
+•	After setting, restart (workspace) and redeploy (deployment).
+2.	Sessions
+•	In server/index.ts:
+•	if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+•	  throw new Error("SESSION_SECRET missing or too short");
+•	}
+•	app.set("trust proxy", 1);
+•	
+•	const onHttps = !!process.env.REPL_ID || !!process.env.REPLIT_DEPLOYMENT || process.env.NODE_ENV === "production";
+•	
+•	app.use(session({
+•	  name: "sid",
+•	  secret: process.env.SESSION_SECRET,
+•	  resave: false,
+•	  saveUninitialized: false,
+•	  cookie: {
+•	    httpOnly: true,
+•	    sameSite: onHttps ? "none" : "lax",
+•	    secure: onHttps ? true : false,
+•	    path: "/",
+•	  },
+•	}));
+•	Definition of done (server):
+o	POST /api/auth/login returns 200 with Set-Cookie: sid=…; SameSite=None; Secure; Path=/ on HTTPS.
+o	GET /api/admin/whoami returns { authenticated: true } when called with credentials.
+3.	CORS (if front-end and API are on different origins)
+import cors from "cors";
+app.use(cors({ origin: true, credentials: true })); // no hardcoded origin
+4.	Single route, no forced AI tab
+•	Router must have one admin route only:
+•	<Route path="/admin/login" element={<AdminLogin/>} />
+•	<Route path="/admin/settings" element={<AdminSettings/>} />
+•	Remove any redirect like navigate('/admin/settings#ai'), any setActive('ai') in effects, or default “AI” pushes.
+5.	Sections API + guarded UI
+•	/api/admin/sections must be reachable after login (guarded by your requireAdmin middleware).
+•	In client/src/pages/admin-settings.tsx, load via the central API helper (not raw fetch):
+•	import { api } from "@/lib/api";
+•	const res = await api("/api/admin/sections");
+•	const { sections } = await res.json();
+•	Tabs must be URL-driven:
+o	On mount: const fromUrl = location.hash.slice(1); setActive(fromUrl || sections[0]);
+o	Listen to hashchange and update active accordingly.
+o	Tab links use <a href={'#' + id}>…</a> (don’t override with setState).
+6.	All admin API calls must include credentials and admin path
+•	Centralized helper:
+•	export async function api(path: string, init: RequestInit = {}) {
+•	  const r = await fetch(path, {
+•	    credentials: "include",
+•	    headers: { "Content-Type": "application/json", ...(init.headers||{}) },
+•	    ...init,
+•	  });
+•	  if (r.status === 401) { window.location.href = "/admin/login"; throw new Error("unauthorized"); }
+•	  return r;
+•	}
+•	AI endpoints must be:
+•	POST /api/admin/ai/providers
+•	PUT  /api/admin/ai/providers/:id/activate
+•	GET  /api/admin/ai/providers
+•	GET  /api/admin/ai/providers/status
+Acceptance tests (must ALL pass, paste screenshots):
+1.	Login request shows Set-Cookie: sid=…; SameSite=None; Secure; Path=/ in Network.
+2.	Console:
+3.	fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.json())
+4.	// -> { authenticated: true, roles: ["admin"] }
+5.	fetch('/api/admin/sections',{credentials:'include'}).then(r=>r.json())
+6.	// -> { sections: ["ai","evidence","taxonomy","workflow","status","debug"] }
+7.	Visiting /admin/settings#evidence shows Evidence Library; opening /admin/settings#taxonomy in a new tab shows Taxonomy. No jump back to AI.
+8.	Saving AI provider yields exactly these 200 OK calls in order:
+9.	POST /api/admin/ai/providers
+10.	PUT  /api/admin/ai/providers/:id/activate
+11.	GET  /api/admin/ai/providers
+12.	GET  /api/admin/ai/providers/status
+If any step fails, it’s not done.

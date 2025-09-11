@@ -38,6 +38,7 @@ export type AITestResp = AITestOk | AITestErr;
 export async function postJSON<T>(url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });

@@ -8,8 +8,16 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-// UNIVERSAL PROTOCOL STANDARD: Validate crypto key at startup
-// Replaced AI_KEY_ENCRYPTION_SECRET with CRYPTO_KEY_32 system
+// 1. Validate required environment variables at startup
+if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+  throw new Error("SESSION_SECRET missing or too short (must be ≥32 chars)");
+}
+if (!process.env.SETUP_ADMIN_EMAIL) {
+  throw new Error("SETUP_ADMIN_EMAIL environment variable is required");
+}
+if (!process.env.SETUP_ADMIN_PASSWORD) {
+  throw new Error("SETUP_ADMIN_PASSWORD environment variable is required");
+}
 
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
@@ -19,6 +27,7 @@ import path from "path";
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
+import cors from 'cors';
 
 // Extend session type
 declare module 'express-session' {
@@ -38,6 +47,11 @@ import { UniversalAIConfig } from "./universal-ai-config";
 import { loadCryptoKey } from "./config/crypto-key";
 import { createTestAdminUser, requireAdmin } from "./rbac-middleware";
 
+// 2. Ensure admin user exists at startup
+(async () => {
+  await createTestAdminUser();
+})();
+
 // Fail-fast boot: ensure crypto key is available
 loadCryptoKey(); // throws if missing → process exits with clear message
 
@@ -46,30 +60,30 @@ const app = express();
 // Session middleware with database-backed storage for scalability
 const pgSession = connectPgSimple(session);
 
-app.set("trust proxy", 1); // required on Replit/HTTPS proxies
+app.set("trust proxy", 1);
 
-// Fix HTTPS detection for development
-const onHttps = !!process.env.REPL_ID || !!process.env.REPLIT_DEPLOYMENT || process.env.NODE_ENV === 'production';
-console.log('[AUTH] Cookie config - onHttps:', onHttps, 'NODE_ENV:', process.env.NODE_ENV, 'REPL_ID:', !!process.env.REPL_ID);
+const onHttps = !!process.env.REPL_ID || !!process.env.REPLIT_DEPLOYMENT || process.env.NODE_ENV === "production";
+
+// 3. CORS middleware with credentials
+app.use(cors({ origin: true, credentials: true }));
 
 app.use(cookieParser());
 app.use(session({
   store: new pgSession({
     conString: process.env.DATABASE_URL,
     tableName: 'sessions',
-    createTableIfMissing: true, // Let it create if needed
+    createTableIfMissing: true,
   }),
-  name: 'sid',
-  secret: process.env.SESSION_SECRET!,
+  name: "sid",
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    sameSite: onHttps ? 'none' : 'lax',
-    secure: onHttps,
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000
-  }
+    sameSite: onHttps ? "none" : "lax",
+    secure: onHttps ? true : false,
+    path: "/",
+  },
 }));
 
 // Only apply JSON parsing to non-multipart requests
@@ -149,6 +163,7 @@ app.post('/api/auth/login', async (req, res) => {
       }
       console.log('[AUTH] Session saved successfully, cookie options:', req.session.cookie);
       console.log('[AUTH] Session ID:', req.sessionID);
+      console.log('[AUTH] onHttps:', onHttps, 'protocol:', req.protocol, 'secure:', req.secure);
       res.json({ ok: true });
     });
   } catch (error) {
