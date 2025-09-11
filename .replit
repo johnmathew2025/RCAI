@@ -29,12 +29,12 @@ localPort = 39989
 externalPort = 3002
 
 [[ports]]
-localPort = 42587
-externalPort = 4200
-
-[[ports]]
 localPort = 44127
 externalPort = 3003
+
+[[ports]]
+localPort = 44517
+externalPort = 4200
 
 [env]
 # Trigger git change

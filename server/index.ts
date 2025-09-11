@@ -216,20 +216,7 @@ app.use((req, res, next) => {
 app.get('/healthz', (_req, res) => res.status(200).send('ok'));
 app.get('/version.json', (_req, res) => res.json({ build: process.env.BUILD_ID || 'dev' }));
 
-// --- ADMIN PAGES guarded (EXCLUDES /admin/login) ---
-app.get('/admin/*', (req: any, res: any, next: any) => {
-  // Skip guard for login page
-  if (req.path === '/admin/login') return next();
-  
-  // Check if user is admin
-  if (!req.session?.user?.roles?.includes('admin')) {
-    const returnTo = encodeURIComponent(req.originalUrl);
-    return res.redirect(302, `/admin/login?returnTo=${returnTo}`);
-  }
-  
-  // User is authenticated - let it continue to React app
-  next();
-});
+// Admin guard moved to be before static serving (see below)
 
 app.use((req, res, next) => {
   const start = UniversalAIConfig.getPerformanceTime();
@@ -304,14 +291,24 @@ app.use((req, res, next) => {
       throw error;
     }
     
-    // AFTER API routes: Serve static assets with proper cache headers
-    const publicPath = path.resolve(process.cwd(), 'dist/public');
-    app.use((req, res, next) => {
-      // Skip static file serving for API routes
-      if (req.path.startsWith('/api/')) {
-        return next();
+    // ADMIN GUARD: Must be BEFORE static serving
+    app.get('/admin/*', (req: any, res: any, next: any) => {
+      // Skip guard for login page
+      if (req.path === '/admin/login') return next();
+      
+      // Check if user is admin
+      if (!req.session?.user?.roles?.includes('admin')) {
+        const returnTo = encodeURIComponent(req.originalUrl);
+        return res.redirect(302, `/admin/login?returnTo=${returnTo}`);
       }
-      return express.static(publicPath, {
+      
+      // User is authenticated - let it continue to static serving
+      next();
+    });
+    
+    // AFTER API routes and admin guard: Serve static assets with proper cache headers
+    const publicPath = path.resolve(process.cwd(), 'dist/public');
+    app.use(express.static(publicPath, {
         // Cache headers to prevent stale cache issues
         setHeaders: (res, filePath) => {
           if (filePath.endsWith(".html")) {
@@ -327,8 +324,7 @@ app.use((req, res, next) => {
             );
           }
         },
-      })(req, res, next);
-    });
+      }));
     
     // LAST: Handle React Router - serve index.html with no-cache headers (MUST be last)
     app.get(["/", "/index.html"], (_req, res) => {
