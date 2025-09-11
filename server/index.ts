@@ -293,16 +293,10 @@ app.use((req, res, next) => {
     
     // ADMIN GUARD: Must be BEFORE static serving
     app.get('/admin/*', (req: any, res: any, next: any) => {
-      // Skip guard for login page
-      if (req.path === '/admin/login') return next();
-      
-      // Check if user is admin
-      if (!req.session?.user?.roles?.includes('admin')) {
-        const returnTo = encodeURIComponent(req.originalUrl);
-        return res.redirect(302, `/admin/login?returnTo=${returnTo}`);
+      if (!req.session?.user) {
+        const rt = encodeURIComponent(req.originalUrl);
+        return res.redirect(302, `/admin/login?returnTo=${rt}`);
       }
-      
-      // User is authenticated - let it continue to static serving
       next();
     });
     

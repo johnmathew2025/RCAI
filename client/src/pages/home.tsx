@@ -128,7 +128,7 @@ export default function Home() {
                 <span className="w-2 h-2 bg-accent rounded-full"></span>
                 <span>System Active</span>
               </div>
-              <a href="/admin/settings" rel="nofollow">
+              <a href="/admin/settings" data-fullnav rel="nofollow">
                 <Button 
                   variant="secondary" 
                   className="text-sm font-medium"
