@@ -1,0 +1,44 @@
+Don’t touch dynamic sections; auth is the problem on SPA clicks.
+1.	Client guard around the Admin Settings route:
+// client/src/components/RequireAdmin.tsx
+import { useEffect, useState } from 'react';
+export default function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const [ok, setOk] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetch('/api/admin/whoami', { credentials:'include' })
+      .then(r => r.ok ? r.json() : Promise.reject(r))
+      .then(j => setOk(Boolean(j?.authenticated))).catch(() => setOk(false));
+  }, []);
+  if (ok === null) return null;
+  if (!ok) { const rt = encodeURIComponent(location.pathname+location.search+location.hash);
+    location.href = `/admin/login?returnTo=${rt}`; return null; }
+  return <>{children}</>;
+}
+
+// client/src/pages/admin-settings.tsx
+export default function AdminSettingsPage() {
+  return <RequireAdmin><AdminSettings/></RequireAdmin>;
+}
+2.	Header button should trigger a full navigation so the server guard can also run:
+<a href="/admin/settings" rel="nofollow">Admin Settings</a>   <!-- not a SPA-only Link -->
+3.	Keep server guard exactly as before:
+•	/admin/login public.
+•	/admin/* pages → 302 to /admin/login?returnTo=… if unauthenticated.
+•	/api/admin/* → 401 JSON if unauthenticated.
+4.	Vite proxy stays enabled so /admin/* and /api/* always hit Express even in preview:
+// vite.config.ts
+export default defineConfig({
+  server:{ proxy:{ '^/(api|admin)(/.*)?': { target:'http://localhost:5000', changeOrigin:true } } }
+});
+Definition of done (browser, not curl):
+•	Incognito → open /admin/settings → redirected to /admin/login?....
+•	From main page, click Admin Settings → redirected to /admin/login if logged out.
+•	After login, Network shows Set-Cookie: sid=…; SameSite=None; Secure on .replit.dev.
+•	fetch('/api/admin/whoami',{credentials:'include'}) → {authenticated:true}.
+Quick self-check you can run
+•	In the new tab main page, before clicking Admin Settings, run:
+•	fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.json()).then(console.log)
+o	If it prints {authenticated:true} you’re already signed in → no prompt is correct.
+o	If it prints {authenticated:false} and clicking Admin Settings still doesn’t redirect to login → the client guard/header link fix above is still missing.
+This dual-guard setup makes the behavior consistent in both flows you showed.
+
