@@ -1,0 +1,126 @@
+Implement server-side guarded admin + login fallback, env-driven sections, and prove it with the script. No hardcoding.
+1.	Env (Secrets) — set these in BOTH Workspace and Deployment:
+•	SESSION_SECRET = strong random (64 hex)
+•	SETUP_ADMIN_EMAIL, SETUP_ADMIN_PASSWORD
+•	ADMIN_SECTIONS = ai,evidence,taxonomy,workflow,status,debug ← drives UI; no hardcoded tabs in code
+2.	Server (Express) — enforce auth and serve a minimal fallback login page:
+•	In server/index.ts:
+import path from "node:path";
+import express from "express";
+import session from "express-session";
+import cors from "cors";
+
+if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+  throw new Error("SESSION_SECRET missing or too short");
+}
+
+const app = express();
+app.set("trust proxy", 1);
+app.use(express.json());
+
+const onHttps = !!process.env.REPL_ID || !!process.env.REPLIT_DEPLOYMENT || process.env.NODE_ENV === "production";
+app.use(session({
+  name: "sid",
+  secret: process.env.SESSION_SECRET!,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { httpOnly: true, sameSite: onHttps ? "none" : "lax", secure: onHttps ? true : false, path: "/" },
+}));
+
+// If FE and API are on different origins, keep. Otherwise harmless.
+app.use(cors({ origin: true, credentials: true }));
+
+function requireAdminApi(req: any, res: any, next: any) {
+  if (req.session?.user?.roles?.includes("admin")) return next();
+  return res.status(401).json({ error: "unauthorized" });
+}
+
+// --- Auth endpoints (must already exist; ensure these work) ---
+// POST /api/auth/login  -> on success: req.session.user = { id, email, roles: ["admin"] }; res.json({ok:true})
+// GET  /api/admin/whoami -> returns { authenticated:true, roles:[...] } when logged in
+
+// Sections are ENV-driven (no hardcoded business). Admin can change via Secrets.
+app.get("/api/admin/sections", requireAdminApi, (_req, res) => {
+  const csv = (process.env.ADMIN_SECTIONS || "").trim();
+  if (!csv) return res.status(500).json({ error: "ADMIN_SECTIONS not set" });
+  const sections = csv.split(",").map(s => s.trim()).filter(Boolean);
+  return res.json({ sections });
+});
+
+// Minimal server-rendered login fallback (keeps working even if SPA routing is broken)
+app.get("/admin/login", (_req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.end(`<!doctype html>
+<html><body style="font-family:sans-serif;max-width:420px;margin:48px auto">
+<h1>Admin Sign in</h1>
+<form id="f">
+  <input style="width:100%;padding:8px;margin:8px 0" name="email" placeholder="Email" />
+  <input style="width:100%;padding:8px;margin:8px 0" name="password" placeholder="Password" type="password" />
+  <button style="padding:8px 16px">Sign in</button>
+  <div id="m" style="color:#b00;margin-top:8px"></div>
+</form>
+<script>
+  document.getElementById('f').onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const r = await fetch('/api/auth/login', {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email: fd.get('email'), password: fd.get('password') })
+    });
+    if (r.ok) location.href = '/admin/settings#evidence';
+    else document.getElementById('m').textContent = 'Login failed';
+  };
+</script>
+</body></html>`);
+});
+
+// Guard admin pages at the server level (SPA can still render inside)
+app.get("/admin/settings", (req: any, res: any, next: any) => {
+  if (!req.session?.user?.roles?.includes("admin")) return res.redirect("/admin/login");
+  next();
+});
+app.get("/admin/*", (req: any, res: any, next: any) => {
+  if (!req.session?.user?.roles?.includes("admin")) return res.redirect("/admin/login");
+  next();
+});
+
+// IMPORTANT: After all of the above, serve your static FE (adjust path):
+// app.use(express.static(path.join(__dirname, "../client/dist")));
+// app.get("*", (_req, res) => res.sendFile(path.join(__dirname, "../client/dist/index.html")));
+•	Ensure the auth login handler sets req.session.user = { id, email, roles:["admin"] }.
+3.	Frontend
+•	Keep only:
+•	<Route path="/admin/login" element={<AdminLogin/>}/>
+•	<Route path="/admin/settings" element={<AdminSettings/>}/>
+•	Remove any redirect or default that forces #ai.
+•	AdminSettings must:
+o	GET /api/admin/sections with credentials:"include".
+o	Drive the active tab from location.hash (e.g., #evidence, #taxonomy).
+4.	Run this script and paste the raw output
+bash -lc '
+set -e
+BASE=${BASE:-http://localhost:5000}
+COOKIE=/tmp/sid.txt
+rm -f "$COOKIE"
+
+echo "== Login =="
+curl -i -c "$COOKIE" -H "Content-Type: application/json" \
+  -d "{\"email\":\"$SETUP_ADMIN_EMAIL\",\"password\":\"$SETUP_ADMIN_PASSWORD\"}" \
+  "$BASE/api/auth/login" | sed -n "1,30p" | egrep -i "HTTP/|set-cookie: sid|samesite|secure|path" || true
+
+echo
+echo "== whoami =="
+curl -s -b "$COOKIE" "$BASE/api/admin/whoami"; echo
+
+echo
+echo "== sections =="
+curl -s -b "$COOKIE" "$BASE/api/admin/sections"; echo
+'
+Definition of Done:
+•	Login shows Set-Cookie: sid=…; SameSite=None; Secure; Path=/ (on HTTPS).
+•	whoami → { "authenticated": true, ... }
+•	sections → { "sections":["ai","evidence","taxonomy","workflow","status","debug"] }
+•	Visiting /admin/settings#evidence shows Evidence Library (no jump to AI).
+Do not mark complete until all 4 pass.
+

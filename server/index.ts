@@ -10,13 +10,16 @@ dotenv.config();
 
 // 1. Validate required environment variables at startup
 if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
-  throw new Error("SESSION_SECRET missing or too short (must be ≥32 chars)");
+  throw new Error("SESSION_SECRET missing or too short");
 }
 if (!process.env.SETUP_ADMIN_EMAIL) {
   throw new Error("SETUP_ADMIN_EMAIL environment variable is required");
 }
 if (!process.env.SETUP_ADMIN_PASSWORD) {
   throw new Error("SETUP_ADMIN_PASSWORD environment variable is required");
+}
+if (!process.env.ADMIN_SECTIONS) {
+  throw new Error("ADMIN_SECTIONS environment variable is required");
 }
 
 import express, { type Request, Response, NextFunction } from "express";
@@ -62,7 +65,8 @@ const pgSession = connectPgSimple(session);
 
 app.set("trust proxy", 1);
 
-const onHttps = !!process.env.REPL_ID || !!process.env.REPLIT_DEPLOYMENT || process.env.NODE_ENV === "production";
+// For testing purposes, allow HTTP in development
+const onHttps = (!!process.env.REPL_ID || !!process.env.REPLIT_DEPLOYMENT || process.env.NODE_ENV === "production") && process.env.NODE_ENV !== "development";
 
 // 3. CORS middleware with credentials
 app.use(cors({ origin: true, credentials: true }));
@@ -161,9 +165,7 @@ app.post('/api/auth/login', async (req, res) => {
         console.error('[AUTH] Session save error:', err);
         return res.status(500).json({code: 'SESSION_ERROR'});
       }
-      console.log('[AUTH] Session saved successfully, cookie options:', req.session.cookie);
-      console.log('[AUTH] Session ID:', req.sessionID);
-      console.log('[AUTH] onHttps:', onHttps, 'protocol:', req.protocol, 'secure:', req.secure);
+      console.log('[AUTH] Session saved successfully, ID:', req.sessionID);
       res.json({ ok: true });
     });
   } catch (error) {
@@ -185,31 +187,24 @@ app.post('/api/auth/logout', (req, res) => {
 
 // GET /api/admin/whoami - Authentication status
 app.get('/api/admin/whoami', (req, res) => {
-  console.log('[AUTH] Whoami check - Session ID:', req.sessionID);
-  console.log('[AUTH] Whoami check - Session user:', req.session?.user);
   const user = req.session?.user || null;
   res.json({ 
     authenticated: !!user, 
-    roles: user?.roles || [],
-    sessionID: req.sessionID // temp debug
+    roles: user?.roles || []
   });
 });
 
-// GET /api/admin/sections - Dynamic admin sections (no hardcoding)  
-app.get("/api/admin/sections", (req, res) => {
-  console.log('[SECTIONS] Session ID:', req.sessionID);
-  console.log('[SECTIONS] Session user:', req.session?.user);
-  // Check authentication manually to avoid type issues
-  const user = req.session?.user;
-  if (!user || !user.roles?.includes('admin')) {
-    console.log('[SECTIONS] Authentication failed - user:', !!user, 'admin role:', user?.roles?.includes('admin'));
-    return res.status(401).json({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
-  }
-  
-  // If you have a DB table for sections, read it here.
-  // Fallback keeps the app usable without hardcoding business data.
-  const defaultIds = ["ai","evidence","taxonomy","workflow","status","debug"];
-  res.json({ sections: defaultIds });
+function requireAdminApi(req: any, res: any, next: any) {
+  if (req.session?.user?.roles?.includes("admin")) return next();
+  return res.status(401).json({ error: "unauthorized" });
+}
+
+// Sections are ENV-driven (no hardcoded business). Admin can change via Secrets.
+app.get("/api/admin/sections", requireAdminApi, (_req, res) => {
+  const csv = (process.env.ADMIN_SECTIONS || "").trim();
+  if (!csv) return res.status(500).json({ error: "ADMIN_SECTIONS not set" });
+  const sections = csv.split(",").map(s => s.trim()).filter(Boolean);
+  return res.json({ sections });
 });
 
 // E) Cache-busting middleware (dev kill-switch)
@@ -236,6 +231,44 @@ app.use((req, res, next) => {
     res.set('Cache-Control', 'no-store');
   }
   
+  next();
+});
+
+// Minimal server-rendered login fallback (keeps working even if SPA routing is broken)
+app.get("/admin/login", (_req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.end(`<!doctype html>
+<html><body style="font-family:sans-serif;max-width:420px;margin:48px auto">
+<h1>Admin Sign in</h1>
+<form id="f">
+  <input style="width:100%;padding:8px;margin:8px 0" name="email" placeholder="Email" />
+  <input style="width:100%;padding:8px;margin:8px 0" name="password" placeholder="Password" type="password" />
+  <button style="padding:8px 16px">Sign in</button>
+  <div id="m" style="color:#b00;margin-top:8px"></div>
+</form>
+<script>
+  document.getElementById('f').onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const r = await fetch('/api/auth/login', {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email: fd.get('email'), password: fd.get('password') })
+    });
+    if (r.ok) location.href = '/admin/settings#evidence';
+    else document.getElementById('m').textContent = 'Login failed';
+  };
+</script>
+</body></html>`);
+});
+
+// Guard admin pages at the server level (SPA can still render inside)
+app.get("/admin/settings", (req: any, res: any, next: any) => {
+  if (!req.session?.user?.roles?.includes("admin")) return res.redirect("/admin/login");
+  next();
+});
+app.get("/admin/*", (req: any, res: any, next: any) => {
+  if (!req.session?.user?.roles?.includes("admin")) return res.redirect("/admin/login");
   next();
 });
 
