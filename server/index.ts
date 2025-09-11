@@ -132,8 +132,7 @@ const adminApi = express.Router();
 adminApi.use(requireAdminApi);
 adminApi.get('/whoami', (req: any, res: any)=>res.json({authenticated:true,roles:['admin']}));
 adminApi.get('/sections', (_req: any, res: any)=> {
-  const csv = process.env.ADMIN_SECTIONS || '';
-  if (!csv) return res.status(500).json({ error: 'ADMIN_SECTIONS not configured' });
+  const csv = process.env.ADMIN_SECTIONS || 'ai,evidence,taxonomy,workflow,status,debug';
   res.json({ sections: csv.split(',').map((s: string)=>s.trim()).filter(Boolean) });
 });
 app.use('/api/admin', adminApi);
