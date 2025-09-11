@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from './use-toast';
+import { API_ENDPOINTS } from '../config/apiEndpoints';
 
 interface SecureAiProvider {
   id: number;
@@ -28,7 +29,7 @@ export function useSecureAiProviders() {
   return useQuery<SecureAiProvider[]>({
     queryKey: ['secure-ai-providers'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/ai/providers', {
+      const response = await fetch(API_ENDPOINTS.aiProviders(), {
         credentials: 'include',
       });
       if (!response.ok) {
@@ -45,7 +46,7 @@ export function useCreateSecureAiProvider() {
 
   return useMutation({
     mutationFn: async (data: CreateProviderData) => {
-      const response = await fetch('/api/admin/ai/providers', {
+      const response = await fetch(API_ENDPOINTS.aiProviders(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -83,7 +84,7 @@ export function useTestSecureAiProvider() {
 
   return useMutation({
     mutationFn: async (id: number): Promise<TestResult> => {
-      const response = await fetch(`/api/admin/ai/providers/${id}/test`, {
+      const response = await fetch(API_ENDPOINTS.aiProviderTest(id), {
         method: 'POST',
         credentials: 'include',
       });
@@ -125,7 +126,7 @@ export function useDeleteSecureAiProvider() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/admin/ai/providers/${id}`, {
+      const response = await fetch(API_ENDPOINTS.aiProviderById(id), {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -160,7 +161,7 @@ export function useSetActiveSecureAiProvider() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/admin/ai/providers/${id}`, {
+      const response = await fetch(API_ENDPOINTS.aiProviderById(id), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

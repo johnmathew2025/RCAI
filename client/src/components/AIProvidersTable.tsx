@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 type ProviderRow = {
   id: number;
@@ -21,7 +22,7 @@ export default function AIProvidersTable() {
 
   async function load() {
     try {
-      const res = await api("/api/admin/ai/providers");
+      const res = await api(API_ENDPOINTS.aiProviders());
       if (!res.ok) {
         setToast(`Load failed: ${res.status}`);
         return;
@@ -47,7 +48,7 @@ export default function AIProvidersTable() {
     setBusy(true);
     setToast(null);
     try {
-      const res = await api("/api/admin/ai/providers", {
+      const res = await api(API_ENDPOINTS.aiProviders(), {
         method: "POST",
         body: JSON.stringify({ 
           provider: provider.trim().toLowerCase(),
@@ -80,7 +81,7 @@ export default function AIProvidersTable() {
     setBusy(true);
     setToast(null);
     try {
-      const res = await api(`/api/admin/ai/providers/${id}/test`, {
+      const res = await api(API_ENDPOINTS.aiProviderTest(id), {
         method: "POST",
       });
       const json = await res.json().catch(() => ({}));
@@ -102,7 +103,7 @@ export default function AIProvidersTable() {
     setBusy(true);
     setToast(null);
     try {
-      const res = await api(`/api/admin/ai/providers/${id}`, {
+      const res = await api(API_ENDPOINTS.aiProviderById(id), {
         method: "PATCH",
         body: JSON.stringify({ setActive: true }),
       });
@@ -130,7 +131,7 @@ export default function AIProvidersTable() {
     setDeletingId(id);
     setToast(null);
     try {
-      const res = await api(`/api/admin/ai/providers/${id}`, {
+      const res = await api(API_ENDPOINTS.aiProviderById(id), {
         method: "DELETE",
       });
       if (!res.ok) {

@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, RefreshCw, Filter, Search, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { aiDebugger, type TraceLog } from "@/lib/debug-ai-settings";
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 interface SystemHealth {
   apiVersion: string;
@@ -76,12 +77,12 @@ export function AIDebugPanel({ isVisible }: AIDebugPanelProps) {
     try {
       setLoading(true);
       const { api } = await import('@/api');
-      const metaResponse = await api('/meta');
+      const metaResponse = await api(API_ENDPOINTS.meta());
       const metaData = await metaResponse.json();
       
       let providerStats = undefined;
       try {
-        const debugResponse = await api('/admin/ai-settings/debug');
+        const debugResponse = await api(API_ENDPOINTS.aiProvidersDebug());
         if (debugResponse.ok) {
           providerStats = await debugResponse.json();
         }

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
+import { API_ENDPOINTS } from '../config/apiEndpoints';
 
 const KEY = ['admin.aiSettings.v2']; // New key to bust old caches
 
@@ -7,7 +8,7 @@ export const useAiSettings = () =>
   useQuery({ 
     queryKey: KEY, 
     queryFn: async () => {
-      const response = await api('/admin/ai-settings');
+      const response = await api(API_ENDPOINTS.aiProviders());
       return await response.json();
     },
     staleTime: 0, 
@@ -20,7 +21,7 @@ export const useCreateAiSetting = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: {provider:string; modelId:string; isActive?:boolean}) => {
-      return api('/admin/ai-settings', { 
+      return api(API_ENDPOINTS.aiProviders(), { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

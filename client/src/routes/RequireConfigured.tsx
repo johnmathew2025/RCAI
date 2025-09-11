@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 interface AIProvider {
   id: number;
@@ -11,8 +12,8 @@ interface AIProvider {
 
 export default function RequireConfigured({ children }: { children: JSX.Element }) {
   const { data, error, isLoading } = useQuery<AIProvider[]>({
-    queryKey: ["/api/admin/ai/providers"],
-    queryFn: () => apiRequest("/api/admin/ai/providers").then(r => r.json()),
+    queryKey: [API_ENDPOINTS.aiProviders()],
+    queryFn: () => apiRequest(API_ENDPOINTS.aiProviders()).then(r => r.json()),
     staleTime: 0,
     refetchOnFocus: false
   });

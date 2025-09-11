@@ -7,7 +7,7 @@
  */
 
 // Environment-driven base configuration
-const API_BASE = process.env.VITE_API_BASE || '';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 // Dynamic API endpoint builder - NO HARDCODING
 export const buildApiEndpoint = (path: string) => {
@@ -21,11 +21,11 @@ export const API_ENDPOINTS = {
   health: () => buildApiEndpoint('/health'),
   
   // AI Provider endpoints  
-  aiProviders: () => buildApiEndpoint('/admin/ai-settings'),
-  aiProviderById: (id: number | string) => buildApiEndpoint(`/admin/ai-settings/${id}`),
-  aiProviderTest: (id: number | string) => buildApiEndpoint(`/admin/ai-settings/${id}/test`),
-  aiProviderActivate: (id: number | string) => buildApiEndpoint(`/admin/ai-settings/${id}/activate`),
-  aiProvidersDebug: () => buildApiEndpoint('/admin/ai-settings/debug'),
+  aiProviders: () => buildApiEndpoint('/admin/ai/providers'),
+  aiProviderById: (id: number | string) => buildApiEndpoint(`/admin/ai/providers/${id}`),
+  aiProviderTest: (id: number | string) => buildApiEndpoint(`/admin/ai/providers/${id}/test`),
+  aiProviderActivate: (id: number | string) => buildApiEndpoint(`/admin/ai/providers/${id}/activate`),
+  aiProvidersDebug: () => buildApiEndpoint('/admin/ai/providers/status'),
   
   // Equipment Management endpoints
   equipmentGroups: () => buildApiEndpoint('/equipment-groups'),
@@ -73,8 +73,8 @@ export const API_ENDPOINTS = {
   incidentById: (id: number | string) => buildApiEndpoint(`/incidents/${id}`),
   
   // Admin endpoints
-  adminAiSettings: () => buildApiEndpoint('/admin/ai-settings'),
-  adminAiSettingsTest: () => buildApiEndpoint('/admin/ai-settings/test'),
+  adminAiSettings: () => buildApiEndpoint('/admin/ai/providers'),
+  adminAiSettingsTest: () => buildApiEndpoint('/admin/ai/providers/status'),
 } as const;
 
 // Type-safe endpoint access
