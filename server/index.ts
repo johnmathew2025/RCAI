@@ -212,6 +212,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health endpoints
+app.get('/healthz', (_req, res) => res.status(200).send('ok'));
+app.get('/version.json', (_req, res) => res.json({ build: process.env.BUILD_ID || 'dev' }));
+
 // --- ADMIN PAGES guarded (EXCLUDES /admin/login) ---
 function requireAdminPage(req: any, res: any, next: any){
   if (isAdmin(req)) return next();

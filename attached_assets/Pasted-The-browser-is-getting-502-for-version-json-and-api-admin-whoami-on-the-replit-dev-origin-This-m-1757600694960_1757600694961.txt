@@ -1,0 +1,40 @@
+The browser is getting 502 for /version.json and /api/admin/whoami on the .replit.dev origin. This means Express is not reachable. Fix server reachability first; do not touch UI/auth until this is green. No hardcoding.
+1) Make the backend reachable from preview
+Ensure Express binds to Replit’s port:
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, '0.0.0.0', () => console.log('server on', PORT));
+Keep Vite dev proxy correct (so /admin/* and /api/* always hit Express):
+// vite.config.ts
+export default defineConfig({
+  server: {
+    proxy: {
+      '^/(api|admin)(/.*)?': { target: 'http://localhost:5000', changeOrigin: true },
+    },
+  },
+});
+(If Express listens on a different port, update both places consistently.)
+Add a health endpoint and a version json that never throws:
+app.get('/healthz', (_req, res) => res.status(200).send('ok'));
+app.get('/version.json', (_req, res) => res.json({ build: process.env.BUILD_ID || 'dev' }));
+If you added “fail-fast” checks (e.g., throwing when SESSION_SECRET missing), make sure the variable is set in the workspace and deployment envs so the server doesn’t crash on boot.
+2) Cookies for iframe/HTTPS (keep as-is, per request)
+app.set('trust proxy', 1);
+app.use((req,_res,next)=>{
+  if (req.session){
+    const https = req.secure || req.get('x-forwarded-proto')==='https';
+    req.session.cookie.secure   = https;
+    req.session.cookie.sameSite = https ? 'none' : 'lax';
+  }
+  next();
+});
+3) Proof required (from the browser, not curl)
+In a new tab on .replit.dev, open DevTools Console and run:
+fetch('/healthz').then(r=>r.status)
+fetch('/version.json').then(r=>r.json())
+Must be 200 and a JSON object.
+Then:
+fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.status)
+Logged out: 200 with {authenticated:false} JSON.
+Logged in: 200 with {authenticated:true} JSON.
+Network → the document request for /admin/settings shows header X-Powered-By: Express (proves the page hit the server, not just Vite).
+Only after the 502s are gone and the three checks pass should we test the admin tabs and AI provider calls.
