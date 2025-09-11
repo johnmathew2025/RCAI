@@ -115,12 +115,7 @@ function isAdmin(req: any) {
   return !!(req.session && req.session.user && req.session.user.roles?.includes("admin"));
 }
 
-// Admin pages: if not authed, redirect to login with returnTo
-function requireAdminPage(req: any, res: any, next: any) {
-  if (req.path === '/admin/login') return next();
-  if (isAdmin(req)) return next();
-  return res.redirect("/admin/login?returnTo=" + encodeURIComponent(req.originalUrl));
-}
+// This function is now defined inline above where it's used
 
 // Admin APIs: 401 (JSON)
 function requireAdminApi(req: any, res: any, next: any) {
@@ -181,12 +176,11 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
-// APIS (only /api/admin/* are guarded)
-app.get("/api/admin/whoami", (req, res) => res.json({ authenticated: isAdmin(req), roles: isAdmin(req) ? ["admin"] : [] }));
-app.get("/api/admin/sections", requireAdminApi, (_req, res) => {
-  const csv = process.env.ADMIN_SECTIONS || "";
-  if (!csv) return res.status(500).json({ error: "ADMIN_SECTIONS not configured" });
-  res.json({ sections: csv.split(",").map(s => s.trim()).filter(Boolean) });
+// 2) Admin API guard (JSON 401)
+app.get("/api/admin/whoami", (req,res)=> res.json({ authenticated:isAdmin(req), roles:isAdmin(req)?['admin']:[] }));
+app.get("/api/admin/sections", requireAdminApi, (_req,res)=> {
+  const csv = (process.env.ADMIN_SECTIONS||"ai,evidence,taxonomy,workflow,status,debug");
+  res.json({ sections: csv.split(",").map(s=>s.trim()).filter(Boolean) });
 });
 
 // E) Cache-busting middleware (dev kill-switch)
@@ -216,14 +210,36 @@ app.use((req, res, next) => {
   next();
 });
 
-// PAGES (order matters - specific routes before catch-all)
-// Login page must NOT be protected to avoid redirect loops
-app.get("/admin/login", (req, res, next) => next());
-// Protected admin routes
+// 1) Render login page (simple HTML fallback) — must come first
+app.get("/admin/login", (req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.end(`<!doctype html><html><body>
+  <h1>Admin Sign in</h1>
+  <form id="f"><input name="email" placeholder="Email"/><input name="password" type="password" placeholder="Password"/>
+  <button>Sign in</button><div id="m"></div></form>
+  <script>
+    f.onsubmit = async (e)=>{e.preventDefault();
+      const fd=new FormData(f);
+      const r=await fetch('/api/auth/login',{method:'POST',credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email:fd.get('email'),password:fd.get('password'),
+          returnTo:new URLSearchParams(location.search).get('returnTo')||'/admin/settings#evidence'})});
+      const j = await r.json(); if(r.ok) location.href=j.returnTo||'/admin/settings#evidence'; else m.textContent='Login failed';
+    };
+  </script></body></html>`);
+});
+
+// 3) Admin PAGE guard – EXCLUDE /admin/login
+function requireAdminPage(req,res,next){
+  if (isAdmin(req)) return next();
+  return res.redirect("/admin/login?returnTo="+encodeURIComponent(req.originalUrl));
+}
 app.get("/admin", requireAdminPage, (_req, res) => res.redirect("/admin/settings"));
 app.get("/admin/settings", requireAdminPage, (req, res, next) => next());
-// All other admin pages require auth (catch-all goes last)
-app.get("/admin/*", requireAdminPage, (req, res, next) => next());
+app.get("/admin/*", (req: any, res: any, next: any)=>{
+  if (req.path === "/admin/login") return next(); // explicit skip
+  return requireAdminPage(req,res,next);
+}, (req: any, res: any, next: any) => next());
 
 app.use((req, res, next) => {
   const start = UniversalAIConfig.getPerformanceTime();

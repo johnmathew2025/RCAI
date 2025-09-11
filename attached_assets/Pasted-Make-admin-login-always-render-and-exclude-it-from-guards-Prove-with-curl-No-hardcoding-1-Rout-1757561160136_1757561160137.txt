@@ -1,0 +1,76 @@
+Make /admin/login always render and exclude it from guards. Prove with curl. No hardcoding.
+1.	Routing order (server/index.ts) – put these BEFORE any /admin/* guards and BEFORE the SPA/static catch-alls.
+// 0) Session middleware already initialized above
+
+// 1) Render login page (simple HTML fallback) — must come first
+app.get("/admin/login", (req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.end(`<!doctype html><html><body>
+  <h1>Admin Sign in</h1>
+  <form id="f"><input name="email"/><input name="password" type="password"/>
+  <button>Sign in</button><div id="m"></div></form>
+  <script>
+    f.onsubmit = async (e)=>{e.preventDefault();
+      const fd=new FormData(f);
+      const r=await fetch('/api/auth/login',{method:'POST',credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email:fd.get('email'),password:fd.get('password'),
+          returnTo:new URLSearchParams(location.search).get('returnTo')||'/admin/settings#evidence'})});
+      const j = await r.json(); if(r.ok) location.href=j.returnTo||'/admin/settings#evidence'; else m.textContent='Login failed';
+    };
+  </script></body></html>`);
+});
+
+// 2) Admin API guard (JSON 401)
+function isAdmin(req){ return !!(req.session?.user?.roles?.includes('admin')); }
+function requireAdminApi(req,res,next){ return isAdmin(req) ? next() : res.status(401).json({error:'unauthorized'}); }
+app.get("/api/admin/whoami", (req,res)=> res.json({ authenticated:isAdmin(req), roles:isAdmin(req)?['admin']:[] }));
+app.get("/api/admin/sections", requireAdminApi, (_req,res)=> {
+  const csv = (process.env.ADMIN_SECTIONS||"ai,evidence,taxonomy,workflow,status,debug");
+  res.json({ sections: csv.split(",").map(s=>s.trim()).filter(Boolean) });
+});
+
+// 3) Admin PAGE guard – EXCLUDE /admin/login
+function requireAdminPage(req,res,next){
+  if (isAdmin(req)) return next();
+  return res.redirect("/admin/login?returnTo="+encodeURIComponent(req.originalUrl));
+}
+app.get("/admin/settings", requireAdminPage, serveApp);
+app.get("/admin/*", (req,res,next)=>{
+  if (req.path === "/admin/login") return next(); // explicit skip
+  return requireAdminPage(req,res,next);
+}, serveApp);
+
+// 4) AFTER the above, serve SPA/static
+// app.use(express.static(...)); app.get("*", serveApp);
+2.	Cookie settings per request (so preview http works and deploy https works)
+app.set("trust proxy", 1);
+app.use((req,_res,next)=>{
+  if (req.session){
+    const onHttps = req.secure || req.get("x-forwarded-proto")==="https";
+    req.session.cookie.secure   = onHttps;
+    req.session.cookie.sameSite = onHttps ? "none" : "lax";
+  }
+  next();
+});
+3.	Login handler must set session and return a returnTo
+// POST /api/auth/login (after verifying credentials)
+req.session.user = { id:user.id, email:user.email, roles:["admin"] };
+res.json({ ok:true, returnTo: req.body?.returnTo || "/admin/settings#evidence" });
+4.	Prove it (run and paste output)
+bash -lc '
+BASE=${BASE:-http://localhost:5000}; COOKIE=/tmp/sid.txt; rm -f "$COOKIE"
+echo "== GET /admin/login =="; curl -i "$BASE/admin/login" | sed -n "1,5p"
+echo "== LOGIN =="; curl -i -c "$COOKIE" -H "Content-Type: application/json" \
+  -d "{\"email\":\"$SETUP_ADMIN_EMAIL\",\"password\":\"$SETUP_ADMIN_PASSWORD\"}" \
+  "$BASE/api/auth/login" | egrep -i "HTTP/|set-cookie: sid|samesite|secure|path"
+echo "== WHOAMI =="; curl -s -b "$COOKIE" "$BASE/api/admin/whoami"; echo
+echo "== SECTIONS =="; curl -s -b "$COOKIE" "$BASE/api/admin/sections"; echo
+'
+Definition of done (must pass):
+•	GET /admin/login → 200 HTML (not blank/redirect).
+•	Login response shows Set-Cookie: sid=… (with Secure/SameSite=None on HTTPS).
+•	whoami → { "authenticated": true }.
+•	sections → ["ai","evidence","taxonomy","workflow","status","debug"].
+•	Visiting /admin/settings#evidence loads Evidence Library without jumping to AI.
+
