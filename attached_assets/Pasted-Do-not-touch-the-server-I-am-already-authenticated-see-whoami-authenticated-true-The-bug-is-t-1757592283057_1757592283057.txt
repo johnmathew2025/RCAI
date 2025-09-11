@@ -1,0 +1,81 @@
+Do not touch the server. I am already authenticated (see whoami: {authenticated:true}). The bug is the AdminSettings UI: it doesn’t render the sections returned by /api/admin/sections. Implement dynamic, zero-hardcoding rendering using a file-system convention (one folder per section) and URL-hash driven navigation, then prove it with DOM checks.
+Required implementation (no hardcoding):
+1.	Move/keep each section component at client/src/admin/sections/<id>/index.tsx where <id>is exactly the string from /api/admin/sections (ai, evidence, taxonomy, workflow, status, debug).
+o	If a section file is missing, render a visible placeholder (“Missing component: <id>”), not a blank page.
+2.	Update client/src/pages/admin-settings.tsx to:
+o	Fetch /api/admin/sections via the central API helper (credentials:"include").
+o	Build a left nav from that array.
+o	Drive the active tab from location.hash (no default redirect to AI; if no hash, use the first returned section).
+o	Lazy-import the component using the convention path (no mapping object), e.g.:
+o	const Section = React.lazy(() =>
+o	  import(`../admin/sections/${active}/index.tsx`).catch(() =>
+o	    import('../admin/sections/__missing.tsx')
+o	  )
+o	);
+3.	Do not hide the nav with CSS. It must always be visible when sections load.
+Drop-in AdminSettings (use this exact code)
+// client/src/pages/admin-settings.tsx
+import React, { useEffect, useMemo, useState, Suspense } from 'react';
+import { api } from '@/lib/api';
+
+export default function AdminSettings() {
+  const [sections, setSections] = useState<string[]>([]);
+  const [active, setActive] = useState('');
+
+  useEffect(() => {
+    api('/api/admin/sections')
+      .then(r => r.json())
+      .then(j => {
+        const ids = Array.isArray(j.sections) ? j.sections : [];
+        setSections(ids);
+        const fromUrl = location.hash.slice(1);
+        setActive(fromUrl && ids.includes(fromUrl) ? fromUrl : (ids[0] || ''));
+      });
+  }, []);
+
+  useEffect(() => {
+    const onHash = () => {
+      const h = location.hash.slice(1);
+      if (h) setActive(h);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  const Section = useMemo(() => {
+    if (!active) return null;
+    return React.lazy(() =>
+      import(`../admin/sections/${active}/index.tsx`)
+        .catch(() => import('../admin/sections/__missing.tsx'))
+    );
+  }, [active]);
+
+  return (
+    <div className="p-6 flex gap-6">
+      <nav className="w-64" aria-label="Admin sections" data-admin-nav>
+        <ul className="space-y-2">
+          {sections.map(id => (
+            <li key={id}>
+              <a href={`#${id}`} className={id===active ? 'font-bold' : ''}>{id}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <main className="flex-1">
+        <Suspense fallback="Loading…">
+          {Section ? <Section/> : <div>No sections configured.</div>}
+        </Suspense>
+      </main>
+    </div>
+  );
+}
+Also add client/src/admin/sections/__missing.tsx:
+export default function Missing() {
+  return <div style={{color:'#b00'}}>Missing component for this section.</div>;
+}
+Definition of Done (must show screenshots, not curl):
+1.	On /admin/settings the DOM contains a left nav list with ai, evidence, taxonomy, workflow, status, debug (use Elements panel or document.querySelectorAll('[data-admin-nav] a')).
+2.	Visiting /admin/settings#evidence shows a section heading/content for Evidence Library (no jump back to AI).
+3.	If client/src/admin/sections/evidence/index.tsx is temporarily renamed, the page shows the “Missing component for this section.” placeholder (proves dynamic import & no hardcoding).
+4.	Saving a provider produces the 200-OK sequence under /api/admin/ai/providers.
+
