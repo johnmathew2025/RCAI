@@ -179,7 +179,8 @@ app.post('/api/auth/logout', (req, res) => {
 // 2) Admin API guard (JSON 401)
 app.get("/api/admin/whoami", (req,res)=> res.json({ authenticated:isAdmin(req), roles:isAdmin(req)?['admin']:[] }));
 app.get("/api/admin/sections", requireAdminApi, (_req,res)=> {
-  const csv = (process.env.ADMIN_SECTIONS||"ai,evidence,taxonomy,workflow,status,debug");
+  const csv = process.env.ADMIN_SECTIONS || "";
+  if (!csv) return res.status(500).json({ error: "ADMIN_SECTIONS not configured" });
   res.json({ sections: csv.split(",").map(s=>s.trim()).filter(Boolean) });
 });
 
