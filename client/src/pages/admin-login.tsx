@@ -19,8 +19,10 @@ export default function AdminLoginPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.authenticated && data.roles.includes('admin')) {
-          // Already authenticated as admin, redirect to AI Settings
-          window.location.href = "/admin/settings";
+          // Already authenticated as admin, redirect to evidence by default
+          const urlParams = new URLSearchParams(window.location.search);
+          const returnTo = urlParams.get('returnTo') || "/admin/settings#evidence";
+          window.location.href = returnTo;
         }
       }
     } catch (error) {
@@ -39,13 +41,17 @@ export default function AdminLoginPage() {
     setToast(null);
 
     try {
+      // Get returnTo from URL params
+      const urlParams = new URLSearchParams(window.location.search);
+      const returnTo = urlParams.get('returnTo');
+
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         credentials: "include",
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, returnTo })
       });
 
       const data = await res.json().catch(() => ({}));
@@ -53,7 +59,8 @@ export default function AdminLoginPage() {
       if (res.ok && data.ok) {
         setToast("Login successful! Redirecting...");
         setTimeout(() => {
-          window.location.href = "/admin/settings";
+          // Navigate to data.returnTo from server response
+          window.location.href = data.returnTo || "/admin/settings#evidence";
         }, 1000);
       } else if (res.status === 401) {
         setToast("Invalid email or password");

@@ -1,0 +1,92 @@
+Scope admin auth to /admin/* only; everything else must stay public. Implement return-to and per-request cookie settings. No hardcoding.
+1.	Session middleware (server/index.ts)
+import session from "express-session";
+
+app.set("trust proxy", 1); // behind Replit proxy
+
+if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+  throw new Error("SESSION_SECRET missing/short");
+}
+
+app.use(session({
+  name: "sid",
+  secret: process.env.SESSION_SECRET!,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    // Let express-session set Secure automatically based on req.secure
+    secure: "auto",         // <-- IMPORTANT
+    sameSite: "lax",        // will switch to 'none' below when HTTPS
+    httpOnly: true,
+    path: "/",
+  },
+}));
+
+// Dynamically adjust cookie each request so SameSite becomes 'none' on HTTPS
+app.use((req, _res, next) => {
+  if (req.session) {
+    const onHttps = req.secure || req.get("x-forwarded-proto") === "https";
+    req.session.cookie.secure = onHttps;
+    req.session.cookie.sameSite = onHttps ? "none" : "lax";
+  }
+  next();
+});
+2.	Guard ONLY admin pages & admin APIs (do NOT wrap the whole app)
+function isAdmin(req) {
+  return !!(req.session && req.session.user && req.session.user.roles?.includes("admin"));
+}
+
+// Admin pages: if not authed, redirect to login with returnTo
+function requireAdminPage(req, res, next) {
+  if (isAdmin(req)) return next();
+  return res.redirect("/admin/login?returnTo=" + encodeURIComponent(req.originalUrl));
+}
+
+// Admin APIs: 401 (JSON)
+function requireAdminApi(req, res, next) {
+  if (isAdmin(req)) return next();
+  return res.status(401).json({ error: "unauthorized" });
+}
+
+// PAGES (only these are guarded)
+app.get("/admin", requireAdminPage, (_req, res) => res.redirect("/admin/settings"));
+app.get("/admin/settings", requireAdminPage, serveApp);
+app.get("/admin/*", requireAdminPage, serveApp);
+
+// APIS (only /api/admin/* are guarded)
+app.get("/api/admin/whoami", (req, res) => res.json({ authenticated: isAdmin(req), roles: isAdmin(req) ? ["admin"] : [] }));
+app.get("/api/admin/sections", requireAdminApi, (_req, res) => {
+  const csv = (process.env.ADMIN_SECTIONS || "ai,evidence,taxonomy,workflow,status,debug");
+  res.json({ sections: csv.split(",").map(s => s.trim()).filter(Boolean) });
+});
+3.	Login + return-to (no global redirects)
+// POST /api/auth/login
+// After verifying credentials:
+req.session.user = { id: user.id, email: user.email, roles: ["admin"] };
+const returnTo = req.query.returnTo || req.body.returnTo || "/admin/settings#evidence";
+res.json({ ok: true, returnTo }); // FE will navigate to this
+4.	Frontend routing (scope the guard to admin area only)
+// No global guard. Public app loads without auth.
+<Route path="/admin/login" element={<AdminLogin/>} />
+<Route path="/admin/settings" element={<AdminSettings/>} />
+•	In AdminLogin, after successful POST /api/auth/login, navigate to data.returnTo || "/admin/settings#evidence".
+•	In AdminSettings, do not force #ai. Active tab must come from location.hash.
+5.	AI endpoints must be admin-scoped + send credentials
+•	Use the centralized API helper (credentials:"include") and these paths:
+POST /api/admin/ai/providers
+PUT  /api/admin/ai/providers/:id/activate
+GET  /api/admin/ai/providers
+GET  /api/admin/ai/providers/status
+ 
+Acceptance tests (what I’ll verify)
+1.	Visit / → app loads without any login prompt.
+2.	Visit /admin/settings#evidence while logged out → redirect to /admin/login?returnTo=/admin/settings%23evidence.
+3.	Log in → automatically land on Evidence Library (no jump to AI).
+4.	Browser console:
+5.	fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.json())
+6.	// -> { authenticated:true, roles:["admin"] }
+7.	fetch('/api/admin/sections',{credentials:'include'}).then(r=>r.json())
+8.	// -> { sections:["ai","evidence","taxonomy","workflow","status","debug"] }
+9.	Saving AI provider → the 4 calls all 200 OK in order.
+Do not mark complete until all 5 pass with screenshots.
+
