@@ -1,0 +1,50 @@
+Stop refactoring. Deliver the admin auth + AI Settings flow with browser proof. No hardcoding.
+What to fix (and only this):
+1.	Dual guards in effect
+o	Server guard: /admin/* pages 302 → /admin/login?returnTo=… when not authenticated.
+o	Client guard (SPA clicks): wrap the Admin Settings page with a RequireAdmin that calls /api/admin/whoami and, if false, location.href = /admin/login?returnTo=….
+o	The header button must be a full navigation (plain <a href="/admin/settings">), not a SPA-only Link.
+2.	Dev proxy so the guard actually runs in preview
+3.	// vite.config.ts
+4.	export default defineConfig({
+5.	  server: { proxy: { '^/(api|admin)(/.*)?': { target: 'http://localhost:5000', changeOrigin: true } } },
+6.	});
+(If Express listens on a different port, keep it consistent.)
+7.	Cookie flags per request (iframe/HTTPS)
+8.	app.set('trust proxy', 1);
+9.	app.use((req,_res,next)=>{
+10.	  if (req.session){
+11.	    const https = req.secure || req.get('x-forwarded-proto')==='https';
+12.	    req.session.cookie.secure   = https;
+13.	    req.session.cookie.sameSite = https ? 'none' : 'lax';
+14.	    req.session.cookie.path     = '/';
+15.	    req.session.cookie.httpOnly = true;
+16.	  }
+17.	  next();
+18.	});
+19.	Admin endpoints + credentials
+o	Paths must be under /api/admin/*.
+AI Settings uses:
+o	GET  /api/admin/ai/providers
+o	POST /api/admin/ai/providers
+o	PUT  /api/admin/ai/providers/:id/activate
+o	GET  /api/admin/ai/providers/status
+o	Every fetch goes through the central API helper with credentials:"include".
+20.	Dynamic sections UI (already claimed)
+o	Fetch /api/admin/sections and render a left nav (container has data-admin-nav).
+o	Active tab comes from location.hash (no default/force “ai”).
+o	Lazy import by convention path; show a visible placeholder if missing.
+Definition of done — must show browser evidence (NOT curl):
+•	Incognito → visit /admin/settings → Network for the document shows X-Powered-By: Express and you’re redirected to /admin/login?....
+•	After login on .replit.dev, the login request shows Set-Cookie: sid=…; SameSite=None; Secure; Path=/.
+•	Console on .replit.dev:
+•	await fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.json())
+•	await fetch('/api/admin/sections',{credentials:'include'}).then(r=>r.json())
+•	[...document.querySelectorAll('[data-admin-nav] a')].map(a=>a.textContent.trim())
+→ prints {authenticated:true}, the sections array, and a list of six nav items.
+•	Saving a provider shows the 200 OK sequence:
+POST /api/admin/ai/providers → PUT /api/admin/ai/providers/:id/activate →
+GET /api/admin/ai/providers → GET /api/admin/ai/providers/status.
+Do not mark complete until you paste those screenshots/outputs.
+Do not proceed with codebase-wide “API_ENDPOINTS” refactors until the above passes; that work is a separate follow-up once the core flow is stable.
+

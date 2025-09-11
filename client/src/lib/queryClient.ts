@@ -23,7 +23,7 @@ export async function apiRequest(
   const isDev = import.meta.env.DEV;
   const devAuth = isDev || import.meta.env.VITE_DEV_AUTH === '1';
   const userId = import.meta.env.VITE_DEV_USER_ID || 'test-admin';
-  const authHeaders = devAuth && url.includes('/admin/') ? { 'x-user-id': userId } : {};
+  const authHeaders: Record<string, string> = devAuth && url.includes('/admin/') ? { 'x-user-id': userId } : {};
 
   const defaultHeaders: Record<string, string> = {
     "Accept": "application/json",

@@ -15,7 +15,7 @@ export default function RequireConfigured({ children }: { children: JSX.Element 
     queryKey: [API_ENDPOINTS.aiProviders()],
     queryFn: () => apiRequest(API_ENDPOINTS.aiProviders()).then(r => r.json()),
     staleTime: 0,
-    refetchOnFocus: false
+    refetchOnWindowFocus: false
   });
   const location = useLocation();
 
