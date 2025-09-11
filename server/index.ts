@@ -217,12 +217,19 @@ app.get('/healthz', (_req, res) => res.status(200).send('ok'));
 app.get('/version.json', (_req, res) => res.json({ build: process.env.BUILD_ID || 'dev' }));
 
 // --- ADMIN PAGES guarded (EXCLUDES /admin/login) ---
-function requireAdminPage(req: any, res: any, next: any){
-  if (isAdmin(req)) return next();
-  return res.redirect('/admin/login?returnTo=' + encodeURIComponent(req.originalUrl));
-}
-app.get('/admin/settings', requireAdminPage, (req, res, next) => next());
-app.get('/admin/*', requireAdminPage, (req, res, next) => next());
+app.get('/admin/*', (req: any, res: any, next: any) => {
+  // Skip guard for login page
+  if (req.path === '/admin/login') return next();
+  
+  // Check if user is admin
+  if (!req.session?.user?.roles?.includes('admin')) {
+    const returnTo = encodeURIComponent(req.originalUrl);
+    return res.redirect(302, `/admin/login?returnTo=${returnTo}`);
+  }
+  
+  // User is authenticated - let it continue to React app
+  next();
+});
 
 app.use((req, res, next) => {
   const start = UniversalAIConfig.getPerformanceTime();

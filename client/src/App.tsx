@@ -11,6 +11,7 @@ import AnalysisDetail from "@/pages/analysis-detail";
 import AdminSettings from "@/pages/admin-settings";
 import AdminLogin from "@/pages/admin-login";
 import RequireAdmin from "@/components/RequireAdmin";
+import AdminLayout from "@/components/AdminLayout";
 import NewInvestigation from "@/pages/new-investigation";
 import InvestigationType from "@/pages/investigation-type";
 import EvidenceCollectionOld from "@/pages/evidence-collection";
@@ -75,7 +76,9 @@ function Router() {
   return (
       <Routes>
         <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin/settings" element={<RequireAdmin><AdminSettings /></RequireAdmin>} />
+        <Route path="/admin/*" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
         
         <Route path="/new" element={<NewInvestigation />} />
         <Route path="/investigation/:id/type" element={<InvestigationType />} />
