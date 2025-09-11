@@ -79,12 +79,15 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: 'auto', sameSite: 'lax', httpOnly: true, path: '/' }
 }));
-// per-request SameSite/Secure
-app.use((req,_res,next)=>{
-  if (req.session){
+// Let Express manage "secure" automatically, we'll still force SameSite correctly per request.
+app.use((req, _res, next) => {
+  if (req.session) {
     const https = req.secure || req.get('x-forwarded-proto') === 'https';
-    req.session.cookie.secure   = https;
-    req.session.cookie.sameSite = https ? 'none' : 'lax';
+    // Cookies must be cross-site in Replit webview iframe
+    req.session.cookie.secure   = https;                 // true on HTTPS, false on HTTP
+    req.session.cookie.sameSite = https ? 'none' : 'lax';// None on HTTPS (iframe), Lax on HTTP
+    req.session.cookie.path     = '/';
+    req.session.cookie.httpOnly = true;
   }
   next();
 });
@@ -129,7 +132,8 @@ const adminApi = express.Router();
 adminApi.use(requireAdminApi);
 adminApi.get('/whoami', (req: any, res: any)=>res.json({authenticated:true,roles:['admin']}));
 adminApi.get('/sections', (_req: any, res: any)=> {
-  const csv = (process.env.ADMIN_SECTIONS||'ai,evidence,taxonomy,workflow,status,debug');
+  const csv = process.env.ADMIN_SECTIONS || '';
+  if (!csv) return res.status(500).json({ error: 'ADMIN_SECTIONS not configured' });
   res.json({ sections: csv.split(',').map((s: string)=>s.trim()).filter(Boolean) });
 });
 app.use('/api/admin', adminApi);

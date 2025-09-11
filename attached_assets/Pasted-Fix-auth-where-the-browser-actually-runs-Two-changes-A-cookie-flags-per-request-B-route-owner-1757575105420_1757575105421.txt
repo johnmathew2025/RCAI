@@ -1,0 +1,72 @@
+Fix auth where the browser actually runs. Two changes: (A) cookie flags per request, (B) route ownership so /admin/* is served by Express even in dev. No hardcoding.
+A) Cookie flags per request (handles preview iframe + deployed HTTPS)
+In server/index.ts (sessions already mounted):
+app.set('trust proxy', 1); // required behind Replit proxy
+
+// Let Express manage "secure" automatically, we’ll still force SameSite correctly per request.
+app.use((req, _res, next) => {
+  if (req.session) {
+    const https = req.secure || req.get('x-forwarded-proto') === 'https';
+    // Cookies must be cross-site in Replit webview iframe
+    req.session.cookie.secure   = https;                 // true on HTTPS, false on HTTP
+    req.session.cookie.sameSite = https ? 'none' : 'lax';// None on HTTPS (iframe), Lax on HTTP
+    req.session.cookie.path     = '/';
+    req.session.cookie.httpOnly = true;
+  }
+  next();
+});
+Definition of done (cookie): On the actual app domain (not localhost), the login response shows Set-Cookie: sid=...; SameSite=None; Secure; Path=/.
+ 
+B) Ensure Express owns /admin/* in dev and prod (Vite must proxy)
+1.	Vite dev proxy (so /admin/* never bypasses Express):
+// vite.config.ts
+export default defineConfig({
+  server: {
+    proxy: {
+      '^/(api|admin)(/.*)?': {
+        target: 'http://localhost:5000', // Express
+        changeOrigin: true,
+      },
+    },
+  },
+});
+2.	Express guard order (login renders, pages guarded):
+// Login page must be BEFORE guards
+app.get('/admin/login', loginPageHandler);
+
+// Admin APIs (JSON 401)
+function isAdmin(req){ return !!(req.session?.user?.roles?.includes('admin')); }
+function requireAdminApi(req,res,next){ return isAdmin(req) ? next() : res.status(401).json({error:'unauthorized'}); }
+app.get('/api/admin/whoami', (req,res)=> res.json({authenticated:isAdmin(req), roles:isAdmin(req)?['admin']:[]}));
+app.get('/api/admin/sections', requireAdminApi, (_req,res)=>{
+  const csv = (process.env.ADMIN_SECTIONS || 'ai,evidence,taxonomy,workflow,status,debug');
+  res.json({ sections: csv.split(',').map(s=>s.trim()).filter(Boolean) });
+});
+
+// Admin pages (302 redirect with returnTo)
+function requireAdminPage(req,res,next){
+  if (isAdmin(req)) return next();
+  res.redirect('/admin/login?returnTo=' + encodeURIComponent(req.originalUrl));
+}
+app.get('/admin/settings', requireAdminPage, serveApp);
+app.get('/admin/*', requireAdminPage, serveApp);
+
+// Static / SPA catch-all LAST
+// app.use(express.static(...)); app.get('*', serveApp);
+Definition of done (routing): Hitting /admin/settings in the browser while logged out results in a 302 to /admin/login?returnTo=..., and after login you land on /admin/settings#evidence without bouncing to AI.
+ 
+C) Browser-side acceptance tests (no curl; these must pass in your webview domain)
+1.	Open DevTools → Network on the app URL you use (preview or deployed). Log in at /admin/login.
+Must see: Set-Cookie: sid=…; SameSite=None; Secure; Path=/.
+2.	In Console, run:
+3.	await fetch('/api/admin/whoami', {credentials:'include'}).then(r=>r.json())
+4.	await fetch('/api/admin/sections', {credentials:'include'}).then(r=>r.json())
+Must see: {authenticated:true,...} and {sections:["ai","evidence","taxonomy","workflow","status","debug"]}.
+5.	Navigate to /admin/settings#evidence.
+Must show: Evidence Library tab, no auto-jump to AI.
+6.	Save an AI provider (with credentials included):
+Must see 200 OK sequence:
+POST /api/admin/ai/providers → PUT /api/admin/ai/providers/:id/activate →
+GET /api/admin/ai/providers → GET /api/admin/ai/providers/status.
+Do not claim “done” until you paste screenshots of (1) the Set-Cookie header with SameSite=None; Secure, and (2) the two Console JSONs above.
+
