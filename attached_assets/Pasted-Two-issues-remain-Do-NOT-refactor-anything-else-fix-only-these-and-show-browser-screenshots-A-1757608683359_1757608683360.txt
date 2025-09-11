@@ -1,0 +1,91 @@
+Two issues remain. Do NOT refactor anything else; fix only these and show browser screenshots.
+ 
+A) SPA auth bypass (Home → Admin Settings doesn’t prompt login)
+Fail evidence: On .replit.dev I can see the Admin Settings page while:
+(async()=>{console.log(await fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.json()))})();
+returns 401. The page must not render when unauthenticated.
+Fix exactly this:
+1.	Header link must force a full navigation (no router intercept).
+<a
+  href="/admin/settings"
+  data-fullnav
+  rel="nofollow"
+  onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); window.location.assign('/admin/settings'); }}
+>
+  Admin Settings
+</a>
+(Ensure this renders as a real <a> in the DOM; no parent handler should call preventDefault().)
+2.	Wrap the entire /admin/* branch with a client guard that blocks render until the check completes.
+// components/RequireAdmin.tsx
+import { useEffect, useState } from 'react';
+export default function RequireAdmin({children}:{children:React.ReactNode}) {
+  const [ok,setOk]=useState<null|boolean>(null);
+  useEffect(()=>{
+    fetch('/api/admin/whoami',{credentials:'include'})
+      .then(r=>r.ok?r.json():{authenticated:false})
+      .then(j=>setOk(!!j?.authenticated))
+      .catch(()=>setOk(false));
+  },[]);
+  if (ok===null) return null;  // do NOT render until we know
+  if (!ok) {
+    const rt = encodeURIComponent(location.pathname+location.search+location.hash);
+    location.href = `/admin/login?returnTo=${rt}`;
+    return null;
+  }
+  return <>{children}</>;
+}
+
+// routes — wrap the WHOLE /admin/* tree, not just /admin/settings
+<Route path="/admin/*" element={<RequireAdmin><AdminLayout/></RequireAdmin>}>
+  <Route path="settings" element={<AdminSettingsPage/>} />
+</Route>
+3.	Server guard must run BEFORE React is served.
+app.get('/admin/login', renderLogin); // public
+app.get('/admin/*',(req,res,next)=>{
+  if(!req.session?.user){
+    const rt=encodeURIComponent(req.originalUrl);
+    return res.redirect(302, `/admin/login?returnTo=${rt}`);
+  }
+  next();
+});
+// SPA fallback AFTER the guard:
+app.use(express.static('dist'));
+app.get('*', (_req,res)=>res.sendFile(path.join(__dirname,'dist','index.html')));
+4.	Dev proxy so preview hits Express (unchanged):
+// vite.config.ts
+export default defineConfig({
+  server:{ proxy:{ '^/(api|admin)(/.*)?':{ target:'http://localhost:5000', changeOrigin:true } } }
+});
+Definition of done (browser proof only):
+•	Incognito → Home page → click “Admin Settings” → Network shows a Document request and 302 → /admin/login?... (server guard).
+•	After login on .replit.dev, the login request has Set-Cookie: sid=…; SameSite=None; Secure; Path=/.
+•	In the same tab:
+•	(async()=>{console.log(await fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.json()))})();
+→ {authenticated:true}.
+•	While logged out, Admin Settings never renders; it immediately redirects to login (no 401s piling up).
+ 
+B) Missing admin items (Evidence, Taxonomy, etc.)
+Fail evidence: In the console:
+(async()=>{
+  const s = await fetch('/api/admin/sections',{credentials:'include'}).then(r=>r.json());
+  console.log('sections:', s);
+  const nav = [...document.querySelectorAll('[data-admin-nav] a')].map(a=>a.textContent.trim());
+  console.log('nav:', nav);
+})();
+Either sections is wrong/empty, or nav is [] (UI not rendering).
+Fix exactly this (no hardcoding of business data):
+1.	/api/admin/sections must return the full list:
+["ai","evidence","taxonomy","workflow","status","debug"].
+o	If you wired this to ADMIN_SECTIONS, provide a fallback to the list above when the env var is empty/missing. Do not silently drop sections.
+2.	Admin Settings page must:
+o	Fetch /api/admin/sections with credentials:"include".
+o	Render a left nav with data-admin-nav and anchors to #<id>.
+o	Use location.hash for the active tab. Do not force/default to “ai”.
+o	Lazy import by convention, with a visible placeholder if a component is missing.
+Definition of done (browser proof only):
+•	Console shows sections includes all six IDs.
+•	nav query returns six items.
+•	Visiting /admin/settings#evidence displays Evidence Library (no jump back to AI).
+ 
+Do not mark complete until you provide screenshots for all passes above.
+
