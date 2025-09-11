@@ -7409,6 +7409,18 @@ JSON array only:`;
     }
   });
   
+  // Admin sections endpoint - returns all available admin sections
+  app.get('/api/admin/sections', requireAdmin, async (req: any, res) => {
+    try {
+      // Return the required admin sections as specified
+      const sections = ["ai","evidence","taxonomy","workflow","status","debug"];
+      res.json({ sections });
+    } catch (error) {
+      console.error('[API] Error fetching admin sections:', error);
+      res.status(500).json({ error: 'Failed to fetch admin sections' });
+    }
+  });
+
   // User management endpoints
   app.get('/api/admin/users', requireAdmin, async (req: any, res) => {
     try {
