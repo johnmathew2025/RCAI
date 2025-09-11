@@ -1,0 +1,60 @@
+Fail evidence: On .replit.dev while the Admin page is visible:
+fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.json()) → 401.
+The page must NOT render when unauthenticated. Fix only the auth flow; no refactors.
+1) Header must force a full navigation (no SPA intercept):
+<a href="/admin/settings" data-fullnav rel="nofollow">Admin Settings</a>
+// Do NOT attach onClick/navigate. If using React Router:
+// <Link to="/admin/settings" reloadDocument data-fullnav>Admin Settings</Link>
+2) Client guard must wrap the real /admin/* route and block render until checked:
+// components/RequireAdmin.tsx
+import { useEffect, useState } from 'react';
+export default function RequireAdmin({children}:{children:React.ReactNode}) {
+  const [ok,setOk]=useState<null|boolean>(null);
+  useEffect(()=>{
+    fetch('/api/admin/whoami',{credentials:'include'})
+      .then(r=>r.ok?r.json():{authenticated:false})
+      .then(j=>setOk(!!j?.authenticated))
+      .catch(()=>setOk(false));
+  },[]);
+  if (ok===null) return null;          // IMPORTANT: don't render yet
+  if (!ok) {                           // redirect when unauthenticated
+    const rt = encodeURIComponent(location.pathname+location.search+location.hash);
+    location.href = `/admin/login?returnTo=${rt}`;
+    return null;
+  }
+  return <>{children}</>;
+}
+// routes
+<Route path="/admin/*" element={<RequireAdmin><AdminLayout/></RequireAdmin>}>
+  <Route path="settings" element={<AdminSettingsPage/>} />
+</Route>
+3) Server guard must run BEFORE React is served:
+app.get('/admin/login', renderLogin); // public
+app.get('/admin/*',(req,res,next)=>{
+  if(!req.session?.user){
+    const rt = encodeURIComponent(req.originalUrl);
+    return res.redirect(302, `/admin/login?returnTo=${rt}`);
+  }
+  next();
+});
+app.use(express.static('dist'));                  // SPA fallback AFTER guard
+app.get('*', (_req,res)=>res.sendFile(path.join(__dirname,'dist','index.html')));
+4) Preview proxy (so /admin/* hits Express):
+// vite.config.ts
+export default defineConfig({
+  server:{ proxy:{ '^/(api|admin)(/.*)?':{ target:'http://localhost:5000', changeOrigin:true } } }
+});
+Definition of done (browser proof, not curl):
+•	Incognito: on home page click Admin Settings → Network shows a Document request and 302 → /admin/login.
+•	After login on .replit.dev: login response has Set-Cookie: sid=…; SameSite=None; Secure; Path=/.
+•	Same tab console:
+•	(async()=>{console.log(await fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.json()))})();
+→ {authenticated:true}.
+•	While logged out, Admin Settings never renders (no 401s piling up); it redirects to login.
+
+
+
+
+
+
+
