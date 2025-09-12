@@ -11,18 +11,19 @@ interface AIProvider {
 }
 
 export default function RequireConfigured({ children }: { children: JSX.Element }) {
+  const location = useLocation();
+
+  // Never block admin pages or home - check BEFORE making API calls
+  if (location.pathname.startsWith("/admin") || location.pathname === "/") {
+    return children;
+  }
+
   const { data, error, isLoading } = useQuery<AIProvider[]>({
     queryKey: [API_ENDPOINTS.aiProviders()],
     queryFn: () => apiRequest(API_ENDPOINTS.aiProviders()).then(r => r.json()),
     staleTime: 0,
     refetchOnWindowFocus: false
   });
-  const location = useLocation();
-
-  // Never block admin pages or home
-  if (location.pathname.startsWith("/admin") || location.pathname === "/") {
-    return children;
-  }
 
   if (isLoading) return null;
   if (error) {
