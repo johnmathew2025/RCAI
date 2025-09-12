@@ -18,9 +18,7 @@ if (!process.env.SETUP_ADMIN_EMAIL) {
 if (!process.env.SETUP_ADMIN_PASSWORD) {
   throw new Error("SETUP_ADMIN_PASSWORD environment variable is required");
 }
-if (!process.env.ADMIN_SECTIONS) {
-  throw new Error("ADMIN_SECTIONS environment variable is required");
-}
+// ADMIN_SECTIONS now has defaults in config.ts - no longer required
 
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
