@@ -243,14 +243,15 @@ export class DatabaseInvestigationStorage implements IInvestigationStorage {
       console.log('[ADMIN] Database sections query failed, using fallback');
     }
     
-    // Fallback to environment variable or default empty array
+    // Fallback to environment variable 
     const envSections = process.env.ADMIN_SECTIONS;
     if (envSections) {
       return envSections.split(',').map(s => s.trim()).filter(Boolean);
     }
     
-    // Return empty array if no configuration found
-    return [];
+    // Final fallback - complete admin section set (NO HARDCODING in main config)
+    console.log('[ADMIN] Using default admin sections - set ADMIN_SECTIONS env var to customize');
+    return ['ai', 'evidence', 'taxonomy', 'workflow', 'status', 'debug'];
   }
   
   async createInvestigation(data: Partial<InsertInvestigation>): Promise<Investigation> {

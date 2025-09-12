@@ -83,10 +83,12 @@ export async function getUserWithRoles(userId: string): Promise<{
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
       .where(eq(userRoles.userId, userId));
 
+    // Roles loaded successfully from database
+
     return {
       id: user.id,
       email: user.email,
-      roles: userRoleResults.map(r => r.name),
+      roles: userRoleResults.map(r => r.name).filter(Boolean),
       isActive: user.isActive,
       passwordHash: user.passwordHash || undefined,
     };
@@ -118,10 +120,12 @@ export async function getUserByEmail(email: string): Promise<{
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
       .where(eq(userRoles.userId, user.id));
 
+    // Roles loaded successfully from database
+
     return {
       id: user.id,
       email: user.email,
-      roles: userRoleResults.map(r => r.name),
+      roles: userRoleResults.map(r => r.name).filter(Boolean),
       isActive: user.isActive,
       passwordHash: user.passwordHash || undefined,
     };

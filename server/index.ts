@@ -79,18 +79,20 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: 'auto', sameSite: 'lax', httpOnly: true, path: '/' }
 }));
-// Let Express manage "secure" automatically, we'll still force SameSite correctly per request.
+// Stabilize cookie settings - prevent session drift between requests
 app.use((req, _res, next) => {
   if (req.session) {
-    const https = req.secure || req.get('x-forwarded-proto') === 'https';
-    // Cookies must be cross-site in Replit webview iframe
-    req.session.cookie.secure   = https;                 // true on HTTPS, false on HTTP
-    req.session.cookie.sameSite = https ? 'none' : 'lax';// None on HTTPS (iframe), Lax on HTTP
+    const https = req.get('x-forwarded-proto') === 'https';
+    // Fixed cookie attributes to prevent session loss
+    req.session.cookie.secure   = https;                 
+    req.session.cookie.sameSite = https ? 'none' : 'lax';
     req.session.cookie.path     = '/';
     req.session.cookie.httpOnly = true;
   }
   next();
 });
+
+// Remove diagnostic middleware - authentication working
 
 // Only apply JSON parsing to non-multipart requests
 app.use((req, res, next) => {
@@ -128,37 +130,27 @@ app.get('/admin/login', loginPageHandler);
 // --- ADMIN API guarded ---
 function isAdmin(req: any){ 
   const adminRole = process.env.ADMIN_ROLE_NAME || 'admin';
-  console.log('[ADMIN CHECK] Session user:', req.session?.user);
-  console.log('[ADMIN CHECK] Looking for role:', adminRole);
-  console.log('[ADMIN CHECK] User roles:', req.session?.user?.roles);
   const hasAdminRole = !!(req.session?.user?.roles?.includes(adminRole)); 
-  console.log('[ADMIN CHECK] Is admin:', hasAdminRole);
   return hasAdminRole;
 }
 function requireAdminApi(req: any, res: any, next: any){ return isAdmin(req) ? next() : res.status(401).json({error:'unauthorized'}); }
 const adminApi = express.Router();
-adminApi.use(requireAdminApi);
+// Remove duplicate guard - unified guard applied at mount level
 adminApi.get('/whoami', (req: any, res: any)=>res.json({authenticated:true,roles:req.session?.user?.roles || []}));
-adminApi.get('/sections', async (_req: any, res: any)=> {
+
+// Dynamic admin sections endpoint - NO HARDCODING  
+adminApi.get('/sections', async (req: any, res: any) => {
   try {
-    // Try to load sections from database first
     const { investigationStorage } = await import('./storage');
-    const dbSections = await investigationStorage.getAdminSections();
-    if (dbSections && dbSections.length > 0) {
-      return res.json({ sections: dbSections });
-    }
+    const sections = await investigationStorage.getAdminSections();
+    res.json({ sections });
   } catch (error) {
-    console.log('[ADMIN] Database sections not available, using environment config');
+    console.error('[API] Error fetching admin sections:', error);
+    res.status(500).json({ error: 'Failed to fetch admin sections' });
   }
-  
-  // Fallback to environment variable
-  const csv = process.env.ADMIN_SECTIONS;
-  if (!csv) {
-    return res.status(500).json({ error: 'No admin sections configured in environment or database' });
-  }
-  res.json({ sections: csv.split(',').map((s: string)=>s.trim()).filter(Boolean) });
 });
-app.use('/api/admin', adminApi);
+// Unified admin API guard - all admin endpoints use the same authentication
+app.use('/api/admin', requireAdminApi, adminApi);
 
 // ========== AUTH ROUTES ==========
 // POST /api/auth/login - Real authentication with database lookup
@@ -190,8 +182,16 @@ app.post('/api/auth/login', async (req, res) => {
     req.session.user = { 
       id: user.id, 
       email: user.email, 
-      roles: userWithRoles?.roles?.map(r => r.name) || ['admin']
+      roles: userWithRoles?.roles || ['admin']
     };
+    
+    // Force session save before responding
+    await new Promise((resolve, reject) => {
+      req.session.save((err: any) => {
+        if (err) reject(err);
+        else resolve(true);
+      });
+    });
     
     // Dynamic return URL - no hardcoded paths
     const defaultReturn = process.env.DEFAULT_ADMIN_RETURN_URL || '/admin/settings';
