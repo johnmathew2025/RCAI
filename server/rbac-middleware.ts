@@ -18,22 +18,20 @@ import { db } from './db.js';
 import { users, roles, userRoles, auditLogs } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 
-// Extend Express Request to include authenticated user data
-export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    roles: string[];
-    isActive: boolean;
-    role?: string; // Legacy compatibility
-  };
+// Define authenticated user type
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  roles: string[];
+  isActive: boolean;
+  role?: string; // Legacy compatibility
+}
+
+// Extend Express Request to include authenticated user data - override Express user type
+export interface AuthenticatedRequest extends Omit<Request, 'user'> {
+  user?: AuthenticatedUser;
   session: any & {
-    user?: {
-      id: string;
-      email: string;
-      roles: string[];
-      isActive: boolean;
-    };
+    user?: AuthenticatedUser;
   };
 }
 

@@ -11,7 +11,9 @@ import { Config } from './config.js';
 export interface AuthenticatedUser {
   id: string;
   role: string;
-  email?: string;
+  email: string;
+  roles: string[]; // For compatibility with session-based auth
+  isActive: boolean; // For compatibility with session-based auth
 }
 
 // Extend Express Request interface to include user

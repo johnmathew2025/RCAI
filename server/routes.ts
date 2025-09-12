@@ -1916,7 +1916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('[ROUTES] Evidence library CSV export route accessed - Universal Protocol Standard compliant');
     
     try {
-      const evidenceItems = await storage.getAllEvidenceLibrary();
+      const evidenceItems = await investigationStorage.getAllEvidenceLibrary();
       
       // Define all column headers - NO HARDCODING
       const headers = [
@@ -3640,7 +3640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: aiProviders.id,
         provider: aiProviders.provider,
         modelId: aiProviders.modelId,
-        isActive: aiProviders.isActive,
+        active: aiProviders.active,
         createdAt: aiProviders.createdAt,
         updatedAt: aiProviders.updatedAt,
       }).from(aiProviders).orderBy(aiProviders.createdAt);
@@ -3682,19 +3682,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (is_active) {
         await db.transaction(async (tx) => {
           // Deactivate all providers
-          await tx.update(aiProviders).set({ isActive: false, updatedAt: new Date() });
+          await tx.update(aiProviders).set({ active: false, updatedAt: new Date() });
           
           // Insert new active provider
           const [newProvider] = await tx.insert(aiProviders).values({
             provider: provider.trim(),
             modelId: model_id.trim(),
-            apiKeyEnc: encryptedKey,
-            isActive: true,
+            keyCiphertextB64: encryptedKey.keyCiphertextB64 || encryptedKey,
+            keyIvB64: encryptedKey.keyIvB64 || '',
+            keyTagB64: encryptedKey.keyTagB64 || '',
+            active: true,
+            createdBy: 'system',
           }).returning({
             id: aiProviders.id,
             provider: aiProviders.provider,
             modelId: aiProviders.modelId,
-            isActive: aiProviders.isActive,
+            active: aiProviders.active,
             createdAt: aiProviders.createdAt,
           });
           
@@ -3705,13 +3708,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const [newProvider] = await db.insert(aiProviders).values({
           provider: provider.trim(),
           modelId: model_id.trim(),
-          apiKeyEnc: encryptedKey,
-          isActive: false,
+          keyCiphertextB64: encryptedKey.keyCiphertextB64 || encryptedKey,
+          keyIvB64: encryptedKey.keyIvB64 || '',
+          keyTagB64: encryptedKey.keyTagB64 || '',
+          active: false,
+          createdBy: 'system',
         }).returning({
           id: aiProviders.id,
           provider: aiProviders.provider,
           modelId: aiProviders.modelId,
-          isActive: aiProviders.isActive,
+          active: aiProviders.active,
           createdAt: aiProviders.createdAt,
         });
         
@@ -3744,14 +3750,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Encrypt new API key if provided
       if (api_key && api_key.trim()) {
         const { AIService } = await import("./ai-service");
-        updateData.apiKeyEnc = AIService.encrypt(api_key.trim());
+        const encrypted = AIService.encrypt(api_key.trim());
+        updateData.keyCiphertextB64 = encrypted;
       }
       
       // If setting as active, ensure only one active provider
       if (is_active) {
         await db.transaction(async (tx) => {
           // Deactivate all providers
-          await tx.update(aiProviders).set({ isActive: false, updatedAt: new Date() });
+          await tx.update(aiProviders).set({ active: false, updatedAt: new Date() });
           
           // Update target provider
           const [updatedProvider] = await tx.update(aiProviders)
@@ -3761,7 +3768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               id: aiProviders.id,
               provider: aiProviders.provider,
               modelId: aiProviders.modelId,
-              isActive: aiProviders.isActive,
+              active: aiProviders.active,
               updatedAt: aiProviders.updatedAt,
             });
           
@@ -3780,7 +3787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: aiProviders.id,
             provider: aiProviders.provider,
             modelId: aiProviders.modelId,
-            isActive: aiProviders.isActive,
+            active: aiProviders.active,
             updatedAt: aiProviders.updatedAt,
           });
         
@@ -3834,17 +3841,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await db.transaction(async (tx) => {
         // Deactivate all providers
-        await tx.update(aiProviders).set({ isActive: false, updatedAt: new Date() });
+        await tx.update(aiProviders).set({ active: false, updatedAt: new Date() });
         
         // Activate target provider
         const [activatedProvider] = await tx.update(aiProviders)
-          .set({ isActive: true, updatedAt: new Date() })
+          .set({ active: true, updatedAt: new Date() })
           .where(eq(aiProviders.id, parseInt(id)))
           .returning({
             id: aiProviders.id,
             provider: aiProviders.provider,
             modelId: aiProviders.modelId,
-            isActive: aiProviders.isActive,
+            active: aiProviders.active,
           });
         
         if (!activatedProvider) {
@@ -3881,7 +3888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Decrypt API key
       const { AIService } = await import("./ai-service");
-      const apiKey = AIService.decrypt(provider.apiKeyEnc);
+      const apiKey = AIService.decrypt(provider.keyCiphertextB64);
       
       // Test the API key using existing test infrastructure
       const testResult = await AIService.testApiKey(provider.provider, apiKey);
@@ -7468,7 +7475,7 @@ JSON array only:`;
           firstName: firstName || null,
           lastName: lastName || null,
           passwordHash,
-          isActive: true,
+          active: true,
           emailVerifiedAt: new Date(), // Pre-verify admin-created users
         })
         .returning({ id: users.id });
@@ -7495,7 +7502,7 @@ JSON array only:`;
           email,
           firstName,
           lastName,
-          isActive: true,
+          active: true,
         },
       });
     } catch (error) {
