@@ -1,0 +1,65 @@
+Objective: Make SPA navigation require login exactly like direct URL.
+Scope: Small, surgical changes; keep routing structure; no business logic changes.
+1) Fix the client guard to block render until auth is known
+•	File: client/src/components/RequireAdmin.tsx (or equivalent)
+•	Replace its logic with this pattern (keep existing API paths & types; do not hardcode):
+import { useEffect, useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+
+export default function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const [ok, setOk] = useState<null | boolean>(null);
+  const loc = useLocation();
+
+  useEffect(() => {
+    let canceled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/admin/whoami", { credentials: "include" });
+        if (!canceled) {
+          if (!r.ok) { setOk(false); return; }
+          const j = await r.json().catch(() => ({}));
+          setOk(!!j?.authenticated);
+        }
+      } catch {
+        if (!canceled) setOk(false);
+      }
+    })();
+    return () => { canceled = true; };
+  }, []);
+
+  // Important: do NOT render children until auth known
+  if (ok === null) return null;
+
+  if (!ok) {
+    const returnTo = encodeURIComponent(loc.pathname + loc.search + loc.hash);
+    return <Navigate to={`/admin/login?returnTo=${returnTo}`} replace />;
+  }
+
+  return <>{children}</>;
+}
+Why: This prevents the admin component tree from mounting during SPA nav until whoami is verified. No flashes, no cached UI, no bypass.
+2) Ensure the guard wraps the parent admin route (not the page)
+•	File: App.tsx / router.tsx
+•	Route shape must be exactly:
+<Route path="/admin/*" element={<RequireAdmin><AdminLayout/></RequireAdmin>}>
+  <Route path="settings" element={<AdminSettings/>} />
+  {/* other admin children */}
+</Route>
+•	Remove any extra RequireAdmin wrappers inside child pages (double-wrapping isn’t needed and causes confusion).
+•	Confirm there is no second route that can render AdminSettings outside /admin/*.
+3) Defensive UX in Admin root (optional but recommended)
+•	In AdminLayout (or top admin page), if any critical admin API returns 401 after mount (race, token expiry), immediately navigate to /admin/login?returnTo=…. Don’t render admin chrome when unauthorized.
+4) The Admin button/link
+•	If you want to keep SPA behavior (recommended), keep:
+•	<Link to="/admin/settings">Admin Settings</Link>
+With the fixed guard above, SPA will still require login.
+•	If you insist on belt-and-suspenders server enforcement, switch the Home button to a hard navigation (still no hardcoding):
+•	<a href="/admin/settings" onClick={(e) => { e.preventDefault(); window.location.assign("/admin/settings"); }}>
+•	  Admin Settings
+•	</a>
+(This is optional once the guard is correct.)
+5) Tests to run (prove it’s fixed)
+1.	Incognito → open /admin/settings → should redirect to /admin/login?....
+2.	Incognito → open / → click “Admin Settings” (SPA) → should redirect to /admin/login?....
+3.	After login → both paths load admin normally.
+4.	Expire session (clear cookies) → refresh admin page → auto-redirect to login (no admin chrome visible).
