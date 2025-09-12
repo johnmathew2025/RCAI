@@ -82,9 +82,12 @@ export function AIDebugPanel({ isVisible }: AIDebugPanelProps) {
       
       let providerStats = undefined;
       try {
-        const debugResponse = await api(API_ENDPOINTS.aiProvidersDebug());
-        if (debugResponse.ok) {
-          providerStats = await debugResponse.json();
+        // Only fetch debug data if on admin route to prevent unauthorized API calls
+        if (window.location.pathname.startsWith('/admin')) {
+          const debugResponse = await api(API_ENDPOINTS.aiProvidersDebug());
+          if (debugResponse.ok) {
+            providerStats = await debugResponse.json();
+          }
         }
       } catch {
         // Debug endpoint may not be available

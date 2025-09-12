@@ -37,7 +37,10 @@ export default function AIProvidersTable() {
   }
 
   useEffect(() => { 
-    load();
+    // Only load if on admin route to prevent unauthorized API calls
+    if (window.location.pathname.startsWith('/admin')) {
+      load();
+    }
   }, []);
 
   async function save() {
