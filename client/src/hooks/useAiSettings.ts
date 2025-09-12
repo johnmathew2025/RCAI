@@ -4,13 +4,14 @@ import { API_ENDPOINTS } from '../config/apiEndpoints';
 
 const KEY = ['admin.aiSettings.v2']; // New key to bust old caches
 
-export const useAiSettings = () =>
+export const useAiSettings = ({ enabled = false } = {}) =>
   useQuery({ 
     queryKey: KEY, 
     queryFn: async () => {
       const response = await api(API_ENDPOINTS.aiProviders());
       return await response.json();
     },
+    enabled,
     staleTime: 0, 
     gcTime: 0, 
     refetchOnMount: 'always', 

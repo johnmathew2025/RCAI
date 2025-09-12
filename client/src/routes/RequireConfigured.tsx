@@ -24,6 +24,7 @@ export default function RequireConfigured({ children }: { children: JSX.Element 
   const { data, error, isLoading } = useQuery<AIProvider[]>({
     queryKey: [API_ENDPOINTS.aiProviders()],
     queryFn: () => apiRequest(API_ENDPOINTS.aiProviders()).then(r => r.json()),
+    enabled: !location.pathname.startsWith(ADMIN_BASE_PATH) && location.pathname !== HOME_PATH,
     staleTime: 0,
     refetchOnWindowFocus: false
   });
