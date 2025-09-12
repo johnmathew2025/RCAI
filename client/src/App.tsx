@@ -78,6 +78,10 @@ function Router() {
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/*" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="evidence-library" element={<EvidenceLibraryAdmin />} />
+          <Route path="evidence-management" element={<EvidenceLibrarySimple />} />
+          <Route path="evidence-library-management" element={<EvidenceLibraryManagement />} />
+          <Route path="fault-reference-library" element={<FaultReferenceLibrary />} />
         </Route>
         
         <Route path="/new" element={<NewInvestigation />} />
@@ -94,11 +98,7 @@ function Router() {
         <Route path="/ai-powered-rca" element={<RequireConfigured><RCAAnalysisDemo /></RequireConfigured>} />
         <Route path="/analysis-history" element={<DeploymentReadyDashboard />} />
       
-        {/* Legacy route redirects */}
-        <Route path="/admin/evidence-library" element={<EvidenceLibraryAdmin />} />
-        <Route path="/admin/evidence-management" element={<EvidenceLibrarySimple />} />
-        <Route path="/admin/evidence-library-management" element={<EvidenceLibraryManagement />} />
-        <Route path="/admin/fault-reference-library" element={<FaultReferenceLibrary />} />
+        {/* Legacy route redirects - REMOVED: Now under RequireAdmin guard above */}
         {/* Route removed - was causing JSX errors */}
         <Route path="/evidence-analysis-demo" element={<EvidenceAnalysisDemo />} />
         <Route path="/rca-analysis-demo" element={<RCAAnalysisDemo />} />
@@ -126,8 +126,8 @@ function Router() {
         <Route path="/incidents/:id/fallback-analysis" element={<FallbackAnalysisPage />} />
         <Route path="/summary-report/:incidentId" element={<SummaryReport />} />
         <Route path="/analysis-details/:incidentId" element={<AnalysisDetails />} />
-        <Route path="/" element={<Navigate to="/admin" replace />} />
-        <Route path="*" element={<Navigate to="/admin" replace />} />
+        <Route path="/" element={<Home />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
   );
 }
