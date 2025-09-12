@@ -127,6 +127,22 @@ const loginPageHandler = (req: any, res: any) => {
 };
 app.get('/admin/login', loginPageHandler);
 
+// CRITICAL: Server-side admin HTML guard - prevents authentication bypass
+app.get('/admin*', (req, res, next) => {
+  // Skip guard for login page
+  if (req.path === '/admin/login') {
+    return next();
+  }
+  
+  // Check admin authentication on server side
+  if (!isAdmin(req)) {
+    const returnTo = encodeURIComponent(req.originalUrl);
+    return res.redirect(302, `/admin/login?returnTo=${returnTo}`);
+  }
+  
+  next();
+});
+
 // --- ADMIN API guarded ---
 function isAdmin(req: any){ 
   const adminRole = process.env.ADMIN_ROLE_NAME || 'admin';
@@ -136,7 +152,14 @@ function isAdmin(req: any){
 function requireAdminApi(req: any, res: any, next: any){ return isAdmin(req) ? next() : res.status(401).json({error:'unauthorized'}); }
 const adminApi = express.Router();
 // Remove duplicate guard - unified guard applied at mount level
-adminApi.get('/whoami', (req: any, res: any)=>res.json({authenticated:true,roles:req.session?.user?.roles || []}));
+adminApi.get('/whoami', (req: any, res: any) => {
+  const user = req.session?.user;
+  res.json({
+    authenticated: !!user && isAdmin(req),
+    roles: user?.roles || [],
+    user: user ? { id: user.id, email: user.email } : null
+  });
+});
 
 // Dynamic admin sections endpoint - NO HARDCODING  
 adminApi.get('/sections', async (req: any, res: any) => {
@@ -153,6 +176,23 @@ adminApi.get('/sections', async (req: any, res: any) => {
 app.use('/api/admin', requireAdminApi, adminApi);
 
 // ========== AUTH ROUTES ==========
+// GET /api/auth/whoami - Unguarded endpoint that returns real session state
+app.get('/api/auth/whoami', (req, res) => {
+  const user = req.session?.user;
+  if (!user) {
+    return res.json({ authenticated: false, roles: [] });
+  }
+  
+  res.json({
+    authenticated: true,
+    roles: user.roles || [],
+    user: {
+      id: user.id,
+      email: user.email
+    }
+  });
+});
+
 // POST /api/auth/login - Real authentication with database lookup
 app.post('/api/auth/login', async (req, res) => {
   try {
