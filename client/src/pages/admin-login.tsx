@@ -19,11 +19,17 @@ export default function AdminLoginPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.isAdmin) {
-          // Already authenticated as admin, redirect using server configuration
+          // Already authenticated as admin, validate and redirect safely
           const urlParams = new URLSearchParams(window.location.search);
-          const returnTo = urlParams.get('returnTo');
-          // Use server-provided default if no returnTo specified
-          window.location.href = returnTo || window.location.origin + '/admin/settings';
+          let returnTo = urlParams.get('returnTo');
+          
+          // Security: Only allow same-origin relative paths
+          if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+            window.location.href = returnTo;
+          } else {
+            // Invalid returnTo - redirect to base admin route (server will handle)
+            window.location.href = '/admin';
+          }
         }
       }
     } catch (error) {

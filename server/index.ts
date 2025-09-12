@@ -145,7 +145,10 @@ app.get('/admin*', (req, res, next) => {
 
 // --- ADMIN API guarded ---
 function isAdmin(req: any){ 
-  const adminRole = process.env.ADMIN_ROLE_NAME || 'admin';
+  const adminRole = process.env.ADMIN_ROLE_NAME;
+  if (!adminRole) {
+    throw new Error('ADMIN_ROLE_NAME environment variable is required');
+  }
   const hasAdminRole = !!(req.session?.user?.roles?.includes(adminRole)); 
   return hasAdminRole;
 }
@@ -220,10 +223,14 @@ app.post('/api/auth/login', async (req, res) => {
     
     // Login handler must set session with dynamic roles from database
     const userWithRoles = await getUserWithRoles(user.id);
+    if (!userWithRoles || !userWithRoles.roles || userWithRoles.roles.length === 0) {
+      return res.status(403).json({code: 'NO_ROLES_ASSIGNED', message: 'User has no roles assigned'});
+    }
+    
     req.session.user = { 
       id: user.id, 
       email: user.email, 
-      roles: userWithRoles?.roles || ['admin']
+      roles: userWithRoles.roles
     };
     
     // Force session save before responding
@@ -235,14 +242,18 @@ app.post('/api/auth/login', async (req, res) => {
     });
     
     // Security: Sanitize returnTo to prevent open redirect attacks
-    let returnTo = req.body?.returnTo || process.env.DEFAULT_ADMIN_RETURN_URL || '/admin/settings';
+    const defaultReturn = process.env.DEFAULT_ADMIN_RETURN_URL;
+    if (!defaultReturn) {
+      throw new Error('DEFAULT_ADMIN_RETURN_URL environment variable is required');
+    }
+    let returnTo = req.body?.returnTo || defaultReturn;
     
     // Only allow same-origin relative paths starting with '/' (but not '//')
     if (typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
       // Valid relative path - use as is
     } else {
       // Invalid or potentially malicious URL - use secure default
-      returnTo = process.env.DEFAULT_ADMIN_RETURN_URL || '/admin/settings';
+      returnTo = defaultReturn;
     }
     
     res.json({ ok: true, returnTo });
