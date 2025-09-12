@@ -127,25 +127,26 @@ const loginPageHandler = (req: any, res: any) => {
 };
 app.get('/admin/login', loginPageHandler);
 
-// CRITICAL: Server-side admin HTML guard - prevents authentication bypass
-// SCOPE: Only protect admin settings pages, NOT all admin routes
-app.get('/admin/settings*', (req, res, next) => {
-  // Check admin authentication on server side
-  if (!isAdmin(req)) {
-    const returnTo = encodeURIComponent(req.originalUrl);
-    return res.redirect(302, `/admin/login?returnTo=${returnTo}`);
+// protect only API under /api/admin/*
+app.use('/api/admin', (req,res,next) => {
+  if (!req.session?.user) return res.status(401).json({ error: 'unauthorized' });
+  next();
+});
+
+// protect only pages under /admin/*
+app.get('/admin/*', (req,res,next) => {
+  if (!req.session?.user) {
+    const rt = encodeURIComponent(req.originalUrl);
+    return res.redirect(302, `/admin/login?returnTo=${rt}`);
   }
-  
   next();
 });
 
 // --- ADMIN API guarded ---
+import { ADMIN_ROLE_NAME } from './config.js';
+
 function isAdmin(req: any){ 
-  const adminRole = process.env.ADMIN_ROLE_NAME;
-  if (!adminRole) {
-    throw new Error('ADMIN_ROLE_NAME environment variable is required');
-  }
-  const hasAdminRole = !!(req.session?.user?.roles?.includes(adminRole)); 
+  const hasAdminRole = !!(req.session?.user?.roles?.includes(ADMIN_ROLE_NAME)); 
   return hasAdminRole;
 }
 function requireAdminApi(req: any, res: any, next: any){ return isAdmin(req) ? next() : res.status(401).json({error:'unauthorized'}); }
@@ -238,18 +239,15 @@ app.post('/api/auth/login', async (req, res) => {
     });
     
     // Security: Sanitize returnTo to prevent open redirect attacks
-    const defaultReturn = process.env.DEFAULT_ADMIN_RETURN_URL;
-    if (!defaultReturn) {
-      throw new Error('DEFAULT_ADMIN_RETURN_URL environment variable is required');
-    }
-    let returnTo = req.body?.returnTo || defaultReturn;
+    const { DEFAULT_ADMIN_RETURN_URL } = await import('./config.js');
+    let returnTo = req.body?.returnTo || DEFAULT_ADMIN_RETURN_URL;
     
     // Only allow same-origin relative paths starting with '/' (but not '//')
     if (typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
       // Valid relative path - use as is
     } else {
       // Invalid or potentially malicious URL - use secure default
-      returnTo = defaultReturn;
+      returnTo = DEFAULT_ADMIN_RETURN_URL;
     }
     
     res.json({ ok: true, returnTo });

@@ -1,0 +1,97 @@
+Stop asking for new env vars. Implement defaults and fix the guards. Provide browser proof. No refactors.
+0) Config defaults (no hardcoding business data)
+// server/config.ts
+export const ADMIN_ROLE_NAME = process.env.ADMIN_ROLE_NAME || 'admin';
+export const DEFAULT_ADMIN_RETURN_URL = process.env.DEFAULT_ADMIN_RETURN_URL || '/admin/settings';
+export const ADMIN_SECTIONS =
+  (process.env.ADMIN_SECTIONS?.split(',').map(s=>s.trim()).filter(Boolean) || 
+   ['ai','evidence','taxonomy','workflow','status','debug']);
+1) Server route order (guard only admin, not home)
+// public login page
+app.get('/admin/login', renderLogin);
+
+// protect only API under /api/admin/*
+app.use('/api/admin', (req,res,next) => {
+  if (!req.session?.user) return res.status(401).json({ error: 'unauthorized' });
+  next();
+});
+
+// protect only pages under /admin/*
+app.get('/admin/*', (req,res,next) => {
+  if (!req.session?.user) {
+    const rt = encodeURIComponent(req.originalUrl);
+    return res.redirect(302, `/admin/login?returnTo=${rt}`);
+  }
+  next();
+});
+
+// static SPA fallback AFTER guards
+app.use(express.static('dist'));
+app.get('*', (_req,res) => res.sendFile(path.join(__dirname,'dist','index.html')));
+2) Cookies (keep per-request flags)
+app.set('trust proxy', 1);
+app.use((req,_res,next)=>{
+  if (req.session){
+    const https = req.secure || req.get('x-forwarded-proto')==='https';
+    req.session.cookie.secure   = https;
+    req.session.cookie.sameSite = https ? 'none' : 'lax';
+    req.session.cookie.path     = '/';
+    req.session.cookie.httpOnly = true;
+  }
+  next();
+});
+3) Client guard + full navigation
+// components/RequireAdmin.tsx
+import { useEffect, useState } from 'react';
+export default function RequireAdmin({ children }:{children:React.ReactNode}) {
+  const [ok,setOk]=useState<boolean|null>(null);
+  useEffect(()=>{
+    fetch('/api/admin/whoami',{credentials:'include'})
+      .then(r=>r.ok?r.json():{authenticated:false})
+      .then(j=>setOk(!!j?.authenticated))
+      .catch(()=>setOk(false));
+  },[]);
+  if (ok===null) return null;
+  if (!ok) { const rt = encodeURIComponent(location.pathname+location.search+location.hash);
+    location.href = `/admin/login?returnTo=${rt}`; return null; }
+  return <>{children}</>;
+}
+
+// routes: wrap the whole /admin/*
+<Route path="/admin/*" element={<RequireAdmin><AdminLayout/></RequireAdmin>}>
+  <Route path="settings" element={<AdminSettingsPage/>} />
+</Route>
+
+// Header button: force full navigation (no SPA intercept)
+<a href="/admin/settings" data-fullnav rel="nofollow"
+   onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); window.location.assign('/admin/settings'); }}>
+  Admin Settings
+</a>
+4) Admin sections UI (restore other tabs; no env required)
+•	Backend should return ADMIN_SECTIONS from config above.
+•	Frontend must:
+o	fetch('/api/admin/sections', { credentials:'include' })
+o	Render left nav with data-admin-nav
+o	Use location.hash for active tab (don’t force “ai”)
+o	Lazy-import ../admin/sections/<id>/index.tsx with a visible fallback
+5) Vite dev proxy (preview must hit Express)
+// vite.config.ts
+export default defineConfig({
+  server:{ proxy:{ '^/(api|admin)(/.*)?':{ target:'http://localhost:5000', changeOrigin:true } } }
+});
+Definition of Done — BROWSER PROOF (screenshots)
+1.	Incognito → home → click Admin Settings
+Network shows Document request and 302 → /admin/login?... (server guard).
+Home page remains public (200).
+2.	Login on .replit.dev
+Response has Set-Cookie: sid=…; SameSite=None; Secure; Path=/.
+3.	Same tab Console
+(async()=>{console.log(await fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.json()))})();
+(async()=>{console.log(await fetch('/api/admin/sections',{credentials:'include'}).then(r=>r.json()))})();
+[...document.querySelectorAll('[data-admin-nav] a')].map(a=>a.textContent.trim())
+→ {authenticated:true}, sections include ai,evidence,taxonomy,workflow,status,debug, and the nav lists those items.
+4.	AI provider save
+Network shows all 200:
+POST /api/admin/ai/providers → PUT /api/admin/ai/providers/:id/activate →
+GET /api/admin/ai/providers → GET /api/admin/ai/providers/status.
+Do not mark complete until these 4 passes are shown. No new env variables are required; defaults above are acceptable and non-hardcoded.
