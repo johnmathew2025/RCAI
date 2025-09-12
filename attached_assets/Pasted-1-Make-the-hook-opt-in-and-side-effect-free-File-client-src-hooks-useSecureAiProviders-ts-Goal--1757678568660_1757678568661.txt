@@ -1,0 +1,59 @@
+1) Make the hook opt-in and side-effect free
+File: client/src/hooks/useSecureAiProviders.ts
+Goal: no network calls at module load; fetch only when explicitly enabled.
+- // (current file may have a top-level fetch or an unconditional effect)
+- // ensure ALL network calls move inside the hook and are conditional
++import { useEffect, useState } from "react";
++import { API_ENDPOINTS } from "../config/apiEndpoints";
++
++type State<T> = { data: T | null; loading: boolean; error: unknown | null };
++
++export function useSecureAiProviders<T = unknown>({ enabled = false } = {}) {
++  const [state, setState] = useState<State<T>>({
++    data: null,
++    loading: false,
++    error: null,
++  });
++
++  useEffect(() => {
++    if (!enabled) return; // 🚫 do not fetch outside admin
++    let cancelled = false;
++    setState(s => ({ ...s, loading: true, error: null }));
++    (async () => {
++      try {
++        const r = await fetch(API_ENDPOINTS.aiProviders(), { credentials: "include" });
++        if (!r.ok) throw new Error(`HTTP ${r.status}`);
++        const j = (await r.json()) as T;
++        if (!cancelled) setState({ data: j, loading: false, error: null });
++      } catch (e) {
++        if (!cancelled) setState({ data: null, loading: false, error: e });
++      }
++    })();
++    return () => { cancelled = true; };
++  }, [enabled]);
++
++  return state;
++}
+Key points
+•	No top-level fetch(...) anywhere in this file.
+•	Hook only fires when enabled: true is passed.
+2) Enable the hook only in admin pages
+Find all call sites and pass { enabled: true } only inside files under /admin/*.
+rg -n "useSecureAiProviders\\(" client/src -g '!node_modules'
+For each admin page (e.g., client/src/pages/admin-settings.tsx):
+- const providers = useSecureAiProviders();
++ const providers = useSecureAiProviders({ enabled: true });
+If Home/MainLayout import it at all: remove the import & usage there.
+rg -n "import .*useSecureAiProviders" client/src -g '!node_modules'
+3) Quick sanity check (logged-out)
+export BASE=${BASE:-http://localhost:5000}; rm -f /tmp/c.txt
+curl -si -c /tmp/c.txt -b /tmp/c.txt "$BASE/" | sed -n '1,1p'
+curl -si -c /tmp/c.txt -b /tmp/c.txt "$BASE/api/admin/ai/providers" | sed -n '1,1p'   # should be 401
+# ⬆️ the above 401 is fine if and only if you *manually* hit it; it should NOT appear automatically on home load anymore
+ 
+🧪 Acceptance after patch
+1.	Incognito → /admin/settings → redirects to login.
+2.	Incognito → / (Home) → no admin API calls fired automatically.
+3.	Home → click Admin → redirects to login (SPA or full nav; both OK).
+4.	After login → admin pages call useSecureAiProviders({enabled:true}) and load data normally.
+

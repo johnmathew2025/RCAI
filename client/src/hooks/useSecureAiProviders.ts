@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from './use-toast';
-import { API_ENDPOINTS } from '../config/apiEndpoints';
+import { API_ENDPOINTS } from "../config/apiEndpoints";
 
 interface SecureAiProvider {
   id: number;
@@ -25,19 +26,33 @@ interface TestResult {
   latencyMs?: number;
 }
 
-export function useSecureAiProviders() {
-  return useQuery<SecureAiProvider[]>({
-    queryKey: ['secure-ai-providers'],
-    queryFn: async () => {
-      const response = await fetch(API_ENDPOINTS.aiProviders(), {
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch AI providers');
-      }
-      return response.json();
-    },
+type State<T> = { data: T | null; loading: boolean; error: unknown | null };
+
+export function useSecureAiProviders<T = unknown>({ enabled = false } = {}) {
+  const [state, setState] = useState<State<T>>({
+    data: null,
+    loading: false,
+    error: null,
   });
+
+  useEffect(() => {
+    if (!enabled) return; // 🚫 do not fetch outside admin
+    let cancelled = false;
+    setState(s => ({ ...s, loading: true, error: null }));
+    (async () => {
+      try {
+        const r = await fetch(API_ENDPOINTS.aiProviders(), { credentials: "include" });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const j = (await r.json()) as T;
+        if (!cancelled) setState({ data: j, loading: false, error: null });
+      } catch (e) {
+        if (!cancelled) setState({ data: null, loading: false, error: e });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [enabled]);
+
+  return state;
 }
 
 export function useCreateSecureAiProvider() {
