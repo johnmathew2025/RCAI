@@ -3,10 +3,9 @@ export default function RequireAdmin({children}:{children:React.ReactNode}) {
   const [ok,setOk]=useState<null|boolean>(null);
   useEffect(()=>{
     fetch('/api/auth/whoami',{credentials:'include'})
-      .then(r=>r.ok?r.json():{authenticated:false,roles:[]})
+      .then(r=>r.ok?r.json():{authenticated:false,roles:[],isAdmin:false})
       .then(j=>{
-        const isAdmin = j?.authenticated && j?.roles?.includes('admin');
-        setOk(isAdmin);
+        setOk(!!j?.isAdmin);
       })
       .catch(()=>setOk(false));
   },[]);

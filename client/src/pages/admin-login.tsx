@@ -13,16 +13,17 @@ export default function AdminLoginPage() {
 
   async function checkAuth() {
     try {
-      const res = await fetch("/api/admin/whoami", { 
+      const res = await fetch("/api/auth/whoami", { 
         credentials: "include"
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.authenticated && data.roles.includes('admin')) {
-          // Already authenticated as admin, redirect to evidence by default
+        if (data.isAdmin) {
+          // Already authenticated as admin, redirect using server configuration
           const urlParams = new URLSearchParams(window.location.search);
-          const returnTo = urlParams.get('returnTo') || "/admin/settings#evidence";
-          window.location.href = returnTo;
+          const returnTo = urlParams.get('returnTo');
+          // Use server-provided default if no returnTo specified
+          window.location.href = returnTo || window.location.origin + '/admin/settings';
         }
       }
     } catch (error) {
@@ -59,8 +60,8 @@ export default function AdminLoginPage() {
       if (res.ok && data.ok) {
         setToast("Login successful! Redirecting...");
         setTimeout(() => {
-          // Navigate to data.returnTo from server response
-          window.location.href = data.returnTo || "/admin/settings#evidence";
+          // Navigate to sanitized returnTo from server response
+          window.location.href = data.returnTo;
         }, 1000);
       } else if (res.status === 401) {
         setToast("Invalid email or password");

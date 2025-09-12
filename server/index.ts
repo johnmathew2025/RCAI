@@ -120,8 +120,8 @@ const loginPageHandler = (req: any, res: any) => {
       const r=await fetch('/api/auth/login',{method:'POST',credentials:'include',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({email:fd.get('email'),password:fd.get('password'),
-          returnTo:new URLSearchParams(location.search).get('returnTo')||'/admin/settings#evidence'})});
-      const j = await r.json(); if(r.ok) location.href=j.returnTo||'/admin/settings#evidence'; else m.textContent='Login failed';
+          returnTo:new URLSearchParams(location.search).get('returnTo')})});
+      const j = await r.json(); if(r.ok) location.href=j.returnTo; else m.textContent='Login failed';
     };
   </script></body></html>`);
 };
@@ -180,12 +180,13 @@ app.use('/api/admin', requireAdminApi, adminApi);
 app.get('/api/auth/whoami', (req, res) => {
   const user = req.session?.user;
   if (!user) {
-    return res.json({ authenticated: false, roles: [] });
+    return res.json({ authenticated: false, roles: [], isAdmin: false });
   }
   
   res.json({
     authenticated: true,
     roles: user.roles || [],
+    isAdmin: isAdmin(req),
     user: {
       id: user.id,
       email: user.email
@@ -233,9 +234,18 @@ app.post('/api/auth/login', async (req, res) => {
       });
     });
     
-    // Dynamic return URL - no hardcoded paths
-    const defaultReturn = process.env.DEFAULT_ADMIN_RETURN_URL || '/admin/settings';
-    res.json({ ok:true, returnTo:req.body?.returnTo || defaultReturn });
+    // Security: Sanitize returnTo to prevent open redirect attacks
+    let returnTo = req.body?.returnTo || process.env.DEFAULT_ADMIN_RETURN_URL || '/admin/settings';
+    
+    // Only allow same-origin relative paths starting with '/' (but not '//')
+    if (typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+      // Valid relative path - use as is
+    } else {
+      // Invalid or potentially malicious URL - use secure default
+      returnTo = process.env.DEFAULT_ADMIN_RETURN_URL || '/admin/settings';
+    }
+    
+    res.json({ ok: true, returnTo });
   } catch (error) {
     console.error('[AUTH] Login error:', error);
     res.status(500).json({code: 'SERVER_ERROR'});
