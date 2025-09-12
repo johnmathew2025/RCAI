@@ -75,6 +75,15 @@ export const API_ENDPOINTS = {
   // Admin endpoints
   adminAiSettings: () => buildApiEndpoint('/admin/ai/providers'),
   adminAiSettingsTest: () => buildApiEndpoint('/admin/ai/providers/status'),
+  adminSections: () => buildApiEndpoint('/admin/sections'),
+  adminWhoami: () => buildApiEndpoint('/admin/whoami'),
+} as const;
+
+// ZERO HARDCODING: Admin navigation routes - environment configurable
+export const ADMIN_ROUTES = {
+  SETTINGS: import.meta.env.VITE_ADMIN_SETTINGS_ROUTE || '/admin/settings',
+  LOGIN: import.meta.env.VITE_ADMIN_LOGIN_ROUTE || '/admin/login',
+  BASE: import.meta.env.VITE_ADMIN_BASE_ROUTE || '/admin',
 } as const;
 
 // Type-safe endpoint access

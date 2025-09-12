@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useLocation, Link, useNavigate } from "react-router-dom";
+import { ADMIN_ROUTES } from "@/config/apiEndpoints";
 
 import DashboardSection from "@/components/dashboard-section";
 import HistorySection from "@/components/history-section";
@@ -128,20 +129,16 @@ export default function Home() {
                 <span className="w-2 h-2 bg-accent rounded-full"></span>
                 <span>System Active</span>
               </div>
-              <a
-                href="/admin/settings"
-                data-fullnav
-                rel="nofollow"
-                onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); window.location.assign('/admin/settings'); }}
-              >
+              <Link to={ADMIN_ROUTES.SETTINGS} data-testid="link-admin-settings">
                 <Button 
                   variant="secondary" 
                   className="text-sm font-medium"
+                  data-testid="button-admin-settings"
                 >
                   <Users className="w-4 h-4 mr-2" />
                   Admin Settings
                 </Button>
-              </a>
+              </Link>
             </div>
           </div>
         </div>
