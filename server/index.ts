@@ -128,12 +128,8 @@ const loginPageHandler = (req: any, res: any) => {
 app.get('/admin/login', loginPageHandler);
 
 // CRITICAL: Server-side admin HTML guard - prevents authentication bypass
-app.get('/admin*', (req, res, next) => {
-  // Skip guard for login page
-  if (req.path === '/admin/login') {
-    return next();
-  }
-  
+// SCOPE: Only protect admin settings pages, NOT all admin routes
+app.get('/admin/settings*', (req, res, next) => {
   // Check admin authentication on server side
   if (!isAdmin(req)) {
     const returnTo = encodeURIComponent(req.originalUrl);
