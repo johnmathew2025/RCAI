@@ -1,7 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { API_ENDPOINTS } from "@/config/apiEndpoints";
+import { API_ENDPOINTS, ADMIN_ROUTES } from "@/config/apiEndpoints";
 
 interface AIProvider {
   id: number;
@@ -14,7 +14,10 @@ export default function RequireConfigured({ children }: { children: JSX.Element 
   const location = useLocation();
 
   // Never block admin pages or home - check BEFORE making API calls
-  if (location.pathname.startsWith("/admin") || location.pathname === "/") {
+  const HOME_PATH = import.meta.env.VITE_HOME_PATH || "/";
+  const ADMIN_BASE_PATH = import.meta.env.VITE_ADMIN_BASE_PATH || "/admin";
+  
+  if (location.pathname.startsWith(ADMIN_BASE_PATH) || location.pathname === HOME_PATH) {
     return children;
   }
 
@@ -35,8 +38,11 @@ export default function RequireConfigured({ children }: { children: JSX.Element 
   const hasActive = providers.some(p => p.isActive);
 
   // Only redirect to admin-settings for analysis pages that need AI - conditional, not hardcoded
-  if (!hasActive && location.pathname !== "/admin-settings" && (location.pathname.includes("analysis") || location.pathname.includes("ai-powered"))) {
-    return <Navigate to="/admin-settings" replace state={{ reason: "no-active-provider" }} />;
+  const AI_REQUIRED_PATHS = (import.meta.env.VITE_AI_REQUIRED_PATHS || "analysis,ai-powered").split(",");
+  const needsAI = AI_REQUIRED_PATHS.some((path: string) => location.pathname.includes(path));
+  
+  if (!hasActive && location.pathname !== ADMIN_ROUTES.SETTINGS && needsAI) {
+    return <Navigate to={ADMIN_ROUTES.SETTINGS} replace state={{ reason: "no-active-provider" }} />;
   }
 
   return children;
