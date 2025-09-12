@@ -1,0 +1,53 @@
+Policy: Do not modify code. Collect evidence only.
+A) Confirm origin & cookie consistency
+From HOME (public):
+Open DevTools Console and run:
+location.href; location.origin; document.cookie;
+await fetch('/api/admin/whoami',{credentials:'include'}).then(r=>r.status);
+Screenshot results (label: HOME).
+Direct to ADMIN (new tab / hard reload):
+Go straight to /admin/settings.
+Run the same four lines.
+Screenshot results (label: ADMIN-DIRECT).
+From HOME → click Admin (SPA):
+Start at /.
+Click the Admin button (SPA).
+Run the same four lines.
+Screenshot results (label: ADMIN-SPA).
+What to compare
+Are location.origin values identical across the three states?
+Does /api/admin/whoami return 401 for ADMIN-DIRECT but 200 (or skipped) for ADMIN-SPA?
+Is a session cookie present in one state but not the other?
+Note protocol (http vs https) and host differences (e.g., *.repl.co vs *.id.repl.co).
+B) Network headers (cookie actually sent?)
+In Network tab, filter whoami (both /api/auth/whoami and /api/admin/whoami):
+For each state above, open the request → Request Headers → confirm Cookie header presence/absence.
+Screenshot request + response headers and status.
+Open Application → Cookies:
+Record attributes for the auth/session cookie(s): Domain, Path, Secure, SameSite.
+Screenshot cookie table.
+If origins differ, cookies may be scoped to one host only (Domain mismatch) or blocked by SameSite/Secure.
+C) Guard actually gates render?
+In Elements (or React Components) after SPA click:
+Confirm whether the admin page component is mounted under the RequireAdmin wrapper.
+Screenshot the tree around admin layout.
+Watch Network on SPA click:
+Does the page render admin chrome before the whoami request returns?
+If yes, the guard is not blocking render while auth is unknown.
+D) Link wiring & route tree (read-only)
+Open the component that renders the Admin button on HOME:
+Capture the exact JSX (is it <Link to="/admin/settings"> or a handler doing navigate()?).
+Screenshot.
+Open the router file:
+Capture the /admin/ parent route showing element={<RequireAdmin><AdminLayout/></RequireAdmin>}.
+Ensure children like "settings" are only under that parent.
+Screenshot.
+✅ What will likely explain your symptom
+One (or a mix) of these will show up in the evidence:
+Origin/Cookie mismatch
+Direct to /admin/settings uses Origin A (no cookie → prompts login).
+Home → SPA uses Origin B (cookie present or local state) → no prompt.
+Cookie attributes show Domain bound to a single host, or SameSite=None; Secure missing (blocked in cross-site).
+Client guard renders too early
+SPA mounts admin UI while whoami is still pending (guard not blocking initial render).
+You’ll see admin chrome before the 401 response, or even when 401 occurs.
