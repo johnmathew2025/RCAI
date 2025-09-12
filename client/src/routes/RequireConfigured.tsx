@@ -15,7 +15,7 @@ export default function RequireConfigured({ children }: { children: JSX.Element 
 
   // Never block admin pages or home - check BEFORE making API calls
   const HOME_PATH = import.meta.env.VITE_HOME_PATH || "/";
-  const ADMIN_BASE_PATH = import.meta.env.VITE_ADMIN_BASE_PATH || "/admin";
+  const ADMIN_BASE_PATH = ADMIN_ROUTES.BASE;
   
   if (location.pathname.startsWith(ADMIN_BASE_PATH) || location.pathname === HOME_PATH) {
     return children;
