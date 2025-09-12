@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, RefreshCw, Filter, Search, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { aiDebugger, type TraceLog } from "@/lib/debug-ai-settings";
-import { API_ENDPOINTS } from "@/config/apiEndpoints";
+import { API_ENDPOINTS, ADMIN_ROUTES } from "@/config/apiEndpoints";
 
 interface SystemHealth {
   apiVersion: string;
@@ -83,7 +83,7 @@ export function AIDebugPanel({ isVisible }: AIDebugPanelProps) {
       let providerStats = undefined;
       try {
         // Only fetch debug data if on admin route to prevent unauthorized API calls
-        if (window.location.pathname.startsWith('/admin')) {
+        if (window.location.pathname.startsWith(ADMIN_ROUTES.BASE)) {
           const debugResponse = await api(API_ENDPOINTS.aiProvidersDebug());
           if (debugResponse.ok) {
             providerStats = await debugResponse.json();

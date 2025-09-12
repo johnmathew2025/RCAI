@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ADMIN_ROUTES, API_ENDPOINTS } from "@/config/apiEndpoints";
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
@@ -13,7 +14,7 @@ export default function AdminLoginPage() {
 
   async function checkAuth() {
     try {
-      const res = await fetch("/api/auth/whoami", { 
+      const res = await fetch(API_ENDPOINTS.authWhoami(), { 
         credentials: "include"
       });
       if (res.ok) {
@@ -28,7 +29,7 @@ export default function AdminLoginPage() {
             window.location.href = returnTo;
           } else {
             // Invalid returnTo - redirect to base admin route (server will handle)
-            window.location.href = '/admin';
+            window.location.href = ADMIN_ROUTES.BASE;
           }
         }
       }
@@ -52,7 +53,7 @@ export default function AdminLoginPage() {
       const urlParams = new URLSearchParams(window.location.search);
       const returnTo = urlParams.get('returnTo');
 
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(API_ENDPOINTS.authLogin(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

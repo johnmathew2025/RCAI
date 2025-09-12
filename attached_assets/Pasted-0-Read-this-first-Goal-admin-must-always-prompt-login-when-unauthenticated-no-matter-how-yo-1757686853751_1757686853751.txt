@@ -1,0 +1,136 @@
+0) Read this first
+•	Goal: /admin/ must always prompt login when unauthenticated — no matter how you navigate.
+•	Strategy: Fail closed by preventing admin bundle import until /api/admin/whoami confirms authenticated: true.
+ 
+1) Convert admin pages to lazy imports (single place)
+File to edit (router): one of:
+•	client/src/App.tsx or
+•	client/src/router.tsx or
+•	client/src/routes.tsx
+Wherever the <Route path="/admin/*" …> lives.
+1a) Add lazy imports at the top of that file
+import React, { Suspense } from "react";
+
+const AdminLayoutLazy = React.lazy(() => import("./pages/admin/AdminLayout"));
+// Add lazy imports for each admin child page actually used below:
+const AdminSettingsLazy = React.lazy(() => import("./pages/admin-settings"));
+const EvidenceLibraryAdminLazy = React.lazy(() => import("./pages/admin/evidence-library"));
+const EvidenceLibrarySimpleLazy = React.lazy(() => import("./pages/admin/evidence-simple"));
+const EvidenceLibraryManagementLazy = React.lazy(() => import("./pages/admin/evidence-management"));
+const FaultReferenceLibraryLazy = React.lazy(() => import("./pages/admin/fault-reference-library"));
+Adjust import paths to match your project (use rg/grep to locate the real files).
+Do not import any admin component non-lazy anywhere else.
+1b) Ensure RequireAdmin is only at the parent and wraps a Suspense
+Find the /admin/* route and make it look like this:
+<Route
+  path="/admin/*"
+  element={
+    <RequireAdmin>
+      <Suspense fallback={null}>
+        <AdminLayoutLazy />
+      </Suspense>
+    </RequireAdmin>
+  }
+>
+  <Route
+    path="settings"
+    element={
+      <Suspense fallback={null}>
+        <AdminSettingsLazy />
+      </Suspense>
+    }
+  />
+  <Route
+    path="evidence-library"
+    element={
+      <Suspense fallback={null}>
+        <EvidenceLibraryAdminLazy />
+      </Suspense>
+    }
+  />
+  <Route
+    path="evidence-management"
+    element={
+      <Suspense fallback={null}>
+        <EvidenceLibrarySimpleLazy />
+      </Suspense>
+    }
+  />
+  <Route
+    path="evidence-library-management"
+    element={
+      <Suspense fallback={null}>
+        <EvidenceLibraryManagementLazy />
+      </Suspense>
+    }
+  />
+  <Route
+    path="fault-reference-library"
+    element={
+      <Suspense fallback={null}>
+        <FaultReferenceLibraryLazy />
+      </Suspense>
+    }
+  />
+</Route>
+Important:
+•	There must be no other routes that render any admin component outside /admin/*.
+•	There must be no direct (non-lazy) imports of admin components in Home/MainLayout/any public file.
+ 
+2) Make RequireAdmin strictly block render and import
+File: client/src/components/RequireAdmin.tsx (or wherever it is)
+Replace its body with this exact pattern (keep your route constants if you have them; keep relative API):
+import { useEffect, useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+// If you have a centralized route constant, use it here instead of the literal:
+const LOGIN_PATH = "/admin/login";
+
+export default function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const [ok, setOk] = useState<null | boolean>(null);
+  const loc = useLocation();
+
+  useEffect(() => {
+    let canceled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/admin/whoami", { credentials: "include" });
+        if (!r.ok) { if (!canceled) setOk(false); return; }
+        const j = await r.json().catch(() => ({}));
+        if (!canceled) setOk(!!j?.authenticated);
+      } catch {
+        if (!canceled) setOk(false);
+      }
+    })();
+    return () => { canceled = true; };
+  }, []);
+
+  // 🚫 While unknown, render nothing — this prevents the lazy admin bundle from importing
+  if (ok === null) return null;
+
+  if (!ok) {
+    const returnTo = encodeURIComponent(loc.pathname + loc.search + loc.hash);
+    return <Navigate to={`${LOGIN_PATH}?returnTo=${returnTo}`} replace />;
+  }
+
+  // ✅ Only here will the lazy admin components import and render
+  return <>{children}</>;
+}
+This is the fail-closed line of defense: the admin bundle doesn’t even load until auth is true.
+ 
+3) Purge admin code from public surfaces
+Run these and remove any hits outside /admin/ pages:
+rg -n "<AdminLayout|<AdminSettings|useSecureAiProviders|/api/admin/" client/src -g '!node_modules'
+•	If useSecureAiProviders (or any admin hook) appears in Home/MainLayout or any public component, delete the import and usage there.
+•	Those hooks may stay inside admin pages; the lazy loading ensures they never run until authenticated.
+ 
+4) Verify (terminal-only baseline; you will check UI)
+Logged out:
+export BASE=${BASE:-http://localhost:5000}; rm -f /tmp/c.txt
+curl -si -c /tmp/c.txt -b /tmp/c.txt "$BASE/" | sed -n '1,1p'               # 200
+curl -si -c /tmp/c.txt -b /tmp/c.txt "$BASE/admin/settings" | sed -n '1,5p' # 302 -> /admin/login
+curl -si -c /tmp/c.txt -b /tmp/c.txt "$BASE/api/admin/whoami" | sed -n '1,3p' # 401
+Then you (the user) verify in the browser:
+•	Incognito → / → click Admin → login prompt shows.
+•	Incognito → direct /admin/settings → login prompt shows.
+•	After login → both paths load admin.
+

@@ -11,6 +11,7 @@ import { Settings, LogOut, User } from 'lucide-react';
 import UserNav from '@/components/user-nav';
 import AdminNav from '@/components/admin-nav';
 import { useUserRole } from '@/hooks/useUserRole';
+import { ADMIN_ROUTES } from '@/config/apiEndpoints';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -20,7 +21,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation();
   const { user, canAccessAdmin, canAccessWorkflow } = useUserRole();
   
-  const isAdminRoute = location.pathname.startsWith('/admin');
+  const isAdminRoute = location.pathname.startsWith(ADMIN_ROUTES.BASE);
   
   if (!user) {
     return (
@@ -88,10 +89,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
             
             {canAccessAdmin() && (
               <a
-                href="/admin/settings"
+                href={ADMIN_ROUTES.SETTINGS}
                 data-fullnav
                 rel="nofollow"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.assign('/admin/settings'); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.assign(ADMIN_ROUTES.SETTINGS); }}
               >
                 <Button 
                   variant={isAdminRoute ? "default" : "ghost"} 

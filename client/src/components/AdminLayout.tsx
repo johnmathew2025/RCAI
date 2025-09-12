@@ -1,4 +1,5 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { API_ENDPOINTS, ADMIN_ROUTES } from "@/config/apiEndpoints";
 import { useEffect } from "react";
 
 export default function AdminLayout() {
@@ -12,23 +13,23 @@ export default function AdminLayout() {
     
     (async () => {
       try {
-        const r = await fetch('/api/admin/whoami', { credentials: 'include' });
+        const r = await fetch(API_ENDPOINTS.adminWhoami(), { credentials: 'include' });
         if (!canceled) {
           if (!r.ok) {
             const returnTo = encodeURIComponent(location.pathname + location.search + location.hash);
-            navigate(`/admin/login?returnTo=${returnTo}`, { replace: true });
+            navigate(`${ADMIN_ROUTES.LOGIN}?returnTo=${returnTo}`, { replace: true });
             return;
           }
           const j = await r.json().catch(() => ({}));
           if (!j?.authenticated) {
             const returnTo = encodeURIComponent(location.pathname + location.search + location.hash);
-            navigate(`/admin/login?returnTo=${returnTo}`, { replace: true });
+            navigate(`${ADMIN_ROUTES.LOGIN}?returnTo=${returnTo}`, { replace: true });
           }
         }
       } catch {
         if (!canceled) {
           const returnTo = encodeURIComponent(location.pathname + location.search + location.hash);
-          navigate(`/admin/login?returnTo=${returnTo}`, { replace: true });
+          navigate(`${ADMIN_ROUTES.LOGIN}?returnTo=${returnTo}`, { replace: true });
         }
       }
     })();

@@ -77,6 +77,10 @@ export const API_ENDPOINTS = {
   adminAiSettingsTest: () => buildApiEndpoint('/admin/ai/providers/status'),
   adminSections: () => buildApiEndpoint('/admin/sections'),
   adminWhoami: () => buildApiEndpoint('/admin/whoami'),
+  
+  // Auth endpoints
+  authWhoami: () => buildApiEndpoint('/auth/whoami'),
+  authLogin: () => buildApiEndpoint('/auth/login'),
 } as const;
 
 // ZERO HARDCODING: Admin navigation routes - environment configurable

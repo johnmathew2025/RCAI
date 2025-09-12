@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { API_ENDPOINTS } from "@/config/apiEndpoints";
+import { API_ENDPOINTS, ADMIN_ROUTES } from "@/config/apiEndpoints";
 
 type ProviderRow = {
   id: number;
@@ -38,7 +38,7 @@ export default function AIProvidersTable() {
 
   useEffect(() => { 
     // Only load if on admin route to prevent unauthorized API calls
-    if (window.location.pathname.startsWith('/admin')) {
+    if (window.location.pathname.startsWith(ADMIN_ROUTES.BASE)) {
       load();
     }
   }, []);

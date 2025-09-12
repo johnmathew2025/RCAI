@@ -1,11 +1,12 @@
 // client/src/pages/admin-settings.tsx
 import React, {useEffect, useMemo, useState, Suspense} from 'react';
 import { api } from '@/lib/api';
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 
 export default function AdminSettings(){
   const [sections,setSections]=useState<string[]>([]);
   const [active,setActive]=useState('');
-  useEffect(()=>{ fetch('/api/admin/sections',{credentials:'include'}).then(r=>r.json()).then(j=>{
+  useEffect(()=>{ fetch(API_ENDPOINTS.adminSections(),{credentials:'include'}).then(r=>r.json()).then(j=>{
     const ids = Array.isArray(j.sections)? j.sections : [];
     setSections(ids);
     const h = location.hash.slice(1);

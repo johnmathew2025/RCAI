@@ -2,6 +2,7 @@
  * API Client - Stable Response Envelope System
  * NO HARDCODING - Works with any provider/model combination
  */
+import { ADMIN_ROUTES } from "@/config/apiEndpoints";
 
 export async function api(path: string, init: RequestInit = {}) {
   const r = await fetch(path, {
@@ -10,7 +11,7 @@ export async function api(path: string, init: RequestInit = {}) {
     ...init,
   });
   if (r.status === 401) {
-    window.location.href = "/admin/login";
+    window.location.href = ADMIN_ROUTES.LOGIN;
     throw new Error("unauthorized");
   }
   return r;

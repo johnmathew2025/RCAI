@@ -4,19 +4,25 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "@/components/error-boundary";
-import { useEffect } from "react";
+import React, { useEffect, Suspense } from "react";
 import { initVersionManagement } from "@/lib/version-manager";
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 import Home from "@/pages/home";
 import AnalysisDetail from "@/pages/analysis-detail";
-import AdminSettings from "@/pages/admin-settings";
 import AdminLogin from "@/pages/admin-login";
 import RequireAdmin from "@/components/RequireAdmin";
-import AdminLayout from "@/components/AdminLayout";
+
+// Lazy imports for admin components - prevents loading until authenticated
+const AdminLayoutLazy = React.lazy(() => import("@/components/AdminLayout"));
+const AdminSettingsLazy = React.lazy(() => import("@/pages/admin-settings"));
+const EvidenceLibraryAdminLazy = React.lazy(() => import("@/pages/evidence-library-admin"));
+const EvidenceLibrarySimpleLazy = React.lazy(() => import("@/pages/evidence-library-simple"));
+const EvidenceLibraryManagementLazy = React.lazy(() => import("@/pages/evidence-library-management"));
+const FaultReferenceLibraryLazy = React.lazy(() => import("@/pages/admin/fault-reference-library"));
+const TaxonomyManagementLazy = React.lazy(() => import("@/pages/admin/taxonomy-management"));
 import NewInvestigation from "@/pages/new-investigation";
 import InvestigationType from "@/pages/investigation-type";
 import EvidenceCollectionOld from "@/pages/evidence-collection";
-import EvidenceLibraryAdmin from "@/pages/evidence-library-admin";
-import EvidenceLibraryManagement from "@/pages/evidence-library-management";
 import EvidenceLibrarySimple from "@/pages/evidence-library-simple";
 import IncidentReporting from "@/pages/incident-reporting";
 import EquipmentSelection from "@/pages/equipment-selection";
@@ -32,8 +38,6 @@ import SummaryReport from "@/pages/summary-report";
 import AnalysisDetails from "@/pages/analysis-details";
 import NotFound from "@/pages/not-found";
 import DebugRoutes from "@/pages/debug-routes";
-import FaultReferenceLibrary from "@/pages/admin/fault-reference-library";
-import TaxonomyManagement from "@/pages/admin/taxonomy-management";
 import RequireConfigured from "@/routes/RequireConfigured";
 import MainLayout from "@/components/main-layout";
 // import EvidenceLibraryIntegration from "@/pages/evidence-library-integration"; // Removed - causing errors
@@ -59,7 +63,7 @@ function Router() {
       const _fetch = window.fetch;
       window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input.toString();
-        if (url.includes('/api/ai/providers')) {
+        if (url.includes(API_ENDPOINTS.aiProviders())) {
           console.warn('[HARD-FORBIDDEN] /api/ai/providers requested', new Error().stack);
         }
         return _fetch(input, init);
@@ -76,12 +80,64 @@ function Router() {
   return (
       <Routes>
         <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin/*" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
-          <Route path="settings" element={<AdminSettings />} />
-          <Route path="evidence-library" element={<EvidenceLibraryAdmin />} />
-          <Route path="evidence-management" element={<EvidenceLibrarySimple />} />
-          <Route path="evidence-library-management" element={<EvidenceLibraryManagement />} />
-          <Route path="fault-reference-library" element={<FaultReferenceLibrary />} />
+        <Route
+          path="/admin/*"
+          element={
+            <RequireAdmin>
+              <Suspense fallback={null}>
+                <AdminLayoutLazy />
+              </Suspense>
+            </RequireAdmin>
+          }
+        >
+          <Route
+            path="settings"
+            element={
+              <Suspense fallback={null}>
+                <AdminSettingsLazy />
+              </Suspense>
+            }
+          />
+          <Route
+            path="evidence-library"
+            element={
+              <Suspense fallback={null}>
+                <EvidenceLibraryAdminLazy />
+              </Suspense>
+            }
+          />
+          <Route
+            path="evidence-management"
+            element={
+              <Suspense fallback={null}>
+                <EvidenceLibrarySimpleLazy />
+              </Suspense>
+            }
+          />
+          <Route
+            path="evidence-library-management"
+            element={
+              <Suspense fallback={null}>
+                <EvidenceLibraryManagementLazy />
+              </Suspense>
+            }
+          />
+          <Route
+            path="fault-reference-library"
+            element={
+              <Suspense fallback={null}>
+                <FaultReferenceLibraryLazy />
+              </Suspense>
+            }
+          />
+          <Route
+            path="taxonomy-management"
+            element={
+              <Suspense fallback={null}>
+                <TaxonomyManagementLazy />
+              </Suspense>
+            }
+          />
         </Route>
         
         <Route path="/new" element={<NewInvestigation />} />
