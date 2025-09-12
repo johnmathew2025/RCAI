@@ -125,6 +125,12 @@ const loginPageHandler = (req: any, res: any) => {
 };
 app.get('/admin/login', loginPageHandler);
 
+// Server-side legacy redirects BEFORE admin guard for consistency
+app.get('/admin/analysis-engine', (req, res) => res.redirect(302, '/analysis-engine'));
+app.get('/admin/ai-powered-rca', (req, res) => res.redirect(302, '/ai-powered-rca'));
+app.get('/admin/analysis', (req, res) => res.redirect(302, '/analysis-engine'));
+app.get('/admin/ai', (req, res) => res.redirect(302, '/ai-powered-rca'));
+
 // protect only API under /api/admin/*
 app.use('/api/admin', (req,res,next) => {
   if (!req.session?.user) return res.status(401).json({ error: 'unauthorized' });

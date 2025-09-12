@@ -109,11 +109,7 @@ function Router() {
         <Route path="/evidence-library" element={<EvidenceLibrarySimple />} />
         <Route path="/debug" element={<DebugRoutes />} />
       
-        {/* Legacy redirects for moved workflow routes - v6 safe redirects */}
-        <Route path="/admin/analysis-engine" element={<Navigate replace to="/analysis-engine" />} />
-        <Route path="/admin/ai-powered-rca" element={<Navigate replace to="/ai-powered-rca" />} />
-        <Route path="/admin/analysis" element={<Navigate replace to="/analysis-engine" />} />
-        <Route path="/admin/ai" element={<Navigate replace to="/ai-powered-rca" />} />
+        {/* Legacy redirects REMOVED - now handled server-side for consistency */}
         <Route path="/equipment-selection" element={<EquipmentSelection />} />
         <Route path="/evidence-checklist" element={<EvidenceChecklist />} />
         <Route path="/evidence-collection" element={<EvidenceCollection />} />
