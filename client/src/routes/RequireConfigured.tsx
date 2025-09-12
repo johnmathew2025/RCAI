@@ -21,30 +21,18 @@ export default function RequireConfigured({ children }: { children: JSX.Element 
     return children;
   }
 
-  const { data, error, isLoading } = useQuery<AIProvider[]>({
-    queryKey: [API_ENDPOINTS.aiProviders()],
-    queryFn: () => apiRequest(API_ENDPOINTS.aiProviders()).then(r => r.json()),
-    enabled: !location.pathname.startsWith(ADMIN_BASE_PATH) && location.pathname !== HOME_PATH,
-    staleTime: 0,
-    refetchOnWindowFocus: false
-  });
-
-  if (isLoading) return null;
-  if (error) {
-    console.log("[RequireConfigured] API error - allowing access");
-    return children;
-  }
-
-  const providers = Array.isArray(data) ? data : [];
-  const hasActive = providers.some(p => p.isActive);
-
-  // Only redirect to admin-settings for analysis pages that need AI - conditional, not hardcoded
+  // Skip API call entirely for non-AI requiring pages
   const AI_REQUIRED_PATHS = (import.meta.env.VITE_AI_REQUIRED_PATHS || "analysis,ai-powered").split(",");
   const needsAI = AI_REQUIRED_PATHS.some((path: string) => location.pathname.includes(path));
   
-  if (!hasActive && location.pathname !== ADMIN_ROUTES.SETTINGS && needsAI) {
-    return <Navigate to={ADMIN_ROUTES.SETTINGS} replace state={{ reason: "no-active-provider" }} />;
+  // If this page doesn't need AI, allow access without checking
+  if (!needsAI) {
+    return children;
   }
+
+  // For AI-required pages, redirect to admin settings to check/configure AI
+  // This removes the unauthorized admin API call and follows the proper flow
+  return <Navigate to={ADMIN_ROUTES.SETTINGS} replace state={{ reason: "ai-configuration-required" }} />;
 
   return children;
 }

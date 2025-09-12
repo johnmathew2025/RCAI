@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle, XCircle, Database, Key, TestTube, Shield, AlertTriangle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 interface AIStatusReport {
   timestamp: string;
@@ -46,7 +47,7 @@ export default function AIStatusIndicator() {
     status: AIStatusReport;
     timestamp: string;
   }>({
-    queryKey: ["/api/admin/ai-status"],
+    queryKey: [API_ENDPOINTS.adminAiStatus()],
     refetchInterval: 10000, // Refresh every 10 seconds
     retry: false,
   });
@@ -64,7 +65,7 @@ export default function AIStatusIndicator() {
   const handleTestConfiguration = async () => {
     setTestInProgress(true);
     try {
-      const response = await apiRequest("/api/admin/ai-status/test", {
+      const response = await apiRequest(API_ENDPOINTS.adminAiStatusTest(), {
         method: "POST"
       });
       

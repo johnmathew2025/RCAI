@@ -75,6 +75,8 @@ export const API_ENDPOINTS = {
   // Admin endpoints
   adminAiSettings: () => buildApiEndpoint('/admin/ai/providers'),
   adminAiSettingsTest: () => buildApiEndpoint('/admin/ai/providers/status'),
+  adminAiStatus: () => buildApiEndpoint('/admin/ai-status'),
+  adminAiStatusTest: () => buildApiEndpoint('/admin/ai-status/test'),
   adminSections: () => buildApiEndpoint('/admin/sections'),
   adminWhoami: () => buildApiEndpoint('/admin/whoami'),
   
