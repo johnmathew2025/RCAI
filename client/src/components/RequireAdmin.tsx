@@ -2,11 +2,9 @@ import { useEffect, useState } from 'react';
 export default function RequireAdmin({children}:{children:React.ReactNode}) {
   const [ok,setOk]=useState<null|boolean>(null);
   useEffect(()=>{
-    fetch('/api/auth/whoami',{credentials:'include'})
-      .then(r=>r.ok?r.json():{authenticated:false,roles:[],isAdmin:false})
-      .then(j=>{
-        setOk(!!j?.isAdmin);
-      })
+    fetch('/api/admin/whoami', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : { authenticated: false })
+      .then(j => setOk(!!j?.authenticated))
       .catch(()=>setOk(false));
   },[]);
   if (ok===null) return null;          // IMPORTANT: don't render yet
