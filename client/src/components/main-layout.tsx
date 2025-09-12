@@ -87,7 +87,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
             )}
             
             {canAccessAdmin() && (
-              <Link to="/admin">
+              <a href="/admin/settings" data-fullnav rel="nofollow"
+                 onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); window.location.assign('/admin/settings'); }}>
                 <Button 
                   variant={isAdminRoute ? "default" : "ghost"} 
                   size="sm" 
@@ -95,9 +96,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   data-testid="nav-admin"
                 >
                   <Settings className="h-4 w-4 mr-2" />
-                  System Configuration
+                  Admin Settings
                 </Button>
-              </Link>
+              </a>
             )}
           </div>
         </div>

@@ -49,6 +49,7 @@ const __dirname = path.dirname(__filename);
 import { UniversalAIConfig } from "./universal-ai-config";
 import { loadCryptoKey } from "./config/crypto-key";
 import { createTestAdminUser, requireAdmin } from "./rbac-middleware";
+import { ADMIN_ROLE_NAME, DEFAULT_ADMIN_RETURN_URL } from './config.js';
 
 // 2. Ensure admin user exists at startup
 (async () => {
@@ -79,12 +80,11 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: 'auto', sameSite: 'lax', httpOnly: true, path: '/' }
 }));
-// Stabilize cookie settings - prevent session drift between requests
-app.use((req, _res, next) => {
-  if (req.session) {
-    const https = req.get('x-forwarded-proto') === 'https';
-    // Fixed cookie attributes to prevent session loss
-    req.session.cookie.secure   = https;                 
+// Stabilize cookie settings - prevent session drift between requests  
+app.use((req,_res,next)=>{
+  if (req.session){
+    const https = req.secure || req.get('x-forwarded-proto')==='https';
+    req.session.cookie.secure   = https;
     req.session.cookie.sameSite = https ? 'none' : 'lax';
     req.session.cookie.path     = '/';
     req.session.cookie.httpOnly = true;
@@ -143,8 +143,6 @@ app.get('/admin/*', (req,res,next) => {
 });
 
 // --- ADMIN API guarded ---
-import { ADMIN_ROLE_NAME } from './config.js';
-
 function isAdmin(req: any){ 
   const hasAdminRole = !!(req.session?.user?.roles?.includes(ADMIN_ROLE_NAME)); 
   return hasAdminRole;
@@ -164,9 +162,8 @@ adminApi.get('/whoami', (req: any, res: any) => {
 // Dynamic admin sections endpoint - NO HARDCODING  
 adminApi.get('/sections', async (req: any, res: any) => {
   try {
-    const { investigationStorage } = await import('./storage');
-    const sections = await investigationStorage.getAdminSections();
-    res.json({ sections });
+    const { ADMIN_SECTIONS } = await import('./config.js');
+    res.json({ sections: ADMIN_SECTIONS });
   } catch (error) {
     console.error('[API] Error fetching admin sections:', error);
     res.status(500).json({ error: 'Failed to fetch admin sections' });
@@ -239,7 +236,6 @@ app.post('/api/auth/login', async (req, res) => {
     });
     
     // Security: Sanitize returnTo to prevent open redirect attacks
-    const { DEFAULT_ADMIN_RETURN_URL } = await import('./config.js');
     let returnTo = req.body?.returnTo || DEFAULT_ADMIN_RETURN_URL;
     
     // Only allow same-origin relative paths starting with '/' (but not '//')
