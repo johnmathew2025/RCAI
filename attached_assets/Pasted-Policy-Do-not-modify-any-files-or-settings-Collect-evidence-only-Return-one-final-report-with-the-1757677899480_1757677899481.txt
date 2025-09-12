@@ -1,0 +1,81 @@
+Policy: Do not modify any files or settings. Collect evidence only. Return one final report with the requested artifacts.
+0) Set base URL once
+export BASE=${BASE:-http://localhost:5000}
+echo "BASE=$BASE"
+rm -f /tmp/c.txt
+1) Server baseline (logged-out)
+echo "=== GET / (home) ==="
+curl -si -c /tmp/c.txt -b /tmp/c.txt "$BASE/" | sed -n '1,20p'
+
+echo "=== GET /admin/settings (should redirect to login) ==="
+curl -si -c /tmp/c.txt -b /tmp/c.txt "$BASE/admin/settings" | sed -n '1,40p'
+
+echo "=== GET /api/auth/whoami (public) ==="
+curl -si -c /tmp/c.txt -b /tmp/c.txt "$BASE/api/auth/whoami" | sed -n '1,60p'
+
+echo "=== GET /api/admin/whoami (should be 401) ==="
+curl -si -c /tmp/c.txt -b /tmp/c.txt "$BASE/api/admin/whoami" | sed -n '1,60p'
+Return: HTTP status lines and any Location: headers shown.
+2) Find ANY admin API calls reachable from non-admin pages
+echo "=== Literal admin API hits in client ==="
+rg -n "/api/admin/" client/src -g '!node_modules' || true
+
+echo "=== Common admin endpoints by name ==="
+rg -n "whoami|providers|sections|admin" client/src -g '!node_modules' || true
+
+echo "=== Endpoint builder files ==="
+rg -n "api.*endpoint|endpoints|baseURL|axios|fetch\\(" client/src -g '!node_modules' || true
+Open and list the files/lines where admin endpoints (or builders for them) are imported/used outside the /admin/* route tree (e.g., Home/MainLayout/hooks).
+3) Router topology = single guarded parent
+echo "=== Router declarations ==="
+rg -n "BrowserRouter|HashRouter|createBrowserRouter|<Routes|<Route" client/src -g '!node_modules'
+
+echo "=== Admin components & guard usage ==="
+rg -n "RequireAdmin|AdminLayout|AdminSettings" client/src -g '!node_modules'
+Open and quote the exact /admin/* route block showing:
+•	element={<RequireAdmin><AdminLayout/></RequireAdmin>}
+•	children like "settings" only under that parent.
+Also list any other routes or components that render Admin* outside /admin/*.
+4) Guard semantics (must block render until auth known)
+Locate the guard file (e.g., client/src/components/RequireAdmin.tsx or similar) and quote the key parts:
+•	const [ok, setOk] = useState<null|boolean>(null) (or equivalent).
+•	A single call to fetch('/api/admin/whoami', { credentials:'include' }).
+•	if (ok === null) return null; (or equivalent “don’t render while loading”).
+•	On !ok, Navigate to /admin/login?returnTo=... (not rendering children).
+If any of these are missing, note exactly what is missing.
+5) Home/Admin link wiring
+echo "=== Admin link/button in Home/MainLayout ==="
+rg -n "Admin Settings|link-admin-settings|to=\\s*['\"]/admin|navigate\\(.*admin" client/src -g '!node_modules'
+Quote the JSX for the Home/Admin entry point. Note whether it’s:
+•	<Link to="/admin/settings">…</Link> (SPA)
+•	<a href="/admin/settings">…</a>
+•	navigate('/admin/settings')
+6) Absolute URLs (cookie/origin split risk)
+echo "=== Absolute API URLs in client (risk) ==="
+rg -n "https?://[^\"')]+/api" client/src -g '!node_modules' || true
+
+echo "=== Axios baseURL / global config ==="
+rg -n "axios\\.(create|defaults)|baseURL" client/src -g '!node_modules' || true
+List any absolute origins (e.g., https://*.repl.co/api/...). These can make SPA vs direct URL behave differently due to cookie scope.
+7) Optimistic auth defaults / localStorage flags
+echo "=== Optimistic auth flags ==="
+rg -n "localStorage|sessionStorage|isAdmin|authenticated" client/src -g '!node_modules' || true
+Note any default true/cached flags used before server verification.
+8) Multiple routers / service worker
+echo "=== Multiple routers or SW ==="
+rg -n "<BrowserRouter|HashRouter" client/src -g '!node_modules'
+rg -n "serviceWorker|workbox|register\\(" client -g '!node_modules' || true
+Report if more than one router exists or a SW could serve a stale shell.
+ 
+📦 Return a single concise report with:
+•	1. Server baseline: status for /, /admin/settings, /api/auth/whoami, /api/admin/whoami (from step 1).
+•	2. A–F checklist (mark all that apply):
+o	A) Admin APIs referenced from non-admin pages/hooks (list files/lines).
+o	B) Duplicate or unguarded admin routes/components outside /admin/* (list where).
+o	C) Guard does not block render while auth unknown (what line is missing).
+o	D) Admin link wiring (what it is).
+o	E) Absolute API origins present (list them).
+o	F) Multiple routers or SW interference (details).
+•	3. Pointers: filenames + line ranges for each finding.
+Do not make any changes. Just return the evidence.
+
