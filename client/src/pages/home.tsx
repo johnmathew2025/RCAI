@@ -129,16 +129,15 @@ export default function Home() {
                 <span className="w-2 h-2 bg-accent rounded-full"></span>
                 <span>System Active</span>
               </div>
-              <Link to={ADMIN_ROUTES.SETTINGS} data-testid="link-admin-settings">
-                <Button 
-                  variant="secondary" 
-                  className="text-sm font-medium"
-                  data-testid="button-admin-settings"
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  Admin Settings
-                </Button>
-              </Link>
+              <Button 
+                variant="secondary" 
+                className="text-sm font-medium"
+                data-testid="button-admin-settings"
+                onClick={() => window.location.assign(ADMIN_ROUTES.SETTINGS)}
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Admin Settings
+              </Button>
             </div>
           </div>
         </div>
