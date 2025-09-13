@@ -67,6 +67,16 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   console.log("[ROUTES] Starting registerRoutes function - CRITICAL DEBUG");
   
+  // CRITICAL: Import all database and auth modules at function scope to prevent scoping errors
+  const { encryptSecret, decryptSecret } = await import('./security/crypto-gcm');
+  const { getProviderTester } = await import('./ai-provider-testers');
+  const { aiProviders, users, roles, userRoles } = await import('../shared/schema');
+  const { eq, and, isNull, sql } = await import('drizzle-orm');
+  const { db } = await import('./db');
+  
+  // Import auth functions to prevent "Cannot find name" errors  
+  const { hashPassword, getUserByEmail, logAuditEvent, requireAuth: requireAuthFromRbac, inviteRateLimit } = await import('./rbac-middleware');
+  
   // KILL OLD HARDCODED ENDPOINT - PERMANENTLY BLOCKED
   app.get('/api/ai/providers', (_req, res) => {
     res.status(410).json({ error: 'Deprecated. Use /api/admin/ai-settings.' });
@@ -101,11 +111,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/admin/ai-settings', aiDebugMiddleware.middleware());
 
   // SECURE AI PROVIDERS API - AES-256-GCM encryption specification
-  const { encryptSecret, decryptSecret } = await import('./security/crypto-gcm');
-  const { getProviderTester } = await import('./ai-provider-testers');
-  const { aiProviders } = await import('../shared/schema');
-  const { eq, and, isNull } = await import('drizzle-orm');
-  const { db } = await import('./db');
 
   // POST /api/admin/ai/providers - Create provider with encrypted key
   app.post("/api/admin/ai/providers", allowWhenBootstrapping, requireAdmin, async (req: AuthenticatedRequest, res) => {
