@@ -1,0 +1,77 @@
+1) Prove auth status (server truth, not UI)
+# 1a) Without cookies: should be 401 if the guard works
+curl -i http://localhost:5000/api/admin/sections
+
+# 1b) Log in (replace the email/password with a REAL admin you created properly;
+# do NOT use hardcoded creds; if you don't have one yet, see step 4)
+curl -i -c cookies.txt -H "Content-Type: application/json" \
+  -d '{"email":"YOUR_ADMIN_EMAIL","password":"YOUR_ADMIN_PASSWORD"}' \
+  http://localhost:5000/api/auth/login
+
+# 1c) With cookies: MUST be 200 and include taxonomy/evidence
+curl -i -b cookies.txt http://localhost:5000/api/admin/sections
+Interpretation
+•	If 401 here → you are not logged in (cookie missing/invalid, SameSite issue, wrong host, or login API not issuing a session).
+•	If 200 but JSON does not list taxonomy and evidence → your server isn’t advertising those sections (feature gating, old code, or wrong endpoint).
+•	If 200 and sections include them → the frontend is the problem (routing or hiding tabs).
+ 
+2) Prove taxonomy data exists (or not)
+Run whichever endpoint you have; try these in order:
+curl -i -b cookies.txt http://localhost:5000/api/admin/taxonomy/stats
+curl -i -b cookies.txt http://localhost:5000/api/admin/taxonomy
+curl -i -b cookies.txt http://localhost:5000/api/admin/taxonomy/equipment
+Interpretation
+•	200 with counts/list → DB seeded; backend OK → frontend hiding/not routing.
+•	200 but empty or 404/410 → seed didn’t run OR the frontend is calling an old endpoint that was “410 Gone”-ed.
+ 
+3) Frontend truth (from the browser you’re using)
+Open DevTools Console on the affected /admin/settings page and run:
+// 3a) Are you logged in from THIS tab?
+fetch('/api/admin/sections', {credentials:'include'}).then(r => r.status)
+
+// 3b) What does the server say the sections are?
+fetch('/api/admin/sections', {credentials:'include'}).then(r => r.json()).then(console.log)
+Interpretation
+•	401 → you are not authenticated in this tab (cookie not set/scoped). See 5a below.
+•	200 but array missing taxonomy/evidence → backend isn’t exposing them.
+•	200 and array includes them → router/UI logic is filtering/hard-coded.
+ 
+4) One-time clean admin bootstrap (no hardcoding)
+If you don’t yet have a real admin user, do a zero-hardcoding bootstrap. Pick ONE of these patterns—do not keep “dev backdoors”:
+•	Bootstrap token flow (recommended)
+o	Set ADMIN_BOOTSTRAP_TOKEN (random 32+ chars) in env.
+o	POST once:
+o	curl -i -H "Content-Type: application/json" \
+o	  -d '{"token":"<the same token>","email":"<you>","password":"<new strong pw>"}' \
+o	  http://localhost:5000/api/auth/bootstrap
+o	Then log in with that email/password and unset the token.
+•	Seed script flow
+o	npm run seed:admin (or your script) creates first admin from env like ADMIN_EMAIL/ADMIN_PASSWORD. Remove those envs after seeding.
+Either way, this avoids shipping admin@…/admin123, which violates your “no hardcoding” rule.
+ 
+5) The usual culprits (and the fix for each)
+•	Cookie not sticking between tabs/hosts
+o	If your app runs on a Replit preview URL plus localhost, SameSite/Domain can drop cookies.
+o	Fix: set session cookie with SameSite=Lax, correct Domain (or omit), and only access via the same origin(same hostname + scheme). Test again (Step 1c/3a).
+•	Frontend still calling removed endpoints
+o	You mentioned old endpoints return 410 Gone. Check Network tab for 404/410 on taxonomy/evidence calls. Update client to the new /api/admin/* routes.
+•	Feature gating / missing sections mapping
+o	The server often returns sections from a dynamic list (e.g., DB/config). If your code filters tabs by featureFlags.includes('taxonomy'), and that flag is false/missing, the tab won’t render even if the API exists. Ensure GET /api/admin/sections actually includes "taxonomy" and "evidence" and that the UI renders whatever the API returns (no local allow-list).
+•	Taxonomy seed never executed (or ran against the wrong DB)
+o	If you use Drizzle or Prisma, confirm the same database URL is used by both the seed and the running server. A classic mistake is seeding a local SQLite file while the server reads a different file.
+o	Provide a quick count endpoint or DB console: you should see your expected groups/types/subtypes.
+•	Router guard mis-scope
+o	If you can see sections when you navigate from inside the app but not when opening a fresh tab, you likely rely on a client-side “dev login” or in-memory state. All admin pages must depend only on the server cookie, not a React variable.
+ 
+6) Make the UI resilient (so you can see the tabs even when empty)
+Even with an empty Evidence Library, you should still see the tab. Ensure the frontend:
+•	Renders tabs directly from /api/admin/sections (no hand-typed list).
+•	Does not hide a tab just because its list is empty—show “0 items (start by adding…)” instead of removing the tab.
+ 
+7) A minimal success snapshot (what “working” looks like)
+•	GET /api/admin/sections (with cookies) → 200 and JSON contains ["ai","taxonomy","evidence", ...]
+•	GET /api/admin/taxonomy/stats → 200 with non-zero counts (if you seeded)
+or → 200 with zeros, but the Taxonomy tab is visible anyway
+•	Browser Network tab on /admin/settings → 200s only; no 401/404/410 for taxonomy/evidence calls
+•	No hardcoded creds anywhere; admin exists via bootstrap/seed.
+
