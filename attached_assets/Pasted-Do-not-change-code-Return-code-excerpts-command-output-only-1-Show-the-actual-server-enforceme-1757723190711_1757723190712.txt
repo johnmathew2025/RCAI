@@ -1,0 +1,50 @@
+Do not change code. Return code excerpts + command output only.
+1) Show the actual server enforcement (not claims)
+Paste 10 lines around each of these (file path + code):
+•	app.use('/api/admin', requireSession, /* checkLicense? */ requireTenantAdmin?, …)
+•	app.get('/admin/*', requireSession, /* checkLicense? */ requireTenantAdmin?, …)
+If these lines don’t exist, you’re not server-enforced.
+2) Show the guard middleware bodies
+Paste these function bodies (file path + code):
+•	requireSession (how does it read/verify the session cookie?)
+•	requireTenantAdmin (does it check a role on the user from DB?)
+•	checkLicense (if you claim licensing readiness, paste the function)
+⚠️ Red flag: A snippet like
+if (!req.session?.user) return res.status(401).json(...);
+// where do user roles come from?
+if (!userRoles.includes('admin')) return res.status(403)...
+must show where userRoles is defined and how it’s loaded per-request. If it’s not, the example is fluff.
+3) Prove redirects/401s with curl (logged-out)
+BASE=${BASE:-http://localhost:5000}; rm -f /tmp/c.txt
+curl -si -c /tmp/c.txt -b /tmp/c.txt "$BASE/admin/settings" | sed -n '1,8p'  # expect 302 → /admin/login?returnTo=...
+curl -si -c /tmp/c.txt -b /tmp/c.txt "$BASE/api/admin/whoami" | sed -n '1,3p' # expect 401
+4) Show the login endpoints + cookie
+Paste code (file path + lines) for:
+•	GET /admin/login (HTML page or SPA route)
+•	POST /admin/login (where it sets the cookie)
+•	The cookie name (res.cookie(...) or cookie.serialize(...)) and signing/verification.
+5) RBAC actually working (admin vs non-admin)
+If you have seeded users, run BOTH tests (use the real login path/body):
+# Replace LOGIN_PATH & fields. Keep cookies in separate files.
+BASE=${BASE:-http://localhost:5000}
+
+# Non-admin login
+curl -si -c /tmp/non.txt -d 'email=nonadmin@example.com&password=PW' "$BASE/ADMIN_LOGIN_PATH" | sed -n '1,5p'
+curl -si -b /tmp/non.txt "$BASE/api/admin/sections" | sed -n '1,5p'   # expect 403
+
+# Admin login
+curl -si -c /tmp/adm.txt -d 'email=admin@example.com&password=PW' "$BASE/ADMIN_LOGIN_PATH" | sed -n '1,5p'
+curl -si -b /tmp/adm.txt "$BASE/api/admin/sections" | sed -n '1,5p'   # expect 200
+If you can’t run this, paste the DB seeding code that marks an admin (role/flag) so we can see how “admin” is determined.
+6) Commercial licensing claims (must show code)
+Paste the schema (Drizzle or SQL) for:
+•	tenants (or confirm single-tenant)
+•	licenses (plan, seats, expires_at, features)
+•	users (with tenant_id, password_hash, and an admin/role field)
+•	sessions
+And paste checkLicense middleware that denies when:
+•	license expired, or
+•	active users exceed seats, or
+•	feature not enabled.
+If none of this exists, licensing is not implemented (which is fine — just be honest).
+
